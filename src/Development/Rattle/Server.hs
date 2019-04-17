@@ -27,6 +27,7 @@ import Data.List.Extra
 import Data.Tuple.Extra
 
 
+-- | Basic options for configuring rattle.
 data RattleOptions = RattleOptions
     {rattleFiles :: FilePath -- ^ Where all my shared files go
     ,rattleSpeculate :: Maybe String -- ^ Should I speculate? Under which key?
@@ -34,6 +35,7 @@ data RattleOptions = RattleOptions
     ,rattleProcesses :: Int -- ^ Number of simulateous processes
     } deriving Show
 
+-- | Default 'RattleOptions' value.
 rattleOptions :: RattleOptions
 rattleOptions = RattleOptions ".rattle" (Just "") True 8
 
@@ -69,6 +71,7 @@ throwProblem :: Problem -> IO a
 throwProblem Finished = fail "Finished, but still trying to do stuff"
 throwProblem (Hazard h) = throwIO h
 
+-- | Type of exception thrown if there is a hazard when running the build system.
 data Hazard
     = ReadWriteHazard FilePath Cmd Cmd
     | WriteWriteHazard FilePath Cmd Cmd

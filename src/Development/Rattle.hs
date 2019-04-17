@@ -7,7 +7,8 @@
 -- * Don't delete files that have been produced. Each command should make
 --   new files, not delete old files.
 module Development.Rattle(
-    rattle, Hazard,
+    rattle, Run,
+    Hazard,
     RattleOptions(..), rattleOptions,
     cmd,
     parallel, forP,
@@ -20,20 +21,23 @@ import Development.Rattle.Server
 import General.Thread
 
 
+-- | Type of actions to run. Executed using 'rattle'.
 newtype Run a = Run {fromRun :: ReaderT Rattle IO a}
     deriving (Functor, Applicative, Monad, MonadIO)
 
+-- | Run a sequence of 'Run' actions in parallel. They will be run in parallel with no limit
+--   on simultaneous executions.
 parallel :: [Run a] -> Run [a]
 parallel xs = do
     r <- Run ask
     liftIO $ withThreadsList $ map (flip runReaderT r . fromRun) xs
 
+-- | Parallel version of 'forM'.
 forP :: (a -> Run b) -> [a] -> Run [b]
 forP f xs = parallel $ map f xs
 
-type Args = [String]
-
-cmd :: Args -> Run ()
+-- | Run a system command with the given arguments.
+cmd :: [String] -> Run ()
 cmd args = do
     r <- Run ask
     liftIO $ cmdRattle r args
