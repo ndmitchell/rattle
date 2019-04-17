@@ -2,7 +2,6 @@
 module General.Extra(
     whenLeft,
     whenRightM,
-    tryIO,
     createDirectoryRecursive,
     NoShow(..),
     memoIO
