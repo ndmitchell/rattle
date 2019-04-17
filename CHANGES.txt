@@ -1,0 +1,3 @@
+Changelog for Rattle (* = breaking change)
+
+    Initial version, not ready for public use

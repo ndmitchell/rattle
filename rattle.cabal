@@ -1,0 +1,72 @@
+cabal-version:      >= 1.18
+build-type:         Simple
+name:               rattle
+version:            0.0
+license:            BSD3
+x-license:          BSD-3-Clause OR Apache-2.0
+license-file:       LICENSE
+category:           Development
+author:             Neil Mitchell <ndmitchell@gmail.com>
+maintainer:         Neil Mitchell <ndmitchell@gmail.com>
+copyright:          Neil Mitchell 2019
+synopsis:           Forward build system, with caching and speculation
+description:
+    A forward build system like Fabrciate but with speculation and remote caching.
+homepage:           https://github.com/ndmitchell/rattle#readme
+bug-reports:        https://github.com/ndmitchell/rattle/issues
+tested-with:        GHC==8.6.4, GHC==8.4.4, GHC==8.2.2
+extra-doc-files:
+    CHANGES.txt
+    README.md
+extra-source-files:
+    test/C/constants.c
+    test/C/constants.h
+    test/C/main.c
+
+source-repository head
+    type:     git
+    location: https://github.com/ndmitchell/rattle.git
+
+library
+    default-language: Haskell2010
+    hs-source-dirs:   src
+    build-depends:
+        base >= 4.8,
+        bytestring,
+        cryptohash-sha256,
+        deepseq >= 1.1,
+        directory,
+        extra >= 1.6.14,
+        filepath,
+        hashable >= 1.1.2.3,
+        shake >= 0.17.8,
+        time,
+        transformers >= 0.2,
+        unordered-containers >= 0.2.7
+
+    exposed-modules:
+        Development.Rattle
+
+    other-modules:
+        Development.Rattle.Hash
+        Development.Rattle.Limit
+        Development.Rattle.Server
+        Development.Rattle.Shared
+        Development.Rattle.Types
+        General.Bilist
+        General.Extra
+        General.Thread
+
+test-suite rattle-test
+    default-language: Haskell2010
+    type: exitcode-stdio-1.0
+    main-is: test/Test.hs
+    ghc-options: -main-is Test.main -rtsopts -with-rtsopts=-K1K -threaded
+
+    build-depends:
+        base == 4.*,
+        directory,
+        extra,
+        filepattern,
+        rattle,
+        shake
