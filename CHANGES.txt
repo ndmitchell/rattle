@@ -1,3 +1,4 @@
 Changelog for Rattle (* = breaking change)
 
+0.1, released 2019-04-17
     Initial version, not ready for public use
