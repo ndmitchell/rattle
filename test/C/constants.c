@@ -1,5 +1,5 @@
 
-char msg[] = "Hello Shake Users!";
+char msg[] = "Hello Rattle Users!";
 
 char* message()
 {
