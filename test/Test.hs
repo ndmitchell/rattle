@@ -34,7 +34,7 @@ main = unless isMac $ withOutput $ \root -> do
     putStrLn "Build 1: Expect everything"
     rattle rattleOptions build
     putStrLn "Getting profiling data"
-    writeProfile rattleOptions "/home/spall/rattle/report.html"
+    writeProfile rattleOptions "~/report.html"
     (w,s,p) <- graphData rattleOptions
     putStrLn $ "Work: " ++ (show w)
     putStrLn $ "Span: " ++ (show s)
