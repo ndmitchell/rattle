@@ -15,10 +15,10 @@ module Development.Rattle(
     liftIO
     ) where
 
+import Control.Concurrent.Async
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
 import Development.Rattle.Server
-import General.Thread
 
 
 -- | Type of actions to run. Executed using 'rattle'.
@@ -30,7 +30,7 @@ newtype Run a = Run {fromRun :: ReaderT Rattle IO a}
 parallel :: [Run a] -> Run [a]
 parallel xs = do
     r <- Run ask
-    liftIO $ withThreadsList $ map (flip runReaderT r . fromRun) xs
+    liftIO $ mapConcurrently (flip runReaderT r . fromRun) xs
 
 -- | Parallel version of 'forM'.
 forP :: (a -> Run b) -> [a] -> Run [b]
