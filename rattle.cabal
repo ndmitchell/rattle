@@ -63,7 +63,6 @@ library
         General.Bilist
         General.Extra
         General.Thread
-        General.Cleanup
         General.Paths
         General.Template
         Paths_rattle
