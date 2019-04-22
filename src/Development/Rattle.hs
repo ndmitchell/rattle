@@ -12,12 +12,13 @@ module Development.Rattle(
     RattleOptions(..), rattleOptions,
     cmd,
     parallel, forP,
-    liftIO
+    liftIO, writeProfile, graphData
     ) where
 
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
 import Development.Rattle.Server
+import Development.Rattle.Profile
 import General.Thread
 
 
