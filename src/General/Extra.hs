@@ -1,6 +1,5 @@
 
 module General.Extra(
-    whenLeft,
     whenRightM,
     createDirectoryRecursive, doesFileExist_,
     NoShow(..),
@@ -51,13 +50,6 @@ createDirectoryRecursive :: FilePath -> IO ()
 createDirectoryRecursive dir = do
     x <- tryIO $ doesDirectoryExist dir
     when (x /= Right True) $ createDirectoryIfMissing True dir
-
-
----------------------------------------------------------------------
--- Data.Either
-
-whenLeft :: Applicative m => Either a b -> (a -> m ()) -> m ()
-whenLeft x f = either f (const $ pure ()) x
 
 
 ---------------------------------------------------------------------
