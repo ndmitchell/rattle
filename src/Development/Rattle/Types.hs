@@ -30,11 +30,7 @@ instance Monoid (Trace a) where
     mappend = (<>)
 
 instance Hashable a => Hashable (Trace a) where
-  hashWithSalt s (Trace tt tr tw) =
-    s`hashWithSalt`
-    tt `hashWithSalt`
-    tr `hashWithSalt` tw
-
+  hashWithSalt s (Trace tt tr tw) = hashWithSalt s (tt,tr,tw)
 
 fsaTrace :: Seconds -> [FSATrace] -> Trace ()
 fsaTrace t [] = Trace t [] []

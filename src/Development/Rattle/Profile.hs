@@ -10,14 +10,13 @@ import Development.Rattle.Types
 import Development.Rattle.Hash
 import Development.Rattle.Shared
 import Control.Monad
-import System.IO.Unsafe(unsafeInterleaveIO)
-import Data.Maybe as Maybe
-import Data.List as List
+import Data.Maybe
+import Data.List
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import General.Template
 import General.Paths
-import Data.HashMap.Strict as Map
-import Data.HashSet as Set
+import qualified Data.HashMap.Strict as Map
+import qualified Data.HashSet as Set
 import System.Time.Extra
 import Numeric.Extra
 
@@ -39,7 +38,7 @@ instance Show Edge where
 getCmdsTraces :: RattleOptions -> IO [(Cmd,[Trace Hash])]
 getCmdsTraces options@RattleOptions{..} = withShared rattleFiles$ \shared -> do
   cmds <- maybe (return []) (getSpeculate shared) rattleSpeculate
-  fmap (takeWhile (not . List.null . snd)) $ forM cmds $ \x -> (x,) <$> unsafeInterleaveIO (getCmdTraces shared x)
+  fmap (takeWhile (not . null . snd)) $ forM cmds $ \x -> (x,) <$> (getCmdTraces shared x)
   
 constructGraph :: RattleOptions -> IO Graph
 constructGraph options@RattleOptions{..} = do
@@ -49,10 +48,10 @@ constructGraph options@RattleOptions{..} = do
 graphData :: RattleOptions -> IO (Seconds,Seconds,Seconds)
 graphData options = do
   cmdsWTraces <- getCmdsTraces options
-  let graph = createGraph cmdsWTraces in
-    let w = work graph
-        s = spanGraph graph in
-      return (w,s,(w / s))
+  let graph = createGraph cmdsWTraces
+      w = work graph
+      s = spanGraph graph in
+    return (w,s,(w / s))
 
 writeProfile :: RattleOptions -> FilePath -> IO ()
 writeProfile options out = do
@@ -68,7 +67,7 @@ writeProfileInternal out g = LBS.writeFile out =<< generateHTML g
 createGraph :: [(Cmd,[Trace Hash])] -> Graph
 createGraph xs = Graph xs $ g xs
   where g [] = []
-        g (x:xs) = let edges = Maybe.mapMaybe (createEdge x) xs in
+        g (x:xs) = let edges = mapMaybe (createEdge x) xs in
           edges ++ (g xs)  
 
 -- assume p1 occurred before p2. 
@@ -96,16 +95,14 @@ maybeHazard :: ((Trace Hash) -> [(FilePath, Hash)]) -> [Trace Hash] -> [Trace Ha
 maybeHazard _ [] ls = Nothing
 maybeHazard _ ls [] = Nothing
 maybeHazard f (t:ts) ls =
-  case find (\y -> case memberWrites y ls of
-                     Just _ -> True
-                     Nothing -> False) $ f t of
+  case find (\y -> isJust $ memberWrites y ls) $ f t of
     Just (fp,_) -> Just fp
     Nothing -> maybeHazard f ts ls
 
 memberWrites :: (FilePath, Hash) -> [Trace Hash] -> Maybe FilePath
 memberWrites x [] = Nothing
 memberWrites x@(fp,_) (y:ys) =
-  case find (\(fp2,a) -> fp == fp2) $ tWrite y of
+  case fmap (fp,) $ lookup fp $ tWrite y of
     Just (fp,_) -> Just fp
     Nothing -> memberWrites x ys
 
@@ -163,22 +160,22 @@ calculateParallelismDriver (e:es) m =
 
 graphRoots :: [(Cmd,[Trace Hash])] -> [Edge] -> [(Cmd,[Trace Hash])]
 graphRoots rs [] = rs
-graphRoots rs (e:es) = List.delete (end2 e) $ graphRoots rs es
+graphRoots rs (e:es) = delete (end2 e) $ graphRoots rs es
 
 maxTTime :: [Trace Hash] -> Seconds
-maxTTime xs = List.foldl (\m x -> max m $ tTime x) 0.0 xs
+maxTTime xs = maximum $ 0 : map tTime xs
 
 work :: Graph -> Seconds
-work (Graph ns es) = foldl (\sum (cmd,ts) -> sum + (maxTTime ts)) 0.0 ns
+work (Graph ns es) = sum $ map (maxTTime . snd) ns
 
 spanGraph :: Graph -> Seconds
 spanGraph (Graph ns es) =
   -- get roots and calculate span for each root; take max
   -- roots are the cmds that are only end1;
   -- probably want a hashset from cmd to edges
-  let cmds = List.foldl' (\m (Edge e1 e2 h) -> Map.insertWith (++) e1 [e2] m) Map.empty es
+  let cmds = foldl' (\m (Edge e1 e2 h) -> Map.insertWith (++) e1 [e2] m) Map.empty es
       roots = graphRoots ns es in
-    List.foldl' (\m c -> max m $ spanCmd c cmds) 0.0 roots 
+    foldl' (\m c -> max m $ spanCmd c cmds) 0.0 roots 
 
 spanCmd :: (Cmd, [Trace Hash]) -> Map.HashMap (Cmd, [Trace Hash]) [(Cmd,[Trace Hash])] -> Seconds
 spanCmd cmd@(c,ts) cmds =
@@ -197,11 +194,11 @@ generateHTML xs = do
   
 allWrites :: [Trace Hash] -> [FilePath]
 allWrites [] = []
-allWrites (x:xs) = Set.toList $ List.foldl' (\s (fp,_) -> Set.insert fp s) (Set.fromList $ allWrites xs) $ tWrite x
+allWrites (x:xs) = Set.toList $ foldl' (\s (fp,_) -> Set.insert fp s) (Set.fromList $ allWrites xs) $ tWrite x
 
 allReads :: [Trace Hash] -> [FilePath]
 allReads [] = []
-allReads (x:xs) = Set.toList $ List.foldl' (\s (fp,_) -> Set.insert fp s) (Set.fromList $ allReads xs) $ tRead x
+allReads (x:xs) = Set.toList $ foldl' (\s (fp,_) -> Set.insert fp s) (Set.fromList $ allReads xs) $ tRead x
 
 cmdIndex :: (Cmd,[Trace Hash]) -> [(Cmd,[Trace Hash])] -> Int
 cmdIndex x cmds = case elemIndex x cmds of
@@ -214,7 +211,7 @@ cmdIndex x cmds = case elemIndex x cmds of
 -}
 readersWritersHazards :: (Cmd,[Trace Hash]) -> [(Cmd,[Trace Hash])] -> [Edge] -> ([Int],[Int],[Int])
 readersWritersHazards c cmds edges =
-  List.foldl' (\(ls1,ls2,ls3) (Edge e1 e2 h) ->
+  foldl' (\(ls1,ls2,ls3) (Edge e1 e2 h) ->
                  if c == e1
                  then let i = cmdIndex e2 cmds in
                         case h of -- check for reader that is not a hazard
@@ -229,13 +226,13 @@ readersWritersHazards c cmds edges =
   ([],[],[]) edges
   
 generateJSON :: Graph -> String
-generateJSON Graph{..} = jsonListLines $ List.map (showCmdTrace nodes) nodes
+generateJSON Graph{..} = jsonListLines $ map (showCmdTrace nodes) nodes
   where showCmdTrace cmds cmd@(cmdName,ts) =
           let (readers,writers,hazards) = readersWritersHazards cmd cmds edges in
             jsonList $
             [showCmd cmdName
             ,showTime $ maxTTime ts -- max time of all traces
-            ,show $ List.length ts -- number of times traced
+            ,show $ length ts -- number of times traced
             ,show $ allWrites ts -- all files written during all traces
             ,show $ allReads ts -- all files read during all traces
             ,show $ readers -- list of readers with no hazard; depend on me

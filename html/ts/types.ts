@@ -39,18 +39,6 @@ type ProfileRaw =
     ];
 
 /////////////////////////////////////////////////////////////////////
-// PROGRESS DATA
-
-declare const progress: Array<{name: string, values: Progress[]}>;
-
-interface Progress {
-    idealSecs: number;
-    idealPerc: number;
-    actualSecs: number;
-    actualPerc: number;
-}
-
-/////////////////////////////////////////////////////////////////////
 // BASIC UI TOOLKIT
 
 class Prop<A> {
