@@ -1,0 +1,9 @@
+{
+    "compilerOptions": {
+        "target": "esnext",
+        "outFile": "../rattle.js",
+        "newLine": "lf",
+        "jsx": "react",
+        "alwaysStrict": true
+    }
+}

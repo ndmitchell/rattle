@@ -59,19 +59,13 @@ function group(x) {
     return true;
 }
 function leaf() {
-    return environmentThis.depends.length === 0;
+    return environmentThis.writers.length === 0;
 }
 function run(i) {
     if (i === undefined)
         return environmentThis.built;
     else
         return environmentThis.built === i;
-}
-function changed() {
-    return environmentThis.changed === environmentThis.built;
-}
-function unchanged() {
-    return !unchanged();
 }
 function named(r, groupName) {
     if (r === undefined)
@@ -91,27 +85,6 @@ function named(r, groupName) {
     }
     return true;
 }
-function command(r, groupName) {
-    const n = (environmentThis.traces || []).length;
-    if (r === undefined)
-        return n === 0 ? "" : environmentThis.traces[0].command;
-    for (const t of environmentThis.traces) {
-        const res = execRegExp(r, t.command);
-        if (res === null)
-            continue;
-        if (res.length !== 1) {
-            for (let j = 1; j < res.length; j++)
-                group(res[j]);
-        }
-        return true;
-    }
-    if (groupName === undefined)
-        return false;
-    else {
-        group(groupName);
-        return true;
-    }
-}
 function profileLoaded(profileRaw) {
     $(document.body).empty().append(profileRoot(unraw(profileRaw)));
 }
@@ -119,19 +92,22 @@ function unraw(xs) {
     const ans = xs.map((x, i) => ({
         index: i,
         name: x[0],
-        execution: x[1], // max time to build
-        built: x[2], // number of times traced
+        execution: x[1],
+        built: x[2],
         filesWritten: x[3],
         filesRead: x[4],
-	readers: x[5], // rdepends
-	writers: x[6], // depends
-	hazards: x[7]})); // dependeds and rdepends that violate consistency
+        readers: x[5],
+        writers: x[6],
+        hazards: x[7] // depends and rdepends that violate consistency
+    }));
     return ans;
 }
 function profileRoot(profile) {
     const [s, search] = createSearch(profile);
-    const t = createTabs([["Summary", () => reportSummary(profile)],
-        //["Command plot", () => reportCmdPlot(profile)],
+    const t = createTabs([["Summary", () => reportSummary(profile)]
+        // , ["Command plot", () => reportCmdPlot(profile)]
+        // , ["Commands", () => reportCmdTable(profile, search)]
+        ,
         ["Commands", () => reportRuleTable(profile, search)],
         ["Parallelizability", () => reportParallelism(profile)],
         ["Details", () => reportDetails(profile, search)]
@@ -140,11 +116,11 @@ function profileRoot(profile) {
     return React.createElement("table", { class: "fill" },
         React.createElement("tr", null,
             React.createElement("td", { style: "padding-top: 8px; padding-bottom: 8px;" },
-                React.createElement("a", { href: "https://shakebuild.com/", style: "font-size: 20px; text-decoration: none; color: #3131a7; font-weight: bold;" }, "Shake profile report"),
+                React.createElement("a", { href: "https://github.com/ndmitchell/rattle", style: "font-size: 20px; text-decoration: none; color: #3131a7; font-weight: bold;" }, "Rattle profile report"),
                 React.createElement("span", { style: "color:gray;white-space:pre;" },
                     "   - generated at ",
                     generated,
-                    " by Shake v",
+                    " by Rattle v",
                     version))),
         React.createElement("tr", null,
             React.createElement("td", null, s)),
@@ -337,7 +313,7 @@ function initProgress() {
 }
 // Stuff that Shake generates and injects in
 function untraced(p) {
-    return Math.max(0, p.execution);
+    return 0;
 }
 /////////////////////////////////////////////////////////////////////
 // BASIC UI TOOLKIT
@@ -531,176 +507,40 @@ function createElement(type, props, ...children) {
 }
 // How .tsx gets desugared
 const React = { createElement };
-function reportCmdPlot(profile) {
-    // first find the end point
-    const runs = profile; //findRuns(profile);
-    if (runs.length === 0) {
-        return React.createElement("div", null,
-            React.createElement("h2", null, "No data found"),
-            React.createElement("p", null, "No commands recorded."),
-            React.createElement("p", null,
-                "You can populate this information by using ",
-                varLink("cmd"),
-                " or wrapping your ",
-                React.createElement("tt", null, "IO"),
-                " actions in ",
-                varLink("traced"),
-                "."));
-    }
-    const combo = React.createElement("select", null,
-        runs.map((c, i) => React.createElement("option", null,
-            showRun(c.built) + " (" + showTime(c.execution) + ") ",
-            i === 0 ? "" : " - may be incomplete")),
-        ";");
-    const warning = React.createElement("i", null);
-    const plot = React.createElement("div", { style: "width:100%; height:100%;" });
-    const plotData = new Prop([]);
-    bindPlot(plot, plotData, {
-        legend: { show: true, position: "nw", sorted: "reverse" },
-        series: { stack: true, lines: { fill: 1, lineWidth: 0 } },
-        yaxis: { min: 0 },
-        xaxis: { tickFormatter: showTime }
-    });
-    function setPlotData(runsIndex) {
-        const c = runs[runsIndex];
-        const profileRun = profile.filter(p => p.built === c.built);
-        // Make sure we max(0,) every step in the process, in case one does parallelism of threads
-        const missing = profileRun.map(untraced).sum();
-        $(warning).text(missing < 1 ? "" : "Warning: " + showTime(missing) + " of execution was not traced.");
-        const series = calcPlotData(c.execution, profileRun, 100);
-        const res = [];
-        for (const s in series)
-            res.push({ label: s, data: series[s].map((x, i) => pair(c.execution * i / 100, x)) });
-        plotData.set(res);
-    }
-    setPlotData(0);
-    $(combo).change(() => setPlotData(combo.selectedIndex));
-    return React.createElement("table", { class: "fill" },
-        React.createElement("tr", null,
-            React.createElement("td", { width: "100%", style: "text-align:center;" },
-                React.createElement("h2", null, "Number of commands executing over time")),
-            React.createElement("td", null, combo)),
-        React.createElement("tr", null,
-            React.createElement("td", { height: "100%", colspan: "2" }, plot)),
-        React.createElement("tr", null,
-            React.createElement("td", { colspan: "2", style: "text-align:center;" },
-                "Time since the start of building. ",
-                warning)));
-}
-// Find which runs had traced commands and when the last stopped, sort so most recent first
-function findRuns(profile) {
-    const runs = {};
-    for (const p of profile) {
-        if (p.traces.length > 0) {
-            if (p.traces.length === 1 && p.traces[0].command === "")
-                continue; // the fake end command
-            const old = runs[p.built];
-            const end = p.traces.last().stop;
-            runs[p.built] = old === undefined ? end : Math.max(old, end);
-        }
-    }
-    const runsList = [];
-    for (const i in runs)
-        runsList.push(pair(Number(i), runs[i]));
-    runsList.sort(compareFst);
-    return runsList;
-}
-function calcPlotData(end, profile, buckets) {
-    const ans = {};
-    for (const t of profile) {
-            let xs;
-            if (t.command in ans)
-                xs = ans[t.command];
-            else {
-                xs = [];
-                for (let i = 0; i < buckets; i++)
-                    xs.push(0); // fill with 1 more element, but the last bucket will always be 0
-                ans[t.command] = xs;
-            }
-            const start = t.start * buckets / end;
-            const stop = t.stop * buckets / end;
-            if (Math.floor(start) === Math.floor(stop))
-                xs[Math.floor(start)] += stop - start;
-            else {
-                for (let j = Math.ceil(start); j < Math.floor(stop); j++)
-                    xs[j]++;
-                xs[Math.floor(start)] += Math.ceil(start) - start;
-                xs[Math.floor(stop)] += stop - Math.floor(stop);
-            }
-    }
-    return ans;
-}
-function reportCmdTable(profile, search) {
-    const columns = [{ field: "name", label: "Name", width: 200 },
-        { field: "count", label: "Count", width: 65, alignRight: true, show: showInt },
-        { field: "total", label: "Total", width: 75, alignRight: true, show: showTime },
-        { field: "average", label: "Average", width: 75, alignRight: true, show: showTime },
-        { field: "max", label: "Max", width: 75, alignRight: true, show: showTime }
-    ];
-    return newTable(columns, search.map(cmdData), "total", true);
-}
-function cmdData(search) {
-    const res = {};
-    search.forEachProfile(p => {
-        for (const t of p.traces) {
-            const time = t.stop - t.start;
-            if (t.command === "")
-                continue; // do nothing
-            else if (!(t.command in res))
-                res[t.command] = { count: 1, total: time, max: time };
-            else {
-                const ans = res[t.command];
-                ans.count++;
-                ans.total += time;
-                ans.max = Math.max(ans.max, time);
-            }
-        }
-    });
-    const res2 = [];
-    for (const i in res)
-        res2.push({ name: i, average: res[i].total / res[i].count, ...res[i] });
-    return res2;
-}
 function reportDetails(profile, search) {
     const result = React.createElement("div", { class: "details" });
     const self = new Prop(0);
     search.event(xs => self.set(xs.mapProfile((p, _) => p.index).maximum()));
     const f = (i) => React.createElement("a", { onclick: () => self.set(i) }, profile[i].name);
-    const g = (fn) => React.createElement("b", null, fn); 
     self.event(i => {
         const p = profile[i];
         const content = React.createElement("ul", null,
             React.createElement("li", null,
-                React.createElement("b", null, "Command:"),
+                React.createElement("b", null, "Name:"),
                 " ",
                 p.name),
             React.createElement("li", null,
-                React.createElement("b", null, "Number of times run:"),
+                React.createElement("b", null, "Built:"),
                 " ",
-                p.built),
+                showRun(p.built)),
             React.createElement("li", null,
-                React.createElement("b", null, "Changed:"),
-                " ",
-                showRun(p.changed)),
-            React.createElement("li", null,
-				React.createElement("b", null, "Execution time:"),
-				" ",
+                React.createElement("b", null, "Execution time:"),
                 showTime(p.execution)),
             React.createElement("li", null,
-                React.createElement("b", null, "Dependencies (commands which write file(s) I read):"),
+                React.createElement("b", null, "Cmds that wrote files I read:"),
                 React.createElement("ol", null, p.writers.map(d => React.createElement("li", null, f(d))))),
             React.createElement("li", null,
-                React.createElement("b", null, "Commands that depend on me (commands which read file(s) I write):"),
-				React.createElement("ul", null, p.readers.map(d => React.createElement("li", null, f(d))))),
-			React.createElement("li", null,
-                React.createElement("b", null, "Hazards (commands I have a hazard with):"),
-					    React.createElement("ul", null, p.hazards.map(d => React.createElement("li", null, f(d))))),
-					   React.createElement("li", null,
-                React.createElement("b", null, "Files I read:"),
-							       React.createElement("ol", null, p.filesRead.map(d => React.createElement("li", null, g(d))))),
-					   React.createElement("li", null,
+                React.createElement("b", null, "Cmds that read files I wrote:"),
+                React.createElement("ul", null, p.readers.map(d => React.createElement("li", null, f(d))))),
+            React.createElement("li", null,
+                React.createElement("b", null, "Cmds that I have a hazard with:"),
+                React.createElement("ul", null, p.hazards.map(d => React.createElement("li", null, f(d))))),
+            React.createElement("li", null,
                 React.createElement("b", null, "Files I wrote:"),
-                React.createElement("ol", null, p.filesWritten.map(d => React.createElement("li", null, g(d))))));
+                React.createElement("ul", null, p.filesWritten.map(f => React.createElement("b", null, f)))),
+            React.createElement("li", null,
+                React.createElement("b", null, "Files I read:"),
+                React.createElement("ul", null, p.filesRead.map(f => React.createElement("b", null, f)))));
         $(result).empty().append(content);
     });
     return result;
@@ -748,7 +588,7 @@ function simulateThreads(profile, threads) {
     function runningWait() {
         const [ind, time] = running.pop();
         timestamp = time;
-        for (const d of profile[ind].writers) {
+        for (const d of profile[ind].readers) {
             waiting[d]--;
             if (waiting[d] === 0)
                 ready.push(profile[d]);
@@ -769,69 +609,14 @@ function simulateThreads(profile, threads) {
         runningWait();
     }
 }
-function reportRebuild(profile, search) {
-    const depth = [];
-    for (const p of profile) {
-        depth[p.index] = p.depends.flat().map(d => depth[d] + 1).maximum(0);
-    }
-    const ind = search.get().mapProfile((p, _) => p.index).sortOn(i => -depth[i])[0];
-    const p = profile[ind];
-    function f(p) {
-        const res = [];
-        while (p.depends.length !== 0) {
-            const ds = p.depends.flat().sortOn(i => -depth[i]);
-            res.push(React.createElement("li", null,
-                React.createElement("select", { style: "width:400px;" }, ds.slice(0, 1).map(x => React.createElement("option", null, profile[x].name)))));
-            p = profile[ds[0]];
-        }
-        return res;
-    }
-    return React.createElement("div", null,
-        React.createElement("h2", null, "Why did it rebuild?"),
-        React.createElement("p", null,
-            "Rule ",
-            p.name + " " + (p.built === 0 ? "rebuild in the last run" : "did not rebuild")),
-        React.createElement("ul", null, f(p)));
-}
 function reportRuleTable(profile, search) {
     const columns = [{ field: "name", label: "Name", width: 400 },
         { field: "count", label: "Count", width: 65, alignRight: true, show: showInt },
         { field: "leaf", label: "Leaf", width: 60, alignRight: true },
         { field: "run", label: "Run", width: 50, alignRight: true },
-        { field: "changed", label: "Change", width: 60, alignRight: true },
         { field: "time", label: "Time", width: 75, alignRight: true, show: showTime }
     ];
     return newTable(columns, search.map(s => ruleData(s)), "time", true);
-}
-// Calculate the exclusive time of each rule at some number of threads
-function calcEWTimes(profile, threads) {
-    const [_, started] = simulateThreads(profile, threads);
-    const starts = started.map((s, i) => pair(i, s)).sort(compareSnd);
-    const costs = starts.map(([ind, start], i) => {
-        // find out who else runs before I finish
-        const execution = profile[ind].execution;
-        const end = start + execution;
-        let overlap = 0; // how much time I am overlapped for
-        let exclusive = 0; // how much time I am the only runner
-        let finisher = start; // the first overlapping person to finish
-        for (let j = i + 1; j < starts.length; j++) {
-            const [jInd, jStarts] = starts[j];
-            if (jStarts > end)
-                break;
-            overlap += Math.min(end - jStarts, profile[jInd].execution);
-            exclusive += Math.max(0, Math.min(jStarts, end) - finisher);
-            finisher = Math.max(finisher, jStarts + profile[jInd].execution);
-        }
-        exclusive += Math.max(0, end - finisher);
-        return triple(ind, execution === 0 ? 0 : execution * (execution / (execution + overlap)), exclusive);
-    });
-    const etimes = [];
-    const wtimes = [];
-    for (const [ind, etime, wtime] of costs) {
-        etimes[ind] = etime;
-        wtimes[ind] = wtime;
-    }
-    return [etimes, wtimes];
 }
 function ruleData(search) {
     return search.mapProfiles((ps, name) => ({
@@ -839,13 +624,13 @@ function ruleData(search) {
         count: ps.length,
         leaf: ps.every(p => p.writers.length === 0),
         run: ps.map(p => p.built).minimum(),
-        //changed: ps.some(p => p.built === p.changed),
         time: ps.map(p => p.execution).sum()
     }));
 }
-function reportSummary(profile) { // profile is an array of arrays
+function reportSummary(profile) {
     let sumExecution = 0; // build time in total
-    let countTrace = profile.length;
+    const countTrace = profile.length;
+    // start both are -1 because the end command will have run in the previous step
     for (const p of profile) {
         sumExecution += p.execution;
     }
@@ -853,15 +638,11 @@ function reportSummary(profile) { // profile is an array of arrays
         React.createElement("h2", null, "Totals"),
         React.createElement("ul", null,
             React.createElement("li", null,
-                React.createElement("b", null, "Traced:"),
+                React.createElement("b", null, "Rules:"),
                 " ",
-                showInt(countTrace),
-                React.createElement("span", { class: "note" },
-                    "number of calls to ",
-                    varLink("cmd"),
-                    " or ",
-                    varLink("traced"),
-                    "."))),
+                showInt(profile.length),
+                " ",
+                React.createElement("span", { class: "note" }, "number of commands."))),
         React.createElement("h2", null, "Performance"),
         React.createElement("ul", null,
             React.createElement("li", null,
