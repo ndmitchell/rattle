@@ -14,7 +14,7 @@ description:
     A forward build system like Fabrciate but with speculation and remote caching.
 homepage:           https://github.com/ndmitchell/rattle#readme
 bug-reports:        https://github.com/ndmitchell/rattle/issues
-tested-with:        GHC==8.6.4, GHC==8.4.4, GHC==8.2.2, GHC==8.0.2
+tested-with:        GHC==8.6.5, GHC==8.4.4, GHC==8.2.2, GHC==8.0.2
 extra-doc-files:
     CHANGES.txt
     README.md
