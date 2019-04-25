@@ -1,9 +1,9 @@
 
 module General.Extra(
     whenRightM,
-    createDirectoryRecursive,
+    createDirectoryRecursive, doesFileExist_,
     NoShow(..),
-    memoIO
+    memoIO, catchIO
     ) where
 
 import Control.Exception.Extra
@@ -31,12 +31,18 @@ whenRightM x act =  either (const $ return ()) act =<< x
 ---------------------------------------------------------------------
 -- Control.Exception
 
+catchIO :: IO a -> (IOException -> IO a) -> IO a
+catchIO = catch
+
 tryIO :: IO a -> IO (Either IOException a)
 tryIO = try
 
 
 ---------------------------------------------------------------------
 -- System.Directory
+
+doesFileExist_ :: FilePath -> IO Bool
+doesFileExist_ x = doesFileExist x `catchIO` \_ -> return False
 
 -- | Like @createDirectoryIfMissing True@ but faster, as it avoids
 --   any work in the common case the directory already exists.

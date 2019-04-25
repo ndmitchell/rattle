@@ -3,7 +3,7 @@
 module Development.Rattle.Server(
     RattleOptions(..), rattleOptions,
     Rattle, withRattle,
-    Hazard,
+    Hazard(..),
     cmdRattle
     ) where
 
@@ -25,6 +25,8 @@ import Data.IORef
 import Data.Hashable
 import Data.List.Extra
 import Data.Tuple.Extra
+import System.Time.Extra
+import Control.Monad.IO.Class
 
 
 -- | Basic options for configuring rattle.
@@ -209,10 +211,13 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd args) start hist msgs = do
                     cmdRattleFinished rattle start cmd t False
                 Nothing -> do
                     display []
-                    t <- fsaTrace <$> C.cmd args
+                    timer <- liftIO offsetTime
+                    c <- C.cmd args
+                    end <- timer
+                    t <- return $ fsaTrace end c
                     let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x
                     let f xs = mapMaybeM (\x -> fmap (x,) <$> hashFile x) $ filter (not . skip) $ map fst xs
-                    t <- Trace <$> f (tRead t) <*> f (tWrite t)
+                    t <- Trace (tTime t) <$> f (tRead t) <*> f (tWrite t)
                     when (rattleShare options) $
                         forM_ (tWrite t) $ \(fp, h) ->
                             setFile shared fp h ((== Just h) <$> hashFile fp)
