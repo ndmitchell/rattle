@@ -159,7 +159,7 @@ calculateParallelismDriver (e:es) m =
 -}
 
 graphRoots :: [(Cmd,[Trace Hash])] -> [Edge] -> [(Cmd,[Trace Hash])]
-graphRoots rs es = foldr (delete . end2) rs es
+graphRoots = foldr (delete . end2)
 
 maxTTime :: [Trace Hash] -> Seconds
 maxTTime xs = maximum $ 0 : map tTime xs
