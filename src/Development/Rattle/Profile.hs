@@ -40,7 +40,7 @@ getCmdsTraces :: RattleOptions -> IO [(Cmd,[Trace Hash])]
 getCmdsTraces options@RattleOptions{..} = withShared rattleFiles$ \shared -> do
   cmds <- maybe (return []) (getSpeculate shared) rattleSpeculate
   fmap (takeWhile (not . null . snd)) $ forM cmds $ \x -> (x,) <$> getCmdTraces shared x
-  
+
 constructGraph :: RattleOptions -> IO Graph
 constructGraph options@RattleOptions{..} = do
   cmdsWTraces <- getCmdsTraces options
@@ -69,9 +69,9 @@ createGraph :: [(Cmd,[Trace Hash])] -> Graph
 createGraph xs = Graph xs $ g xs
   where g [] = []
         g (x:xs) = let edges = mapMaybe (createEdge x) xs in
-          edges ++ g xs  
+          edges ++ g xs
 
--- assume p1 occurred before p2. 
+-- assume p1 occurred before p2.
 -- find the worst type of hazard if there is an edge
 createEdge :: (Cmd,[Trace Hash]) -> (Cmd,[Trace Hash]) -> Maybe Edge
 createEdge p1@(cmd1,ts) p2@(cmd2,ls) = -- first look for write write hazard then look for both read/write and write/read hazards
@@ -83,10 +83,10 @@ createEdge p1@(cmd1,ts) p2@(cmd2,ls) = -- first look for write write hazard then
                    case readWriteHazard ls ts of
                      Just fp -> Just $ Edge p1 p2 Nothing -- regular edge
                      Nothing -> Nothing -- no edge
-    
+
 -- Is there a writewrite edge?
 writeWriteHazard :: [Trace Hash] -> [Trace Hash] -> Maybe FilePath
-writeWriteHazard = maybeHazard tWrite 
+writeWriteHazard = maybeHazard tWrite
 
 -- Is there a readwrite edge?
 readWriteHazard :: [Trace Hash] -> [Trace Hash] -> Maybe FilePath
@@ -141,7 +141,7 @@ calculateParallelism xs = calculateParallelismDriver xs HashMap.empty
 
 {- what is the best way to present this? -}
 calculateParallelismDriver :: [Edge] -> Map Cmd () -> [[Cmd]]
-calculateParallelismDriver [] m = 
+calculateParallelismDriver [] m =
 calculateParallelismDriver (e:es) m =
   -- for each edge e, with end1 and end2.
   -- for end2 ; say new level is level(end1) + 1;
@@ -175,7 +175,7 @@ spanGraph (Graph ns es) =
   -- probably want a hashset from cmd to edges
   let cmds = foldl' (\m (Edge e1 e2 h) -> Map.insertWith (++) e1 [e2] m) Map.empty es
       roots = graphRoots ns es in
-    foldl' (\m c -> max m $ spanCmd c cmds) 0.0 roots 
+    foldl' (\m c -> max m $ spanCmd c cmds) 0.0 roots
 
 spanCmd :: (Cmd, [Trace Hash]) -> Map.HashMap (Cmd, [Trace Hash]) [(Cmd,[Trace Hash])] -> Seconds
 spanCmd cmd@(c,ts) cmds =
@@ -191,7 +191,7 @@ generateHTML xs = do
   report <- readDataFileHTML "profile.html"
   let f "data/profile-data.js" = return $ LBS.pack $ "var profile =\n" ++ generateJSON xs
   runTemplate f report
-  
+
 allWrites :: [Trace Hash] -> [FilePath]
 allWrites [] = []
 allWrites (x:xs) = Set.toList $ foldl' (\s (fp,_) -> Set.insert fp s) (Set.fromList $ allWrites xs) $ tWrite x
@@ -222,7 +222,7 @@ readersWritersHazards c cmds =
                                Just _ -> (ls1,ls2,i:ls3) -- could be writewrite or readwrite; ignore type for now
                       else (ls1,ls2,ls3)) -- does not belong to this edge
   ([],[],[])
-  
+
 generateJSON :: Graph -> String
 generateJSON Graph{..} = jsonListLines $ map (showCmdTrace nodes) nodes
   where showCmdTrace cmds cmd@(cmdName,ts) =
