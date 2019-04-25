@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables, RecordWildCards, TupleSections #-}
+{-# OPTIONS_GHC -w #-}
 
 module Development.Rattle.Profile(
   constructGraph, Graph(..), dotStringOfGraph,
@@ -243,4 +244,3 @@ generateJSON Graph{..} = jsonListLines $ map (showCmdTrace nodes) nodes
 
 jsonListLines xs = "[" ++ intercalate "\n," xs ++ "\n]"
 jsonList xs = "[" ++ intercalate "," xs ++ "]"
-jsonObject xs = "{" ++ intercalate "," [show a ++ ":" ++ b | (a,b) <- xs] ++ "}"
