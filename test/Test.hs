@@ -36,9 +36,9 @@ main = unless isMac $ withOutput $ \root -> do
     putStrLn "Getting profiling data"
     writeProfile rattleOptions "~/report.html"
     (w,s,p) <- graphData rattleOptions
-    putStrLn $ "Work: " ++ (show w)
-    putStrLn $ "Span: " ++ (show s)
-    putStrLn $ "Parallelism: " ++ (show p)
+    putStrLn $ "Work: " ++ show w
+    putStrLn $ "Span: " ++ show s
+    putStrLn $ "Parallelism: " ++ show p
     putStrLn "Build 2: Expect nothing"
     rattle rattleOptions build
     wipe

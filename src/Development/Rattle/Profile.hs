@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, RecordWildCards, TupleSections, ViewPatterns #-}
+{-# LANGUAGE ScopedTypeVariables, RecordWildCards, TupleSections #-}
 
 module Development.Rattle.Profile(
   constructGraph, Graph(..), dotStringOfGraph,
@@ -38,7 +38,7 @@ instance Show Edge where
 getCmdsTraces :: RattleOptions -> IO [(Cmd,[Trace Hash])]
 getCmdsTraces options@RattleOptions{..} = withShared rattleFiles$ \shared -> do
   cmds <- maybe (return []) (getSpeculate shared) rattleSpeculate
-  fmap (takeWhile (not . null . snd)) $ forM cmds $ \x -> (x,) <$> (getCmdTraces shared x)
+  fmap (takeWhile (not . null . snd)) $ forM cmds $ \x -> (x,) <$> getCmdTraces shared x
   
 constructGraph :: RattleOptions -> IO Graph
 constructGraph options@RattleOptions{..} = do
@@ -51,7 +51,7 @@ graphData options = do
   let graph = createGraph cmdsWTraces
       w = work graph
       s = spanGraph graph in
-    return (w,s,(w / s))
+    return (w,s,w / s)
 
 writeProfile :: RattleOptions -> FilePath -> IO ()
 writeProfile options out = do
@@ -68,7 +68,7 @@ createGraph :: [(Cmd,[Trace Hash])] -> Graph
 createGraph xs = Graph xs $ g xs
   where g [] = []
         g (x:xs) = let edges = mapMaybe (createEdge x) xs in
-          edges ++ (g xs)  
+          edges ++ g xs  
 
 -- assume p1 occurred before p2. 
 -- find the worst type of hazard if there is an edge
@@ -91,7 +91,7 @@ writeWriteHazard = maybeHazard tWrite
 readWriteHazard :: [Trace Hash] -> [Trace Hash] -> Maybe FilePath
 readWriteHazard = maybeHazard tRead
 
-maybeHazard :: ((Trace Hash) -> [(FilePath, Hash)]) -> [Trace Hash] -> [Trace Hash] -> Maybe FilePath
+maybeHazard :: (Trace Hash -> [(FilePath, Hash)]) -> [Trace Hash] -> [Trace Hash] -> Maybe FilePath
 maybeHazard _ [] ls = Nothing
 maybeHazard _ ls [] = Nothing
 maybeHazard f (t:ts) ls =
@@ -121,7 +121,7 @@ showCmd (Cmd xs) = show $ showCmdHelper xs
 
 showCmdHelper :: [String] -> String
 showCmdHelper [] = ""
-showCmdHelper (x:xs) = x ++ " " ++ (showCmdHelper xs)
+showCmdHelper (x:xs) = x ++ " " ++ showCmdHelper xs
 
 dotStringOfGraph :: RattleOptions -> IO String
 dotStringOfGraph options = do
@@ -159,8 +159,7 @@ calculateParallelismDriver (e:es) m =
 -}
 
 graphRoots :: [(Cmd,[Trace Hash])] -> [Edge] -> [(Cmd,[Trace Hash])]
-graphRoots rs [] = rs
-graphRoots rs (e:es) = delete (end2 e) $ graphRoots rs es
+graphRoots rs es = foldr (delete . end2) rs es
 
 maxTTime :: [Trace Hash] -> Seconds
 maxTTime xs = maximum $ 0 : map tTime xs
@@ -181,10 +180,10 @@ spanCmd :: (Cmd, [Trace Hash]) -> Map.HashMap (Cmd, [Trace Hash]) [(Cmd,[Trace H
 spanCmd cmd@(c,ts) cmds =
   case Map.lookup cmd cmds of
     Nothing -> maxTTime ts
-    Just ls -> (maxTTime ts) + foldl (\m c -> max m $ spanCmd c cmds) 0.0 ls
+    Just ls -> maxTTime ts + foldl (\m c -> max m $ spanCmd c cmds) 0.0 ls
 
 parallelism :: Graph -> Seconds
-parallelism g = (work g) / (spanGraph g)
+parallelism g = work g / spanGraph g
 
 generateHTML :: Graph -> IO LBS.ByteString
 generateHTML xs = do
@@ -201,16 +200,14 @@ allReads [] = []
 allReads (x:xs) = Set.toList $ foldl' (\s (fp,_) -> Set.insert fp s) (Set.fromList $ allReads xs) $ tRead x
 
 cmdIndex :: (Cmd,[Trace Hash]) -> [(Cmd,[Trace Hash])] -> Int
-cmdIndex x cmds = case elemIndex x cmds of
-                    Just i -> i
-                    Nothing -> -1
+cmdIndex x cmds = fromMaybe (-1) $ elemIndex x cmds
 
 {- Readers are cmds that read something this command wrote // they depend on this command
    writers are cmds that wrote something this command read // i depend on them
    hazards are cmds that wrote after a read or a write
 -}
 readersWritersHazards :: (Cmd,[Trace Hash]) -> [(Cmd,[Trace Hash])] -> [Edge] -> ([Int],[Int],[Int])
-readersWritersHazards c cmds edges =
+readersWritersHazards c cmds =
   foldl' (\(ls1,ls2,ls3) (Edge e1 e2 h) ->
                  if c == e1
                  then let i = cmdIndex e2 cmds in
@@ -223,21 +220,21 @@ readersWritersHazards c cmds edges =
                                Nothing -> (ls1,i:ls2,ls3) -- no hazard
                                Just _ -> (ls1,ls2,i:ls3) -- could be writewrite or readwrite; ignore type for now
                       else (ls1,ls2,ls3)) -- does not belong to this edge
-  ([],[],[]) edges
+  ([],[],[])
   
 generateJSON :: Graph -> String
 generateJSON Graph{..} = jsonListLines $ map (showCmdTrace nodes) nodes
   where showCmdTrace cmds cmd@(cmdName,ts) =
           let (readers,writers,hazards) = readersWritersHazards cmd cmds edges in
-            jsonList $
+            jsonList
             [showCmd cmdName
             ,showTime $ maxTTime ts -- max time of all traces
             ,show $ length ts -- number of times traced
             ,show $ allWrites ts -- all files written during all traces
             ,show $ allReads ts -- all files read during all traces
-            ,show $ readers -- list of readers with no hazard; depend on me
-            ,show $ writers -- list of writers with no hazard; depend on them
-            ,show $ hazards] -- list of cmds this cmd has a hazrd with
+            ,show readers -- list of readers with no hazard; depend on me
+            ,show writers -- list of writers with no hazard; depend on them
+            ,show hazards] -- list of cmds this cmd has a hazrd with
         showTime x = if '.' `elem` y
                      then dropWhileEnd (== '.') $ dropWhileEnd (== '0') y
                      else y

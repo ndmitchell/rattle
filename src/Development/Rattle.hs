@@ -20,7 +20,6 @@ import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
 import Development.Rattle.Server
 import Development.Rattle.Profile
-import General.Thread
 
 
 -- | Type of actions to run. Executed using 'rattle'.
