@@ -46,6 +46,7 @@ constructGraph options@RattleOptions{..} = do
   cmdsWTraces <- getCmdsTraces options
   return $ createGraph cmdsWTraces
 
+-- | Given some options, produce various statistics.
 graphData :: RattleOptions -> IO (Seconds,Seconds,Seconds)
 graphData options = do
   cmdsWTraces <- getCmdsTraces options
@@ -54,6 +55,7 @@ graphData options = do
       s = spanGraph graph in
     return (w,s,w / s)
 
+-- | Generate a profile report given a file.
 writeProfile :: RattleOptions -> FilePath -> IO ()
 writeProfile options out = do
   graph <- constructGraph options
