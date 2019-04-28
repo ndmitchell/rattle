@@ -28,3 +28,7 @@ It is possible to write alternative tracing mechanisms that wouldn't have these 
 
 * [Bigbro](https://github.com/droundy/bigbro/) uses `ptrace` so works for Go binaries and statically linked binaries.
 * [traced-fs](https://github.com/jacereda/traced-fs) is an unfinished file system tracer that implements a user file system that would also work for Go binaries and static linking.
+
+### Relationship to Shake
+
+Rattle was designed by the same author as the [Shake build system](https://shakebuild.com/). Rattle is named as [a follow-on](https://en.wikipedia.org/wiki/Shake,_Rattle_and_Roll) from Shake, but not a replacement -- Shake continues to be actively developed and is a much more mature system.
