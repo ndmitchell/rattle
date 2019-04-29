@@ -3,7 +3,6 @@
 module Test(main) where
 
 import Development.Rattle
-import General.Paths
 import System.FilePattern.Directory
 import Development.Shake.FilePath
 import Control.Exception
