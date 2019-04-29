@@ -29,8 +29,8 @@ main = unless isMac $ withOutput $ \root -> do
     cs <- liftIO $ getDirectoryFiles "." [root </> "test/C/*.c"]
     let toO x = takeBaseName x <.> "o"
     let build = do
-            forM_ cs $ \c -> cmd ["gcc","-o",toO c,"-c",c]
-            cmd $ ["gcc","-o","Main" <.> exe] ++ map toO cs
+            forM_ cs $ \c -> cmd "gcc -o" [toO c, "-c", c]
+            cmd "gcc -o" ["Main" <.> exe] (map toO cs)
             cmd ["./Main" <.> exe]
 
     putStrLn "Build 1: Expect everything"
@@ -52,7 +52,7 @@ main = unless isMac $ withOutput $ \root -> do
     handle (\(h :: Hazard) -> print h) $ do
         rattle rattleOptions{rattleSpeculate=Nothing} $ do
             cmd ["./Main" <.> exe]
-            cmd $ ["gcc","-o","Main" <.> exe] ++ reverse (map toO cs)
+            cmd "gcc -o" ["Main" <.> exe] (reverse $ map toO cs)
         putStrLn "Hoped it failed, but doesn't always"
         -- fail "Expected a hazard"
 
