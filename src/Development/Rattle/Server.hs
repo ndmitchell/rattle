@@ -216,7 +216,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
                 Nothing -> do
                     display []
                     timer <- liftIO offsetTime
-                    c <- C.cmd (rattleCmdOptions rattleOptions ++ opts) exe args
+                    c <- C.cmd (rattleCmdOptions options ++ opts) exe args
                     end <- timer
                     t <- return $ fsaTrace end c
                     let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x
