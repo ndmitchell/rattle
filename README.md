@@ -8,7 +8,7 @@ To write a Rattle build system you need to write a script that builds your code.
 2. Rattle copies outputs over if a command has been run before on the same inputs (potentially for a different user).
 3. Rattle guesses what commands might be coming next, and speculates of them, to increase parallelism.
 
-The closest build system to Rattle is [Fabrciate](https://github.com/brushtechnology/fabricate), which follows a similar approach, but only provides step 1. Rattle extends that to steps 2 and 3.
+The closest build system to Rattle is [Fabricate](https://github.com/brushtechnology/fabricate), which follows a similar approach, but only provides step 1. Rattle extends that to steps 2 and 3.
 
 ### Advantages
 
