@@ -1,4 +1,6 @@
 {-# LANGUAGE TupleSections, GeneralizedNewtypeDeriving, DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
+{-# LANGUAGE StandaloneDeriving, DeriveAnyClass, DeriveGeneric #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Development.Rattle.Types(
     Trace(..), fsaTrace,
@@ -10,11 +12,16 @@ import Data.Hashable
 import Data.List.Extra
 import Development.Shake.Command
 import Data.Semigroup
+import GHC.Generics
 import Prelude
 import System.Time.Extra
 
-newtype Cmd = Cmd [String]
-    deriving (Show, Read, Eq, Hashable)
+data Cmd = Cmd [CmdOption] String [String]
+    deriving (Show, Read, Eq, Generic, Hashable)
+
+deriving instance Read CmdOption
+deriving instance Generic CmdOption
+deriving instance Hashable CmdOption
 
 data Trace a = Trace
     {tTime :: Seconds

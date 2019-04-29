@@ -1,4 +1,4 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, GADTs #-}
 
 -- | General rules for writing consistent rattle build systems:
 --
@@ -18,6 +18,8 @@ module Development.Rattle(
 import Control.Concurrent.Async
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
+import Data.Either.Extra
+import Development.Shake.Command
 import Development.Rattle.Server
 import Development.Rattle.Profile
 
@@ -37,11 +39,13 @@ parallel xs = do
 forP :: (a -> Run b) -> [a] -> Run [b]
 forP f xs = parallel $ map f xs
 
--- | Run a system command with the given arguments.
-cmd :: [String] -> Run ()
-cmd args = do
-    r <- Run ask
-    liftIO $ cmdRattle r args
+
+instance a ~ () => CmdArguments (Run a) where
+    cmdArguments (CmdArgument x) = case partitionEithers x of
+        (opts, x:xs) -> do
+            r <- Run ask
+            liftIO $ cmdRattle r opts x xs
+        _ -> error "Error, no executable or arguments given to Development.Rattle.cmd"
 
 -- | Given an Action to run, and a list of previous commands that got run, run it again
 rattle :: RattleOptions -> Run a -> IO a

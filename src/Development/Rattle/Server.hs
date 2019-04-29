@@ -157,8 +157,8 @@ nextSpeculate Rattle{..} S{..}
                 = step (addTrace rw t) xs
 
 
-cmdRattle :: Rattle -> [String] -> IO ()
-cmdRattle rattle args = cmdRattleRequired rattle $ Cmd args
+cmdRattle :: Rattle -> [C.CmdOption] -> String -> [String] -> IO ()
+cmdRattle rattle opts exe args = cmdRattleRequired rattle $ Cmd opts exe args
 
 cmdRattleRequired :: Rattle -> Cmd -> IO ()
 cmdRattleRequired rattle@Rattle{..} cmd = withLimit limit $ do
@@ -186,7 +186,7 @@ cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
 
 -- either fetch it from the cache or run it)
 cmdRattleRun :: Rattle -> Cmd -> T -> [Trace Hash] -> [String] -> IO ()
-cmdRattleRun rattle@Rattle{..} cmd@(Cmd args) start hist msgs = do
+cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
     hasher <- memoIO hashFile
     let match (fp, h) = (== Just h) <$> hasher fp
     histRead <- filterM (allM match . tRead) hist
@@ -212,7 +212,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd args) start hist msgs = do
                 Nothing -> do
                     display []
                     timer <- liftIO offsetTime
-                    c <- C.cmd args
+                    c <- C.cmd opts exe args
                     end <- timer
                     t <- return $ fsaTrace end c
                     let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x
@@ -223,7 +223,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd args) start hist msgs = do
                             setFile shared fp h ((== Just h) <$> hashFile fp)
                     cmdRattleFinished rattle start cmd t True
     where
-        display msgs2 = BS.putStrLn $ BS.pack $ unwords $ "#" : args ++ ["(" ++ unwords (msgs ++ msgs2) ++ ")" | not $ null $ msgs ++ msgs2]
+        display msgs2 = BS.putStrLn $ BS.pack $ unwords $ "#" : exe : args ++ ["(" ++ unwords (msgs ++ msgs2) ++ ")" | not $ null $ msgs ++ msgs2]
 
 -- | I finished running a command
 cmdRattleFinished :: Rattle -> T -> Cmd -> Trace Hash -> Bool -> IO ()
