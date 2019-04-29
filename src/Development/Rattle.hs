@@ -10,7 +10,7 @@ module Development.Rattle(
     rattle, Run,
     Hazard,
     RattleOptions(..), rattleOptions,
-    cmd,
+    cmd, CmdOption(..),
     parallel, forP,
     liftIO, writeProfile, graphData,
     initDataDirectory
