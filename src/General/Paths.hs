@@ -32,7 +32,7 @@ dataDirs = unsafePerformIO $ do
     curdir <- getCurrentDirectory
     return $ [datdir] ++ [exedir | exedir /= ""] ++ [curdir]
 
--- The data files may be located relative to the current directory, if so cache it in advance
+-- | The data files may be located relative to the current directory, if so cache it in advance.
 initDataDirectory :: IO ()
 initDataDirectory = void $ evaluate dataDirs
 
