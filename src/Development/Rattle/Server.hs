@@ -4,7 +4,7 @@ module Development.Rattle.Server(
     RattleOptions(..), rattleOptions,
     Rattle, withRattle,
     Hazard(..),
-    cmdRattle
+    addCmdOptions, cmdRattle
     ) where
 
 import Control.Monad.Extra
@@ -35,11 +35,12 @@ data RattleOptions = RattleOptions
     ,rattleSpeculate :: Maybe String -- ^ Should I speculate? Under which key?
     ,rattleShare :: Bool -- ^ Should I share files from the cache
     ,rattleProcesses :: Int -- ^ Number of simulateous processes
+    ,rattleCmdOptions :: [C.CmdOption] -- ^ Extra options added to every command line
     } deriving Show
 
 -- | Default 'RattleOptions' value.
 rattleOptions :: RattleOptions
-rattleOptions = RattleOptions ".rattle" (Just "") True 8
+rattleOptions = RattleOptions ".rattle" (Just "") True 8 []
 
 data ReadOrWrite = Read | Write deriving (Show,Eq)
 
@@ -90,6 +91,9 @@ data Rattle = Rattle
     ,shared :: Shared
     }
 
+addCmdOptions :: [C.CmdOption] -> Rattle -> Rattle
+addCmdOptions new r@Rattle{options=o@RattleOptions{rattleCmdOptions=old}} =
+    r{options = o{rattleCmdOptions = old ++ new}}
 
 withRattle :: RattleOptions -> (Rattle -> IO a) -> IO a
 withRattle options@RattleOptions{..} act = withShared rattleFiles $ \shared -> do
@@ -212,7 +216,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
                 Nothing -> do
                     display []
                     timer <- liftIO offsetTime
-                    c <- C.cmd opts exe args
+                    c <- C.cmd (rattleCmdOptions rattleOptions ++ opts) exe args
                     end <- timer
                     t <- return $ fsaTrace end c
                     let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x

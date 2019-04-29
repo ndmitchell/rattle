@@ -10,7 +10,7 @@ module Development.Rattle(
     rattle, Run,
     Hazard,
     RattleOptions(..), rattleOptions,
-    cmd, CmdOption(..),
+    cmd, CmdOption(..), withCmdOptions,
     parallel, forP,
     liftIO, writeProfile, graphData,
     initDataDirectory
@@ -40,6 +40,11 @@ parallel xs = do
 -- | Parallel version of 'forM'.
 forP :: (a -> Run b) -> [a] -> Run [b]
 forP f xs = parallel $ map f xs
+
+
+-- | Apply specific options ot all nested Run values.
+withCmdOptions :: [CmdOption] -> Run a -> Run a
+withCmdOptions xs (Run act) = Run $ withReaderT (addCmdOptions xs) act
 
 
 instance a ~ () => CmdArguments (Run a) where
