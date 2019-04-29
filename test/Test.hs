@@ -3,6 +3,7 @@
 module Test(main) where
 
 import Development.Rattle
+import General.Paths
 import System.FilePattern.Directory
 import Development.Shake.FilePath
 import Control.Exception
@@ -13,6 +14,7 @@ import Control.Monad.Extra
 
 withOutput :: (FilePath -> IO a) -> IO a
 withOutput act = do
+    initDataDirectory
     ignoreIO $ removeDirectoryRecursive "output"
     createDirectoryIfMissing True "output"
     withCurrentDirectory "output" $ act ".."
