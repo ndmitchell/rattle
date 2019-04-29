@@ -56,13 +56,7 @@ nubTrace (Trace t a b) = Trace t (nubOrd a \\ b) (nubOrd b)
 
 
 newtype T = T Int -- timestamps
-    deriving (Eq,Ord,Show)
-
--- GHC 8.0 gets confused if you have DeriveAnyClass turned on
--- so give a manual instance
-instance Enum T where
-    toEnum = T
-    fromEnum (T x) = x
+    deriving (Enum,Eq,Ord,Show)
 
 t0 :: T
 t0 = T 0
