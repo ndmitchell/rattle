@@ -1,6 +1,6 @@
 :set -fwarn-unused-binds -fwarn-unused-imports -fwarn-orphans
-:set -isrc;test
-:load test/Test.hs src/Paths.hs
+:set -isrc;test;examples
+:load test/Test.hs examples/Examples.hs src/Paths.hs
 :def test \x -> return $ ":main " ++ x
 
 :def docs_ const $ return $ unlines [":!cabal haddock"]
