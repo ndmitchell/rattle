@@ -38,8 +38,8 @@ parallel xs = do
     liftIO $ mapConcurrently (flip runReaderT r . fromRun) xs
 
 -- | Parallel version of 'forM'.
-forP :: (a -> Run b) -> [a] -> Run [b]
-forP f xs = parallel $ map f xs
+forP :: [a] -> (a -> Run b) ->Run [b]
+forP xs f = parallel $ map f xs
 
 
 -- | Apply specific options ot all nested Run values.
