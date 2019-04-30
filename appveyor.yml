@@ -6,3 +6,4 @@ test_script:
 - 7z x fsatrace.zip
 - fsatrace v - -- echo fsatrace works
 - ps: Invoke-Expression (Invoke-WebRequest 'https://raw.githubusercontent.com/ndmitchell/neil/master/appveyor.ps1')
+- rattle-demo test
