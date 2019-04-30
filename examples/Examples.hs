@@ -25,8 +25,8 @@ main = do
             rattle rattleOptions run
         ["local",x] | Just (run,_) <- lookup x projects ->
             withCurrentDirectory (".." </> x) $ rattle rattleOptions run
-        ["test"] -> do
-            forM_ projects $ \(name,(run,url)) -> do
+        ["test"] ->
+            forM_ projects $ \(name,(run,url)) ->
                 withTempDir $ \dir -> do
                     cmd_ (Cwd dir) "git clone" url name
                     withCurrentDirectory (dir </> name) $
