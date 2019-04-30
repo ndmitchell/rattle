@@ -30,4 +30,6 @@ main = do
                 withTempDir $ \dir -> do
                     cmd_ (Cwd dir) "git clone" url name
                     withCurrentDirectory (dir </> name) $
-                        rattle rattleOptions run
+                        forM_ [10,9..0] $ \i -> do
+                            cmd_ "git reset --hard" ["origin/master~" ++ show i]
+                            rattle rattleOptions run
