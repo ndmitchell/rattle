@@ -28,6 +28,7 @@ It is possible to write alternative tracing mechanisms that wouldn't have these 
 
 * [Bigbro](https://github.com/droundy/bigbro/) uses `ptrace` so works for Go binaries and statically linked binaries.
 * [traced-fs](https://github.com/jacereda/traced-fs) is an unfinished file system tracer that implements a user file system that would also work for Go binaries and static linking.
+* [BuildXL](https://github.com/Microsoft/BuildXL/blob/master/Documentation/Specs/Sandboxing.md#macos-sandboxing) uses a Mac sandbox based on KAuth + TrustedBSD Mandatory Access Control (MAC).
 
 ### Relationship to Shake
 
