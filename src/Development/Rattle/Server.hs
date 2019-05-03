@@ -4,7 +4,7 @@ module Development.Rattle.Server(
     RattleOptions(..), rattleOptions,
     Rattle, withRattle,
     Hazard(..),
-    addCmdOptions, cmdRattle
+    addCmdOptions, cmdRattle, getCmdOptions
     ) where
 
 import Control.Monad.Extra
@@ -27,6 +27,7 @@ import Data.List.Extra
 import Data.Tuple.Extra
 import System.Time.Extra
 import Control.Monad.IO.Class
+import qualified Debug.Trace as Trace
 
 
 -- | Basic options for configuring rattle.
@@ -90,6 +91,9 @@ data Rattle = Rattle
     ,limit :: Limit
     ,shared :: Shared
     }
+
+getCmdOptions :: Rattle -> [C.CmdOption]
+getCmdOptions = rattleCmdOptions . options
 
 addCmdOptions :: [C.CmdOption] -> Rattle -> Rattle
 addCmdOptions new r@Rattle{options=o@RattleOptions{rattleCmdOptions=old}} =
@@ -216,7 +220,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
                 Nothing -> do
                     display []
                     timer <- liftIO offsetTime
-                    c <- C.cmd (rattleCmdOptions options ++ opts) exe args
+                    c <- C.cmd opts exe args
                     end <- timer
                     t <- return $ fsaTrace end c
                     let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x
