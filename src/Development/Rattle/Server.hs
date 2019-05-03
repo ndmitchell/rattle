@@ -4,7 +4,7 @@ module Development.Rattle.Server(
     RattleOptions(..), rattleOptions,
     Rattle, withRattle,
     Hazard(..),
-    addCmdOptions, cmdRattle, getCmdOptions
+    addCmdOptions, cmdRattle
     ) where
 
 import Control.Monad.Extra
@@ -165,7 +165,7 @@ nextSpeculate Rattle{..} S{..}
 
 
 cmdRattle :: Rattle -> [C.CmdOption] -> String -> [String] -> IO ()
-cmdRattle rattle opts exe args = cmdRattleRequired rattle $ Cmd opts exe args
+cmdRattle rattle opts exe args = cmdRattleRequired rattle $ Cmd (getCmdOptions rattle ++ opts) exe args
 
 cmdRattleRequired :: Rattle -> Cmd -> IO ()
 cmdRattleRequired rattle@Rattle{..} cmd = withLimit limit $ do
