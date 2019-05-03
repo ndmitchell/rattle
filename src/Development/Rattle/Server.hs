@@ -91,9 +91,6 @@ data Rattle = Rattle
     ,shared :: Shared
     }
 
-getCmdOptions :: Rattle -> [C.CmdOption]
-getCmdOptions = rattleCmdOptions . options
-
 addCmdOptions :: [C.CmdOption] -> Rattle -> Rattle
 addCmdOptions new r@Rattle{options=o@RattleOptions{rattleCmdOptions=old}} =
     r{options = o{rattleCmdOptions = old ++ new}}
@@ -165,7 +162,7 @@ nextSpeculate Rattle{..} S{..}
 
 
 cmdRattle :: Rattle -> [C.CmdOption] -> String -> [String] -> IO ()
-cmdRattle rattle opts exe args = cmdRattleRequired rattle $ Cmd (getCmdOptions rattle ++ opts) exe args
+cmdRattle rattle opts exe args = cmdRattleRequired rattle $ Cmd (rattleCmdOptions (options rattle) ++ opts) exe args
 
 cmdRattleRequired :: Rattle -> Cmd -> IO ()
 cmdRattleRequired rattle@Rattle{..} cmd = withLimit limit $ do
