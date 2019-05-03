@@ -27,7 +27,6 @@ import Data.List.Extra
 import Data.Tuple.Extra
 import System.Time.Extra
 import Control.Monad.IO.Class
-import qualified Debug.Trace as Trace
 
 
 -- | Basic options for configuring rattle.
