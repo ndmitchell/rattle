@@ -95,8 +95,6 @@ executable rattle-demo
         filepath,
         rattle,
         shake,
-        transformers-base,
-        filepattern                    
+        filepattern
     other-modules:
         Builder.FSATrace
-                  
