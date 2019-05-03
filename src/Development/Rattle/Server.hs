@@ -136,7 +136,10 @@ runSpeculate rattle@Rattle{..} = void $ withLimitMaybe limit $ forkIO $
     join $ modifyVar state $ \s -> case s of
         Right s | Just cmd <- nextSpeculate rattle s -> do
             writeIORef speculated True
-            cmdRattleStarted rattle cmd s ["speculating"]
+            -- make sure you clear rattleCmdOptions, see https://github.com/ndmitchell/rattle/issues/8
+            -- otherwise the speculation cache records with the additional rattleCmdOptions, and then
+            -- cmdRattleStarted adds them on all over again
+            cmdRattleStarted rattle{rattleCmdOptions=[]} cmd s ["speculating"]
         _ -> return (s,  return ())
 
 
