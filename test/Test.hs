@@ -57,3 +57,8 @@ main = unless isMac $ withOutput $ \root -> do
 
     putStrLn "Build 5: Rebuild after"
     rattle rattleOptions build
+
+    putStrLn "Build 6: Rebuild from a different directory"
+    createDirectoryIfMissing True "inner"
+    withCurrentDirectory "inner" $
+        rattle rattleOptions $ withCmdOptions [Cwd ".."]  build
