@@ -139,7 +139,7 @@ runSpeculate rattle@Rattle{..} = void $ withLimitMaybe limit $ forkIO $
             -- make sure you clear rattleCmdOptions, see https://github.com/ndmitchell/rattle/issues/8
             -- otherwise the speculation cache records with the additional rattleCmdOptions, and then
             -- cmdRattleStarted adds them on all over again
-            cmdRattleStarted rattle{rattleCmdOptions=[]} cmd s ["speculating"]
+            cmdRattleStarted rattle{options=options{rattleCmdOptions=[]}} cmd s ["speculating"]
         _ -> return (s,  return ())
 
 
