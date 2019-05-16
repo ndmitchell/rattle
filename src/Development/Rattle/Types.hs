@@ -25,25 +25,26 @@ deriving instance Hashable CmdOption
 
 data Trace a = Trace
     {tTime :: Seconds
+    ,tRun :: !T
     ,tRead :: [(FilePath, a)]
     ,tWrite :: [(FilePath, a)]
     } deriving (Show, Read, Functor, Foldable, Traversable, Eq)
 
 instance Semigroup (Trace a) where
-    Trace t1 r1 w1 <> Trace t2 r2 w2 = Trace (max t2 t2) (r1++r2) (w1++w2)
+    Trace t1 tr1 r1 w1 <> Trace t2 tr2 r2 w2 = Trace (max t1 t2) (max tr1 tr2) (r1++r2) (w1++w2)
 
 instance Monoid (Trace a) where
-    mempty = Trace 0.0 [] []
+    mempty = Trace 0.0 (T (-1)) [] []
     mappend = (<>)
 
 instance Hashable a => Hashable (Trace a) where
-  hashWithSalt s (Trace tt tr tw) = hashWithSalt s (tt,tr,tw)
+  hashWithSalt s (Trace tt rr tr tw) = hashWithSalt s (tt,rr,tr,tw)
 
-fsaTrace :: Seconds -> [FSATrace] -> Trace ()
-fsaTrace t [] = Trace t [] []
-fsaTrace t fs = nubTrace . mconcat $ map f fs
+fsaTrace :: Seconds -> T -> [FSATrace] -> Trace ()
+fsaTrace t rr [] = Trace t rr [] []
+fsaTrace t rr fs = nubTrace . mconcat $ map f fs
     where
-        g r w = Trace t (map (,()) r) (map (,()) w)
+        g r w = Trace t rr (map (,()) r) (map (,()) w)
         f (FSAWrite x) = g [] [x]
         f (FSARead x) = g [x] []
         f (FSADelete x) = g [] [x]
@@ -52,11 +53,14 @@ fsaTrace t fs = nubTrace . mconcat $ map f fs
         f (FSATouch x) = g [] [x]
 
 nubTrace :: Ord a => Trace a -> Trace a
-nubTrace (Trace t a b) = Trace t (nubOrd a \\ b) (nubOrd b)
+nubTrace (Trace t r a b) = Trace t r (nubOrd a \\ b) (nubOrd b)
 
 
 newtype T = T Int -- timestamps
-    deriving (Enum,Eq,Ord,Show)
+    deriving (Enum,Eq,Ord,Show,Read)
+
+instance Hashable T where
+  hashWithSalt s (T i) = hashWithSalt s i
 
 t0 :: T
 t0 = T 0

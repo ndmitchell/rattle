@@ -16,8 +16,10 @@ interface Profile {
     name: string; // Name of the thing I built
     execution: seconds; // Seconds I took to execute
     built: int; // number of times built
-    filesWritten: string[]; // files written
-    filesRead: string[]; // files read
+    builtLast: int; // was it built last run? 0 = no; 1 = yes
+    changed: int; // did some output change?
+    filesWritten: Array<[string, int]>; // files written
+    filesRead: Array<[string, int]>; // files read
     readers: pindex[]; // cmds that depend on me (aka they read file(s) i wrote)
     writers: pindex[]; // cmds I depend on (aka i read file(s) they wrote)
     hazards: pindex[]; // cmds that violate consistency with this cmd.
@@ -31,8 +33,10 @@ type ProfileRaw =
     [ string
     , seconds
     , int
-    , string[]
-    , string[]
+    , int
+    , int
+    , Array<[string, int]>
+    , Array<[string, int]>
     , pindex[]
     , pindex[]
     , pindex[]

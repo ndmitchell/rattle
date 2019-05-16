@@ -33,6 +33,7 @@ import Control.Monad.IO.Class
 data RattleOptions = RattleOptions
     {rattleFiles :: FilePath -- ^ Where all my shared files go
     ,rattleSpeculate :: Maybe String -- ^ Should I speculate? Under which key?
+    ,rattleRun :: String -- ^ Key to store run# 
     ,rattleShare :: Bool -- ^ Should I share files from the cache
     ,rattleProcesses :: Int -- ^ Number of simulateous processes
     ,rattleCmdOptions :: [C.CmdOption] -- ^ Extra options added to every command line
@@ -40,7 +41,7 @@ data RattleOptions = RattleOptions
 
 -- | Default 'RattleOptions' value.
 rattleOptions :: RattleOptions
-rattleOptions = RattleOptions ".rattle" (Just "") True 8 []
+rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 8 []
 
 data ReadOrWrite = Read | Write deriving (Show,Eq)
 
@@ -85,6 +86,7 @@ instance Exception Hazard
 data Rattle = Rattle
     {options :: RattleOptions
     ,speculate :: [(Cmd, [Trace Hash])] -- ^ Things that were used in the last speculation with this name
+    ,runNum :: !T -- ^ Run# we are on
     ,state :: Var (Either Problem S)
     ,speculated :: IORef Bool
     ,limit :: Limit
@@ -99,6 +101,7 @@ withRattle :: RattleOptions -> (Rattle -> IO a) -> IO a
 withRattle options@RattleOptions{..} act = withShared rattleFiles $ \shared -> do
     speculate <- maybe (return []) (getSpeculate shared) rattleSpeculate
     speculate <- fmap (takeWhile (not . null . snd)) $ forM speculate $ \x -> (x,) <$> unsafeInterleaveIO (getCmdTraces shared x)
+    runNum <- nextRun shared rattleRun
     speculated <- newIORef False
     let s0 = Right $ S t0 Map.empty [] Map.empty [] []
     state <- newVar s0
@@ -218,10 +221,10 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
                     timer <- liftIO offsetTime
                     c <- C.cmd opts exe args
                     end <- timer
-                    t <- return $ fsaTrace end c
+                    t <- return $ fsaTrace end runNum c
                     let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x
                     let f xs = mapMaybeM (\x -> fmap (x,) <$> hashFile x) $ filter (not . skip) $ map fst xs
-                    t <- Trace (tTime t) <$> f (tRead t) <*> f (tWrite t)
+                    t <- Trace (tTime t) (tRun t) <$> f (tRead t) <*> f (tWrite t)
                     when (rattleShare options) $
                         forM_ (tWrite t) $ \(fp, h) ->
                             setFile shared fp h ((== Just h) <$> hashFile fp)

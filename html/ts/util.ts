@@ -82,6 +82,10 @@ function showRun(run: timestamp): string {
     return run === 0 ? "Latest run" : run + " run" + plural(run) + " ago";
 }
 
+function showBool(b: int): string {
+    return b === 1 ? "True" : "False";
+}
+
 function plural(n: int, not1 = "s", is1 = ""): string {
     return n === 1 ? is1 : not1;
 }
@@ -209,7 +213,6 @@ Array.prototype.minimum = function<T>(this: number[], def?: number): number {
         res = Math.min(res, this[i]);
     return res;
 };
-
 
 // Use JSX with el instead of React.createElement
 // Originally from https://gist.github.com/sergiodxa/a493c98b7884128081bb9a281952ef33

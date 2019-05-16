@@ -20,6 +20,7 @@ import qualified Data.HashMap.Strict as Map
 import qualified Data.HashSet as Set
 import System.Time.Extra
 import Numeric.Extra
+import Debug.Trace as Trace
 
 -- edge is directed based on order cmd were listed in script
 -- end1 was listed before end2. helps determine read/write hazards
@@ -41,6 +42,10 @@ getCmdsTraces options@RattleOptions{..} = withShared rattleFiles$ \shared -> do
   cmds <- maybe (return []) (getSpeculate shared) rattleSpeculate
   fmap (takeWhile (not . null . snd)) $ forM cmds $ \x -> (x,) <$> getCmdTraces shared x
 
+getLastRun :: RattleOptions -> IO (Maybe T)
+getLastRun options@RattleOptions{..} = withShared rattleFiles $ \shared -> do
+  lastRun shared rattleRun
+  
 constructGraph :: RattleOptions -> IO Graph
 constructGraph options@RattleOptions{..} = do
   cmdsWTraces <- getCmdsTraces options
@@ -59,10 +64,11 @@ graphData options = do
 writeProfile :: RattleOptions -> FilePath -> IO ()
 writeProfile options out = do
   graph <- constructGraph options
-  writeProfileInternal out graph
+  runNum <- getLastRun options
+  writeProfileInternal out graph runNum
 
-writeProfileInternal :: FilePath -> Graph -> IO ()
-writeProfileInternal out g = LBS.writeFile out =<< generateHTML g
+writeProfileInternal :: FilePath -> Graph -> Maybe T -> IO ()
+writeProfileInternal out g t = LBS.writeFile out =<< generateHTML g t
 
 {- build graph using trace info
    Add an edge between 2 nodes if they both write the same file
@@ -131,36 +137,6 @@ dotStringOfGraph options = do
   edges <- constructGraph options
   generateDotString edges
 
-{-
-predictParallelism :: RattleOptions -> IO [[Cmd]]
-predictParallelism  options = do
-  edges <- constructGraph options
-  return $ calculateParallelism edges
-
-
-calculateParallelism :: [Edge] -> [[Cmd]]
-calculateParallelism xs = calculateParallelismDriver xs HashMap.empty
-
-{- what is the best way to present this? -}
-calculateParallelismDriver :: [Edge] -> Map Cmd () -> [[Cmd]]
-calculateParallelismDriver [] m =
-calculateParallelismDriver (e:es) m =
-  -- for each edge e, with end1 and end2.
-  -- for end2 ; say new level is level(end1) + 1;
-  -- set level of end2 to new level if current level is less than new level
-  let c1 = fst $ end1 e
-      c2 = fst $ end2 e in
-    let (v, nm) = case HashMap.lookup c1 m of
-                    Just v  -> (v, m)
-                    Nothing -> (1, HashMap.insert c1 1 m) in -- add c1 at a level of 1.
-      case HashMap.lookup c2 m of
-        Just v2 -> if (v + 1) > v2
-                   then calculateParallelismDriver es $ HashMap.insert c2 (v + 1) m
-                   else calculateParallelismDriver es m
-        Nothing -> calculateParallelismDriver es $ HashMap.insert c2 (v + 1) m
-
--}
-
 graphRoots :: [(Cmd,[Trace Hash])] -> [Edge] -> [(Cmd,[Trace Hash])]
 graphRoots = foldr (delete . end2)
 
@@ -188,10 +164,10 @@ spanCmd cmd@(c,ts) cmds =
 parallelism :: Graph -> Seconds
 parallelism g = work g / spanGraph g
 
-generateHTML :: Graph -> IO LBS.ByteString
-generateHTML xs = do
+generateHTML :: Graph -> Maybe T -> IO LBS.ByteString
+generateHTML xs t = do
   report <- readDataFileHTML "profile.html"
-  let f "data/profile-data.js" = return $ LBS.pack $ "var profile =\n" ++ generateJSON xs
+  let f "data/profile-data.js" = return $ LBS.pack $ "var profile =\n" ++ generateJSON xs t
   runTemplate f report
 
 allWrites :: [Trace Hash] -> [FilePath]
@@ -201,6 +177,21 @@ allWrites (x:xs) = Set.toList $ foldl' (\s (fp,_) -> Set.insert fp s) (Set.fromL
 allReads :: [Trace Hash] -> [FilePath]
 allReads [] = []
 allReads (x:xs) = Set.toList $ foldl' (\s (fp,_) -> Set.insert fp s) (Set.fromList $ allReads xs) $ tRead x
+
+changedFiles :: ((Trace Hash) -> [(FilePath,Hash)]) -> [Trace Hash] -> Maybe T -> Set.HashSet FilePath
+changedFiles _ _ Nothing = Set.empty
+changedFiles _ [] _ = Set.empty
+changedFiles f (x:xs) (Just t) = if t == tRun x
+                                 then g x xs
+                                 else Set.empty
+  where g x [] = Set.fromList $ map fst $ f x
+        g x (y:ys) = Set.map fst $ Set.difference (Set.fromList $ f x) (Set.fromList $ f y)
+
+changedWrites :: [Trace Hash] -> Maybe T -> Set.HashSet FilePath
+changedWrites = changedFiles tWrite
+
+changedReads :: [Trace Hash] -> Maybe T -> Set.HashSet FilePath
+changedReads = changedFiles tRead
 
 cmdIndex :: (Cmd,[Trace Hash]) -> [(Cmd,[Trace Hash])] -> Int
 cmdIndex x cmds = fromMaybe (-1) $ elemIndex x cmds
@@ -225,19 +216,37 @@ readersWritersHazards c cmds =
                       else (ls1,ls2,ls3)) -- does not belong to this edge
   ([],[],[])
 
-generateJSON :: Graph -> String
-generateJSON Graph{..} = jsonListLines $ map (showCmdTrace nodes) nodes
+generateJSON :: Graph -> Maybe T -> String
+generateJSON Graph{..} t = jsonListLines $ map (showCmdTrace nodes) nodes
   where showCmdTrace cmds cmd@(cmdName,ts) =
-          let (readers,writers,hazards) = readersWritersHazards cmd cmds edges in
+          let (readers,writers,hazards) = readersWritersHazards cmd cmds edges
+              cw = changedWrites ts t
+              cr = changedReads ts t
+              built = if null ts -- was this command run in the last run?
+                      then 0
+                      else case t of
+                             Nothing -> 0
+                             (Just t) -> if (tRun $ head ts) == t then 1 else 0
+              changed = if null cw
+                        then 0
+                        else 1   -- did the output of this command change in the last run?
+              p1 = map (\w -> if Set.member w cw
+                              then (w,1)
+                              else (w,0)) $ allWrites ts
+              p2 = map (\r -> if Set.member r cr
+                              then (r,1)
+                              else (r,0)) $ allReads ts in
             jsonList
             [showCmd cmdName
             ,showTime $ maxTTime ts -- max time of all traces
             ,show $ length ts -- number of times traced
-            ,show $ allWrites ts -- all files written during all traces
-            ,show $ allReads ts -- all files read during all traces
+            ,show built
+            ,show changed
+            ,jsonList $ map jsonPair p1  -- all files written during all traces
+            ,jsonList $ map jsonPair p2  -- all files read during all traces
             ,show readers -- list of readers with no hazard; depend on me
             ,show writers -- list of writers with no hazard; depend on them
-            ,show hazards] -- list of cmds this cmd has a hazrd with
+            ,show hazards] -- list of cmds this cmd has a hazard with
         showTime x = if '.' `elem` y
                      then dropWhileEnd (== '.') $ dropWhileEnd (== '0') y
                      else y
@@ -246,3 +255,4 @@ generateJSON Graph{..} = jsonListLines $ map (showCmdTrace nodes) nodes
 
 jsonListLines xs = "[" ++ intercalate "\n," xs ++ "\n]"
 jsonList xs = "[" ++ intercalate "," xs ++ "]"
+jsonPair (f,i) = "[" ++ show f ++ "," ++ show i ++ "]"
