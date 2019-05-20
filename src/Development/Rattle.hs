@@ -12,6 +12,7 @@ module Development.Rattle(
     RattleOptions(..), rattleOptions,
     cmd, CmdOption(..), withCmdOptions,
     parallel, forP,
+    memo, memoRec,
     liftIO, writeProfile, graphData,
     initDataDirectory
     ) where
@@ -19,7 +20,11 @@ module Development.Rattle(
 import Control.Concurrent.Async
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
+import Control.Monad
 import Data.Either.Extra
+import Control.Concurrent.Extra
+import qualified Data.HashMap.Strict as Map
+import Data.Hashable
 import General.Paths
 import Development.Shake.Command
 import Development.Rattle.Server
@@ -58,3 +63,19 @@ instance a ~ () => CmdArguments (Run a) where
 rattle :: RattleOptions -> Run a -> IO a
 rattle opts (Run act) = withRattle opts $ \r ->
     runReaderT act r
+
+
+memo :: (Eq a, Hashable a, MonadIO m) => (a -> m b) -> m (a -> m b)
+memo f = memoRec $ const f
+
+
+memoRec :: (Eq a, Hashable a, MonadIO m) => ((a -> m b) -> a -> m b) -> m (a -> m b)
+memoRec f = do
+    var <- liftIO $ newVar Map.empty
+    let go x = do
+            join $ liftIO $ modifyVar var $ \mp -> case Map.lookup x mp of
+                Just bar -> return (mp, liftIO $ waitBarrier bar)
+                Nothing -> do
+                    bar <- newBarrier
+                    return (Map.insert x bar mp, do v <- f go x; liftIO $ signalBarrier bar v; return v)
+    return go
