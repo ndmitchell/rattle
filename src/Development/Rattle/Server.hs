@@ -126,7 +126,7 @@ withRattle options@RattleOptions{..} act = withShared rattleFiles $ \shared -> d
 
 
 runSpeculate :: Rattle -> IO ()
-runSpeculate rattle@Rattle{..} = void $ withLimitMaybe limit $ forkIO $
+runSpeculate rattle@Rattle{..} = void $ forkIO $ void $ withLimitMaybe limit $
     -- speculate on a process iff it is the first process in speculate that:
     -- 1) we have some parallelism free
     -- 2) it is the first eligible in the list
