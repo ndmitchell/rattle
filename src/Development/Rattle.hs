@@ -72,7 +72,7 @@ memo f = memoRec $ const f
 memoRec :: (Eq a, Hashable a, MonadIO m) => ((a -> m b) -> a -> m b) -> m (a -> m b)
 memoRec f = do
     var <- liftIO $ newVar Map.empty
-    let go x = do
+    let go x =
             join $ liftIO $ modifyVar var $ \mp -> case Map.lookup x mp of
                 Just bar -> return (mp, liftIO $ waitBarrier bar)
                 Nothing -> do
