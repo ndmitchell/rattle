@@ -64,11 +64,11 @@ rattle :: RattleOptions -> Run a -> IO a
 rattle opts (Run act) = withRattle opts $ \r ->
     runReaderT act r
 
-
+-- | Memoize an IO action
 memo :: (Eq a, Hashable a, MonadIO m) => (a -> m b) -> m (a -> m b)
 memo f = memoRec $ const f
 
-
+-- | Memoize an IO action which is recursive
 memoRec :: (Eq a, Hashable a, MonadIO m) => ((a -> m b) -> a -> m b) -> m (a -> m b)
 memoRec f = do
     var <- liftIO $ newVar Map.empty
