@@ -38,7 +38,7 @@ parallel xs = do
     liftIO $ mapConcurrently (flip runReaderT r . fromRun) xs
 
 -- | Parallel version of 'forM'.
-forP :: [a] -> (a -> Run b) ->Run [b]
+forP :: [a] -> (a -> Run b) -> Run [b]
 forP xs f = parallel $ map f xs
 
 
