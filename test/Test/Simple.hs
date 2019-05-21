@@ -13,7 +13,7 @@ import Control.Monad.Extra
 
 
 -- Don't run on Mac because of https://github.com/jacereda/fsatrace/issues/25
-main = unless isMac $ withOutput $ \root -> do
+main = unless isMac $ do
     let wipe = mapM (ignoreIO . removeFile) =<< getDirectoryFiles "." ["*"]
     cs <- liftIO $ getDirectoryFiles "." [root </> "test/C/*.c"]
     let toO x = takeBaseName x <.> "o"

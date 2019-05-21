@@ -13,8 +13,7 @@ module Development.Rattle(
     cmd, CmdOption(..), withCmdOptions,
     parallel, forP,
     memo, memoRec,
-    liftIO, writeProfile, graphData,
-    initDataDirectory
+    liftIO, writeProfile, graphData
     ) where
 
 import Control.Concurrent.Async
@@ -25,7 +24,6 @@ import Data.Either.Extra
 import Control.Concurrent.Extra
 import qualified Data.HashMap.Strict as Map
 import Data.Hashable
-import General.Paths
 import Development.Shake.Command
 import Development.Rattle.Server
 import Development.Rattle.Profile
