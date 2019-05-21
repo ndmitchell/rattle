@@ -29,7 +29,7 @@ main = testGit "https://github.com/jacereda/fsatrace" $ do
     let ldlibs = if isWindows then "-lntdll -lpsapi" else "-ldl -lrt"
     let ldobjs = ["CRT_noglob.o" | isWindows && False]
 
-    forP (srcs ++ if isWindows then dllsrcs else sosrcs) $ \x ->
+    forP_ (srcs ++ if isWindows then dllsrcs else sosrcs) $ \x ->
         cmd "gcc -c" ["-fPIC" | not isWindows] cppflags cflags x "-o" (x -<.> "o")
     let os = map (-<.> "o")
 

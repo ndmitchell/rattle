@@ -11,7 +11,7 @@ module Development.Rattle(
     Hazard,
     RattleOptions(..), rattleOptions,
     cmd, CmdOption(..), withCmdOptions,
-    parallel, forP,
+    parallel, forP, forP_,
     memo, memoRec,
     liftIO, writeProfile, graphData
     ) where
@@ -43,6 +43,10 @@ parallel xs = do
 -- | Parallel version of 'forM'.
 forP :: [a] -> (a -> Run b) -> Run [b]
 forP xs f = parallel $ map f xs
+
+-- | Parallel version of 'forM'.
+forP_ :: [a] -> (a -> Run b) -> Run ()
+forP_ xs f = void $ forP xs f
 
 
 -- | Apply specific options ot all nested Run values.
