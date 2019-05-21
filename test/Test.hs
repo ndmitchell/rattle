@@ -1,10 +1,30 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Test(main) where
+
+import Control.Monad
+import System.Environment
+import System.Exit
 
 import qualified Test.Limit
 import qualified Test.Simple
 
+tests =
+    ["limit" * Test.Limit.main
+    ,"simple" * Test.Simple.main
+    ]
+    where (*) = (,)
+
 main = do
-    Test.Limit.main
-    Test.Simple.main
+    args <- getArgs
+    case args of
+        [] -> do
+            forM_ tests $ \(name, act) -> do
+                putStrLn $ "\n# Test " ++ name
+                act
+        name:args
+            | Just act <- lookup name tests -> do
+                putStrLn $ "\n# Test " ++ name
+                withArgs args act
+        _ -> do
+            putStrLn $ "Unknown arguments, expected one of\n  " ++ unwords (map fst tests)
+            exitFailure
