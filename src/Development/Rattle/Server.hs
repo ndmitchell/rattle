@@ -4,7 +4,8 @@ module Development.Rattle.Server(
     RattleOptions(..), rattleOptions,
     Rattle, withRattle,
     Hazard(..),
-    addCmdOptions, cmdRattle
+    addCmdOptions, cmdRattle,
+    addIgnore
     ) where
 
 import Control.Monad.Extra
@@ -16,6 +17,7 @@ import Control.Exception.Extra
 import Control.Concurrent.Extra
 import General.Extra
 import System.FilePath
+import System.FilePattern
 import qualified Data.ByteString.Char8 as BS
 import System.IO.Unsafe(unsafeInterleaveIO)
 import qualified Development.Shake.Command as C
@@ -37,11 +39,12 @@ data RattleOptions = RattleOptions
     ,rattleShare :: Bool -- ^ Should I share files from the cache
     ,rattleProcesses :: Int -- ^ Number of simulateous processes
     ,rattleCmdOptions :: [C.CmdOption] -- ^ Extra options added to every command line
+    ,rattleIgnore :: [FilePattern] -- ^ Rattle files to ignore
     } deriving Show
 
 -- | Default 'RattleOptions' value.
 rattleOptions :: RattleOptions
-rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 8 []
+rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 8 [] []
 
 data ReadOrWrite = Read | Write deriving (Show,Eq)
 
@@ -96,6 +99,11 @@ data Rattle = Rattle
 addCmdOptions :: [C.CmdOption] -> Rattle -> Rattle
 addCmdOptions new r@Rattle{options=o@RattleOptions{rattleCmdOptions=old}} =
     r{options = o{rattleCmdOptions = old ++ new}}
+
+addIgnore :: [FilePattern] -> Rattle -> Rattle
+addIgnore new r@Rattle{options=o@RattleOptions{rattleIgnore=old}} =
+    r{options = o{rattleIgnore = old ++ new}}
+
 
 withRattle :: RattleOptions -> (Rattle -> IO a) -> IO a
 withRattle options@RattleOptions{..} act = withShared rattleFiles $ \shared -> do
@@ -222,7 +230,8 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
                     c <- C.cmd opts exe args
                     end <- timer
                     t <- return $ fsaTrace end runNum c
-                    let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x
+                    let pats = matchMany (map ((),) $ rattleIgnore rattleOptions)
+                    let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x || pats [((),x)] /= []
                     let f xs = mapMaybeM (\x -> fmap (x,) <$> hashFile x) $ filter (not . skip) $ map fst xs
                     t <- Trace (tTime t) (tRun t) <$> f (tRead t) <*> f (tWrite t)
                     when (rattleShare options) $

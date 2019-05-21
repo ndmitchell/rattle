@@ -42,6 +42,7 @@ library
         directory,
         extra >= 1.6.14,
         filepath,
+        filepattern,
         hashable >= 1.1.2.3,
         shake >= 0.17.8,
         time,
