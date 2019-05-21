@@ -108,6 +108,7 @@ test-suite rattle-test
         General.Template
         Paths_rattle
         Test.Example.FSATrace
+        Test.Example.Stack
         Test.Simple
         Test.Limit
         Test.Type
