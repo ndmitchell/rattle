@@ -79,6 +79,7 @@ test-suite rattle-test
         async,
         base >= 4.10 && < 5,
         bytestring,
+        Cabal,
         cryptohash-sha256,
         deepseq >= 1.1,
         directory,
