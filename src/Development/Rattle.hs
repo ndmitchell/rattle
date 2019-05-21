@@ -10,7 +10,7 @@ module Development.Rattle(
     rattle, Run,
     Hazard,
     RattleOptions(..), rattleOptions,
-    cmd, CmdOption(..), withCmdOptions, withIgnore,
+    cmd, CmdOption(..), withCmdOptions,
     parallel, forP, forP_,
     memo, memoRec,
     liftIO, writeProfile, graphData
@@ -20,7 +20,6 @@ import Control.Concurrent.Async
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
 import Control.Monad
-import System.FilePattern
 import Data.Either.Extra
 import Control.Concurrent.Extra
 import qualified Data.HashMap.Strict as Map
@@ -53,9 +52,6 @@ forP_ xs f = void $ forP xs f
 -- | Apply specific options ot all nested Run values.
 withCmdOptions :: [CmdOption] -> Run a -> Run a
 withCmdOptions xs (Run act) = Run $ withReaderT (addCmdOptions xs) act
-
-withIgnore :: [FilePattern] -> Run a -> Run a
-withIgnore xs (Run act) = Run $ withReaderT (addIgnore xs) act
 
 instance a ~ () => CmdArguments (Run a) where
     cmdArguments (CmdArgument x) = case partitionEithers x of
