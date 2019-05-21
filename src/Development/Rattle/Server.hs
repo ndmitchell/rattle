@@ -33,7 +33,7 @@ import Control.Monad.IO.Class
 data RattleOptions = RattleOptions
     {rattleFiles :: FilePath -- ^ Where all my shared files go
     ,rattleSpeculate :: Maybe String -- ^ Should I speculate? Under which key?
-    ,rattleRun :: String -- ^ Key to store run# 
+    ,rattleMachine :: String -- ^ Key to store run# 
     ,rattleShare :: Bool -- ^ Should I share files from the cache
     ,rattleProcesses :: Int -- ^ Number of simulateous processes
     ,rattleCmdOptions :: [C.CmdOption] -- ^ Extra options added to every command line
@@ -101,7 +101,7 @@ withRattle :: RattleOptions -> (Rattle -> IO a) -> IO a
 withRattle options@RattleOptions{..} act = withShared rattleFiles $ \shared -> do
     speculate <- maybe (return []) (getSpeculate shared) rattleSpeculate
     speculate <- fmap (takeWhile (not . null . snd)) $ forM speculate $ \x -> (x,) <$> unsafeInterleaveIO (getCmdTraces shared x)
-    runNum <- nextRun shared rattleRun
+    runNum <- nextRun shared rattleMachine
     speculated <- newIORef False
     let s0 = Right $ S t0 Map.empty [] Map.empty [] []
     state <- newVar s0
