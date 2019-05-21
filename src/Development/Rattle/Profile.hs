@@ -42,7 +42,7 @@ getCmdsTraces options@RattleOptions{..} = withShared rattleFiles$ \shared -> do
   fmap (takeWhile (not . null . snd)) $ forM cmds $ \x -> (x,) <$> getCmdTraces shared x
 
 getLastRun :: RattleOptions -> IO (Maybe T)
-getLastRun options@RattleOptions{..} = withShared rattleFiles $ \shared -> do
+getLastRun options@RattleOptions{..} = withShared rattleFiles $ \shared ->
   lastRun shared rattleRun
   
 constructGraph :: RattleOptions -> IO Graph
@@ -181,7 +181,7 @@ allReads :: [Trace Hash] -> [FilePath]
 allReads [] = []
 allReads (x:xs) = Set.toList $ foldl' (\s (fp,_) -> Set.insert fp s) (Set.fromList $ allReads xs) $ tRead x
 
-changedFiles :: ((Trace Hash) -> [(FilePath,Hash)]) -> [Trace Hash] -> Maybe T -> Set.HashSet FilePath
+changedFiles :: (Trace Hash -> [(FilePath,Hash)]) -> [Trace Hash] -> Maybe T -> Set.HashSet FilePath
 changedFiles _ _ Nothing = Set.empty
 changedFiles _ [] _ = Set.empty
 changedFiles f (x:xs) (Just t) = if t == tRun x
@@ -220,13 +220,13 @@ readersWritersHazards c cmds =
   ([],[],[])
 
 generateJSON :: Graph -> Maybe T -> String
-generateJSON g@Graph{..} t = jsonListLines $ (map (showCmdTrace nodes) nodes) ++ [showRoot]
+generateJSON g@Graph{..} t = jsonListLines $ map (showCmdTrace nodes) nodes ++ [showRoot]
   where showCmdTrace cmds cmd@(cmdName,ts) =
           let (readers,writers,hazards) = readersWritersHazards cmd cmds edges
               cw = changedWrites ts t
               built = if null ts then 0 else case t of  -- was this command run in the last run?
                                                Nothing -> 0
-                                               (Just t) -> if (tRun $ head ts) == t then 1 else 0
+                                               (Just t) -> if tRun (head ts) == t then 1 else 0
               changed = if null cw then 0 else 1   -- did the output of this command change in the last run?
               p1 = map (\w -> if Set.member w cw
                               then (w,1)
@@ -254,7 +254,7 @@ generateJSON g@Graph{..} t = jsonListLines $ (map (showCmdTrace nodes) nodes) ++
                    ,"[]"
                    ,"[]"
                    ,"[]"
-                   ,show $ map (\c -> cmdIndex c nodes) $ graphLeaves nodes edges
+                   ,show $ map (`cmdIndex` nodes) $ graphLeaves nodes edges
                    ,"[]"]
         showTime x = if '.' `elem` y
                      then dropWhileEnd (== '.') $ dropWhileEnd (== '0') y
