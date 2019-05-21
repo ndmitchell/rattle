@@ -230,7 +230,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
                     c <- C.cmd opts exe args
                     end <- timer
                     t <- return $ fsaTrace end runNum c
-                    let pats = matchMany (map ((),) $ rattleIgnore rattleOptions)
+                    let pats = matchMany (map ((),) $ rattleIgnore options)
                     let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x || pats [((),x)] /= []
                     let f xs = mapMaybeM (\x -> fmap (x,) <$> hashFile x) $ filter (not . skip) $ map fst xs
                     t <- Trace (tTime t) (tRun t) <$> f (tRead t) <*> f (tWrite t)
