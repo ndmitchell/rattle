@@ -4,7 +4,8 @@ module Development.Rattle.Shared(
     Shared, withShared,
     getSpeculate, setSpeculate,
     getFile, setFile,
-    getCmdTraces, addCmdTrace
+    getCmdTraces, addCmdTrace,
+    nextRun, lastRun
     ) where
 
 import General.Extra
@@ -46,6 +47,21 @@ setList typ mode (Shared lock dir) name vals = withLock lock $ do
         hSetEncoding h utf8
         hPutStr h $ unlines $ map show vals
 
+nextRun :: Shared -> String -> IO T
+nextRun s n = do
+  ls <- getList "run" s n
+  case ls of
+    [] -> setRun t0 >> return t0
+    [t] -> let t1 = succ t in
+             setRun t1 >> return t1
+  where setRun t = setList "run" WriteMode s n [t]
+
+lastRun :: Shared -> String -> IO (Maybe T)
+lastRun s n = do
+  ls <- getList "run" s n
+  case ls of
+    [] -> return Nothing
+    [t] -> return $ Just t
 
 getSpeculate :: Shared -> String -> IO [Cmd]
 getSpeculate = getList "speculate"
