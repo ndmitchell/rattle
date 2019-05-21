@@ -5,6 +5,12 @@
 # There are lots of internals of Rattle want to test, but don't want to expose
 - message: Module reused between components
 
+# There are a few general modules that offer a complete interface,
+# but only a subset is used here
+- message:
+  - name: Weeds exported
+  - module: [General.Bilist]
+
 # Module still in development
 - message:
   - name: Weeds exported
