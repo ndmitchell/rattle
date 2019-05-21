@@ -5,10 +5,12 @@ module Test.Type(
     ignoreIO,
     assertWithin,
     (===),
-    meetup
+    meetup,
+    testGit
     ) where
 
 import Development.Rattle
+import Development.Shake.Command
 import System.Time.Extra
 import Control.Monad
 import Control.Concurrent.QSemN
@@ -50,3 +52,12 @@ meetup n = do
         signalQSemN sem 1
         waitQSemN sem n
         signalQSemN sem n
+
+
+testGit :: String -> Run () -> IO ()
+testGit url run = do
+    b <- doesDirectoryExist ".git"
+    if b then cmd "git fetch" else cmd_ "git clone" url "."
+    forM_ [10,9..0] $ \i -> do
+        cmd_ "git reset --hard" ["origin/master~" ++ show i]
+        rattle rattleOptions run

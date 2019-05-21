@@ -9,12 +9,14 @@ import System.Exit
 import System.FilePath
 import General.Paths
 
+import qualified Test.Example.FSATrace
 import qualified Test.Limit
 import qualified Test.Simple
 
 tests =
     ["limit" * Test.Limit.main
     ,"simple" * Test.Simple.main
+    ,"fsatrace" * Test.Example.FSATrace.main
     ]
     where
         name * act = (name,) $ do
