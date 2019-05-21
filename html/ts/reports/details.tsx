@@ -1,4 +1,12 @@
 
+function showFile(p: [string, int]): HTMLElement {
+    if (p[1] ) {
+        return <li><b>{p[0]}</b></li>;
+    } else {
+        return <li>{p[0]}</li>;
+    }
+}
+
 function reportDetails(profile: Profile[], search: Prop<Search>): HTMLElement {
     const result = <div class="details"></div>;
     const self: Prop<pindex> = new Prop(0);
@@ -9,6 +17,8 @@ function reportDetails(profile: Profile[], search: Prop<Search>): HTMLElement {
         const content = <ul>
             <li><b>Name:</b> {p.name}</li>
             <li><b>Built:</b> {showRun(p.built)}</li>
+            <li><b>Built last run:</b> {showBool(p.builtLast)}</li>
+            <li><b>Changed:</b> {showBool(p.changed)}</li>
             <li><b>Execution time:</b>{showTime(p.execution)}</li>
             <li><b>Cmds that wrote files I read:</b>
                 <ol>
@@ -25,14 +35,14 @@ function reportDetails(profile: Profile[], search: Prop<Search>): HTMLElement {
                     {p.hazards.map(d => <li>{f(d)}</li>)}
                 </ul>
             </li>
-            <li><b>Files I wrote:</b>
+            <li><b>Files I wrote (bold files changed last run):</b>
                 <ul>
-                    {p.filesWritten.map(f => <b>{f}</b>)}
+                    {p.filesWritten.map(f => showFile(f))}
                 </ul>
             </li>
-            <li><b>Files I read:</b>
+            <li><b>Files I read (bold files changed last run):</b>
                 <ul>
-                    {p.filesRead.map(f => <b>{f}</b>)}
+                    {p.filesRead.map(f => showFile(f))}
                 </ul>
             </li>
         </ul>;

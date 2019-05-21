@@ -94,11 +94,13 @@ function unraw(xs) {
         name: x[0],
         execution: x[1],
         built: x[2],
-        filesWritten: x[3],
-        filesRead: x[4],
-        readers: x[5],
-        writers: x[6],
-        hazards: x[7] // depends and rdepends that violate consistency
+        builtLast: x[3],
+        changed: x[4],
+        filesWritten: x[5],
+        filesRead: x[6],
+        readers: x[7],
+        writers: x[8],
+        hazards: x[9] // depends and rdepends that violate consistency
     }));
     return ans;
 }
@@ -363,6 +365,9 @@ function showInt(x) {
 function showRun(run) {
     return run === 0 ? "Latest run" : run + " run" + plural(run) + " ago";
 }
+function showBool(b) {
+    return b === 1 ? "True" : "False";
+}
 function plural(n, not1 = "s", is1 = "") {
     return n === 1 ? is1 : not1;
 }
@@ -482,6 +487,15 @@ function createElement(type, props, ...children) {
 }
 // How .tsx gets desugared
 const React = { createElement };
+function showFile(p) {
+    if (p[1]) {
+        return React.createElement("li", null,
+            React.createElement("b", null, p[0]));
+    }
+    else {
+        return React.createElement("li", null, p[0]);
+    }
+}
 function reportDetails(profile, search) {
     const result = React.createElement("div", { class: "details" });
     const self = new Prop(0);
@@ -499,6 +513,14 @@ function reportDetails(profile, search) {
                 " ",
                 showRun(p.built)),
             React.createElement("li", null,
+                React.createElement("b", null, "Built last run:"),
+                " ",
+                showBool(p.builtLast)),
+            React.createElement("li", null,
+                React.createElement("b", null, "Changed:"),
+                " ",
+                showBool(p.changed)),
+            React.createElement("li", null,
                 React.createElement("b", null, "Execution time:"),
                 showTime(p.execution)),
             React.createElement("li", null,
@@ -511,11 +533,11 @@ function reportDetails(profile, search) {
                 React.createElement("b", null, "Cmds that I have a hazard with:"),
                 React.createElement("ul", null, p.hazards.map(d => React.createElement("li", null, f(d))))),
             React.createElement("li", null,
-                React.createElement("b", null, "Files I wrote:"),
-                React.createElement("ul", null, p.filesWritten.map(f => React.createElement("b", null, f)))),
+                React.createElement("b", null, "Files I wrote (bold files changed last run):"),
+                React.createElement("ul", null, p.filesWritten.map(f => showFile(f)))),
             React.createElement("li", null,
-                React.createElement("b", null, "Files I read:"),
-                React.createElement("ul", null, p.filesRead.map(f => React.createElement("b", null, f)))));
+                React.createElement("b", null, "Files I read (bold files changed last run):"),
+                React.createElement("ul", null, p.filesRead.map(f => showFile(f)))));
         $(result).empty().append(content);
     });
     return result;

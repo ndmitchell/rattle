@@ -9,11 +9,13 @@ function unraw(xs: ProfileRaw[]): Profile[] {
         name: x[0],
         execution: x[1], // max time to build
         built: x[2], // number of times traced
-        filesWritten: x[3],
-        filesRead: x[4],
-        readers: x[5], // rdepends
-        writers: x[6], // depends
-        hazards: x[7] // depends and rdepends that violate consistency
+        builtLast: x[3], // was it built last run?
+        changed: x[4], // did any output files change during last build?
+        filesWritten: x[5],
+        filesRead: x[6],
+        readers: x[7], // rdepends
+        writers: x[8], // depends
+        hazards: x[9] // depends and rdepends that violate consistency
     } as Profile));
     return ans;
 }
