@@ -20,7 +20,6 @@ import qualified Data.HashMap.Strict as Map
 import qualified Data.HashSet as Set
 import System.Time.Extra
 import Numeric.Extra
-import Debug.Trace as Trace
 
 -- edge is directed based on order cmd were listed in script
 -- end1 was listed before end2. helps determine read/write hazards
@@ -140,11 +139,15 @@ dotStringOfGraph options = do
 graphRoots :: [(Cmd,[Trace Hash])] -> [Edge] -> [(Cmd,[Trace Hash])]
 graphRoots = foldr (delete . end2)
 
-maxTTime :: [Trace Hash] -> Seconds
-maxTTime xs = maximum $ 0 : map tTime xs
+graphLeaves :: [(Cmd,[Trace Hash])] -> [Edge] -> [(Cmd,[Trace Hash])]
+graphLeaves = foldr (delete . end1)
+
+firstTTime :: [Trace Hash] -> Seconds
+firstTTime [] = 0
+firstTTime xs = tTime $ head xs
 
 work :: Graph -> Seconds
-work (Graph ns es) = sum $ map (maxTTime . snd) ns
+work (Graph ns es) = sum $ map (firstTTime . snd) ns
 
 spanGraph :: Graph -> Seconds
 spanGraph (Graph ns es) =
@@ -158,8 +161,8 @@ spanGraph (Graph ns es) =
 spanCmd :: (Cmd, [Trace Hash]) -> Map.HashMap (Cmd, [Trace Hash]) [(Cmd,[Trace Hash])] -> Seconds
 spanCmd cmd@(c,ts) cmds =
   case Map.lookup cmd cmds of
-    Nothing -> maxTTime ts
-    Just ls -> maxTTime ts + foldl (\m c -> max m $ spanCmd c cmds) 0.0 ls
+    Nothing -> firstTTime ts
+    Just ls -> firstTTime ts + foldl (\m c -> max m $ spanCmd c cmds) 0.0 ls
 
 parallelism :: Graph -> Seconds
 parallelism g = work g / spanGraph g
@@ -217,28 +220,23 @@ readersWritersHazards c cmds =
   ([],[],[])
 
 generateJSON :: Graph -> Maybe T -> String
-generateJSON Graph{..} t = jsonListLines $ map (showCmdTrace nodes) nodes
+generateJSON g@Graph{..} t = jsonListLines $ (map (showCmdTrace nodes) nodes) ++ [showRoot]
   where showCmdTrace cmds cmd@(cmdName,ts) =
           let (readers,writers,hazards) = readersWritersHazards cmd cmds edges
               cw = changedWrites ts t
-              cr = changedReads ts t
-              built = if null ts -- was this command run in the last run?
-                      then 0
-                      else case t of
-                             Nothing -> 0
-                             (Just t) -> if (tRun $ head ts) == t then 1 else 0
-              changed = if null cw
-                        then 0
-                        else 1   -- did the output of this command change in the last run?
+              built = if null ts then 0 else case t of  -- was this command run in the last run?
+                                               Nothing -> 0
+                                               (Just t) -> if (tRun $ head ts) == t then 1 else 0
+              changed = if null cw then 0 else 1   -- did the output of this command change in the last run?
               p1 = map (\w -> if Set.member w cw
                               then (w,1)
                               else (w,0)) $ allWrites ts
-              p2 = map (\r -> if Set.member r cr
+              p2 = map (\r -> if Set.member r $ changedReads ts t
                               then (r,1)
                               else (r,0)) $ allReads ts in
             jsonList
             [showCmd cmdName
-            ,showTime $ maxTTime ts -- max time of all traces
+            ,showTime $ firstTTime ts -- max time of all traces
             ,show $ length ts -- number of times traced
             ,show built
             ,show changed
@@ -247,6 +245,17 @@ generateJSON Graph{..} t = jsonListLines $ map (showCmdTrace nodes) nodes
             ,show readers -- list of readers with no hazard; depend on me
             ,show writers -- list of writers with no hazard; depend on them
             ,show hazards] -- list of cmds this cmd has a hazard with
+        showRoot = jsonList
+                   [show "root"
+                   ,showTime 0
+                   ,show (-1)
+                   ,show 1
+                   ,show 0
+                   ,"[]"
+                   ,"[]"
+                   ,"[]"
+                   ,show $ map (\c -> cmdIndex c nodes) $ graphLeaves nodes edges
+                   ,"[]"]
         showTime x = if '.' `elem` y
                      then dropWhileEnd (== '.') $ dropWhileEnd (== '0') y
                      else y
