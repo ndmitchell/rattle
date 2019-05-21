@@ -2,7 +2,9 @@
 
 module Test(main) where
 
+import qualified Test.Limit
 import qualified Test.Simple
 
-main =
+main = do
+    Test.Limit.main
     Test.Simple.main

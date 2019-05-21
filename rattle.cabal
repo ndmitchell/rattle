@@ -70,20 +70,44 @@ library
 test-suite rattle-test
     default-language: Haskell2010
     type: exitcode-stdio-1.0
-    hs-source-dirs: test
+    hs-source-dirs: test, src
     main-is: Test.hs
     ghc-options: -main-is Test.main -rtsopts -threaded
 
     build-depends:
+        async,
         base >= 4.10 && < 5,
+        bytestring,
+        cryptohash-sha256,
+        deepseq >= 1.1,
         directory,
-        extra,
+        extra >= 1.6.14,
+        filepath,
         filepattern,
-        rattle,
-        shake
+        hashable >= 1.1.2.3,
+        shake >= 0.17.8,
+        time,
+        transformers >= 0.2,
+        unordered-containers >= 0.2.7,
+        js-dgtable,
+        js-flot,
+        js-jquery
 
     other-modules:
+        Development.Rattle
+        Development.Rattle.Hash
+        Development.Rattle.Limit
+        Development.Rattle.Profile
+        Development.Rattle.Server
+        Development.Rattle.Shared
+        Development.Rattle.Types
+        General.Bilist
+        General.Extra
+        General.Paths
+        General.Template
+        Paths_rattle
         Test.Simple
+        Test.Limit
         Test.Type
 
 executable rattle-demo
