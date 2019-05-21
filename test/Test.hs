@@ -17,7 +17,7 @@ tests =
 main = do
     args <- getArgs
     case args of
-        [] -> do
+        [] ->
             forM_ tests $ \(name, act) -> do
                 putStrLn $ "\n# Test " ++ name
                 act
