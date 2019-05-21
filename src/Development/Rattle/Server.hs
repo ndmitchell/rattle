@@ -33,7 +33,7 @@ import Control.Monad.IO.Class
 data RattleOptions = RattleOptions
     {rattleFiles :: FilePath -- ^ Where all my shared files go
     ,rattleSpeculate :: Maybe String -- ^ Should I speculate? Under which key?
-    ,rattleMachine :: String -- ^ Key to store run# 
+    ,rattleMachine :: String -- ^ Key to store run#
     ,rattleShare :: Bool -- ^ Should I share files from the cache
     ,rattleProcesses :: Int -- ^ Number of simulateous processes
     ,rattleCmdOptions :: [C.CmdOption] -- ^ Extra options added to every command line
