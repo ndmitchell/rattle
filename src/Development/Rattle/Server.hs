@@ -239,7 +239,8 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
                             setFile shared fp h ((== Just h) <$> hashFile fp)
                     cmdRattleFinished rattle start cmd t True
     where
-        display msgs2 = BS.putStrLn $ BS.pack $ unwords $ "#" : exe : args ++ ["(" ++ unwords (msgs ++ msgs2) ++ ")" | not $ null $ msgs ++ msgs2]
+        display msgs2 = BS.putStrLn $ BS.pack $ unwords $ "#" : cwd ++ exe : args ++ ["(" ++ unwords (msgs ++ msgs2) ++ ")" | not $ null $ msgs ++ msgs2]
+        cwd = ["cd " ++ x ++ " &&" | C.Cwd x <- opts]
 
 -- | I finished running a command
 cmdRattleFinished :: Rattle -> T -> Cmd -> Trace Hash -> Bool -> IO ()
