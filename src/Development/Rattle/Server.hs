@@ -4,8 +4,7 @@ module Development.Rattle.Server(
     RattleOptions(..), rattleOptions,
     Rattle, withRattle,
     Hazard(..), Recoverable(..),
-    addCmdOptions, cmdRattle,
-    addIgnore
+    addCmdOptions, cmdRattle
     ) where
 
 import Control.Monad.Extra
@@ -100,10 +99,6 @@ data Rattle = Rattle
 addCmdOptions :: [C.CmdOption] -> Rattle -> Rattle
 addCmdOptions new r@Rattle{options=o@RattleOptions{rattleCmdOptions=old}} =
     r{options = o{rattleCmdOptions = old ++ new}}
-
-addIgnore :: [FilePattern] -> Rattle -> Rattle
-addIgnore new r@Rattle{options=o@RattleOptions{rattleIgnore=old}} =
-    r{options = o{rattleIgnore = old ++ new}}
 
 
 withRattle :: RattleOptions -> (Rattle -> IO a) -> IO a
