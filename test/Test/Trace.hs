@@ -6,6 +6,7 @@ import Data.List.Extra
 import Test.Type
 import Development.Shake.Command
 import System.Directory
+import System.FilePath
 
 
 check got want = do
@@ -39,7 +40,7 @@ main =
         traceRead xs ["helloworld.o"]
         traceWrite xs ["helloworld.exe"]
 
-        xs <- cmd opts "helloworld.exe"
+        xs <- cmd opts $ "." </> "helloworld.exe"
         traceRead xs ["helloworld.exe"]
 
         putStrLn "Check curl works"
