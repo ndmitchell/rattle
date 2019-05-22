@@ -57,13 +57,13 @@ library
 
     other-modules:
         Development.Rattle.Hash
-        Development.Rattle.Limit
         Development.Rattle.Server
         Development.Rattle.Shared
         Development.Rattle.Types
         Development.Rattle.Profile
         General.Bilist
         General.Extra
+        Genera.Limit
         General.Paths
         General.Template
         Paths_rattle
@@ -98,13 +98,13 @@ test-suite rattle-test
     other-modules:
         Development.Rattle
         Development.Rattle.Hash
-        Development.Rattle.Limit
         Development.Rattle.Profile
         Development.Rattle.Server
         Development.Rattle.Shared
         Development.Rattle.Types
         General.Bilist
         General.Extra
+        Genera.Limit
         General.Paths
         General.Template
         Paths_rattle

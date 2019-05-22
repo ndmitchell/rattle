@@ -9,7 +9,7 @@ module Development.Rattle.Server(
     ) where
 
 import Control.Monad.Extra
-import Development.Rattle.Limit
+import General.Limit
 import Development.Rattle.Types
 import Development.Rattle.Shared
 import Development.Rattle.Hash

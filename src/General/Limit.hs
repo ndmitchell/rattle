@@ -1,6 +1,6 @@
 {-# LANGUAGE TupleSections, LambdaCase #-}
 
-module Development.Rattle.Limit(
+module General.Limit(
     Limit, newLimit, withLimit, withLimitMaybe,
     ) where
 

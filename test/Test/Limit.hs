@@ -3,7 +3,7 @@
 module Test.Limit(main) where
 
 import Test.Type
-import Development.Rattle.Limit
+import General.Limit
 import System.Time.Extra
 import Control.Concurrent.Async
 import Control.Monad.Extra
