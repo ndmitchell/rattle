@@ -85,7 +85,7 @@ data Hazard
       deriving Show
 instance Exception Hazard
 
-data Recoverable = Recoverable | NonRecoverable deriving Show
+data Recoverable = Recoverable | NonRecoverable deriving (Show,Eq)
 
 data Rattle = Rattle
     {options :: RattleOptions
@@ -137,9 +137,8 @@ withRattle options@RattleOptions{..} act = withShared rattleFiles $ \shared -> d
                 (act r <* saveSpeculate state) `finally` writeVar state (Left Finished)
 
 recoverableHazard :: Hazard -> Bool
-recoverableHazard (WriteWriteHazard _ _ _) = False
-recoverableHazard (ReadWriteHazard _ _ _ Recoverable) = True
-recoverableHazard (ReadWriteHazard _ _ _ NonRecoverable) = False
+recoverableHazard WriteWriteHazard{} = False
+recoverableHazard (ReadWriteHazard _ _ _ r) = r == Recoverable
 
 runSpeculate :: Rattle -> IO ()
 runSpeculate rattle@Rattle{..} = void $ forkIO $ void $ withLimitMaybe limit $
