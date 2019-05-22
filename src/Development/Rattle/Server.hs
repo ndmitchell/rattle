@@ -280,7 +280,8 @@ mergeFileOps r s x (Read, t1, cmd1) (Write, t2, cmd2)
     | listedBefore cmd1 cmd2 = Left $ ReadWriteHazard x cmd2 cmd1 NonRecoverable
     | t1 <= t2 = Left $ ReadWriteHazard x cmd2 cmd1 Recoverable
     | otherwise = Right (Write, t2, cmd2)
-  where listedBefore c1 c2 = let i1 = elemIndex c1 r
+  where -- FIXME: listedBefore is O(n) so want to make that partly cached
+        listedBefore c1 c2 = let i1 = elemIndex c1 r
                                  i2 = elemIndex c2 r in
                                f i1 i2 c1 c2
         f Nothing Nothing c1 c2 = let i1 = elemIndex c1 s -- both should be in speculate list
