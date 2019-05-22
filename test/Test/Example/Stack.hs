@@ -9,6 +9,7 @@ import qualified Data.ByteString as BS
 import Data.Maybe
 import Control.Monad.Extra
 import System.Environment
+import System.Directory
 import Data.List.Extra
 import qualified Data.HashMap.Strict as Map
 
@@ -26,7 +27,8 @@ type PackageVersion = String
 main :: IO ()
 main = do
     args <- getArgs
-    let ignore = ["**/hackage-security-lock", "**/package.cache.lock"]
+    tdir <- canonicalizePath =<< getTemporaryDirectory
+    let ignore = ["**/hackage-security-lock", "**/package.cache.lock", tdir ++ "/**"]
     rattle rattleOptions{rattleIgnore=ignore} $ stack "nightly-2019-05-15" $ args ++ ["cereal" | null args]
 
 
