@@ -258,8 +258,9 @@ cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{..} save = join $ modi
         s <- return s{pending = [(stop, cmd, trace) | save] ++ pending s}
 
         -- look for hazards
-        let newHazards = Map.fromList $ map ((,(Write,start,cmd)) . fst) tWrite ++
-                                        map ((,(Read ,stop ,cmd)) . fst) tRead
+        -- push writes to the end, and reads to the start, because reads before writes is the problem
+        let newHazards = Map.fromList $ map ((,(Write,stop ,cmd)) . fst) tWrite ++
+                                        map ((,(Read ,start,cmd)) . fst) tRead
         case unionWithKeyEithers (mergeFileOps (required s) (map fst speculate)) (hazard s) newHazards of
             (ps@(p:_), _) -> return (Left $ Hazard p, print ps >> throwIO p)
             ([], hazard2) -> do
