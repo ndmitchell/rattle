@@ -27,6 +27,7 @@ type PackageVersion = String
 main :: IO ()
 main = do
     args <- getArgs
+    unsetEnv "GHC_PACKAGE_PATH"
     tdir <- canonicalizePath =<< getTemporaryDirectory
     let ignore = ["**/hackage-security-lock", "**/package.cache.lock", tdir ++ "/**"]
     rattle rattleOptions{rattleIgnore=ignore} $ stack "nightly-2019-05-15" $ args ++ ["cereal" | null args]
