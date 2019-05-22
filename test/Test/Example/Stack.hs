@@ -39,7 +39,7 @@ installPackage dep config name version = do
     depends <- liftIO $ cabalDepends $ dir </> name <.> "cabal"
     dependsVer <- forP depends dep
     cmd (Cwd dir) "cabal v1-configure"
-        "--disable-library-profiling"
+        "--disable-library-profiling --disable-optimisation"
         ["--package-db=../" ++ n ++ "-" ++ v ++ "/dist/package.conf.inplace" | (n, Just v) <- zip depends dependsVer]
     cmd (Cwd dir) "cabal v1-build" ("lib:" ++ name)
 
