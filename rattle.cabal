@@ -111,5 +111,6 @@ test-suite rattle-test
         Test.Example.FSATrace
         Test.Example.Stack
         Test.Simple
+        Test.Trace
         Test.Limit
         Test.Type
