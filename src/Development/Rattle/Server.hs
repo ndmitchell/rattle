@@ -3,7 +3,7 @@
 module Development.Rattle.Server(
     RattleOptions(..), rattleOptions,
     Rattle, withRattle,
-    Hazard(..),
+    Hazard(..), Recoverable(..),
     addCmdOptions, cmdRattle
     ) where
 
@@ -77,11 +77,12 @@ throwProblem (Hazard h) = throwIO h
 
 -- | Type of exception thrown if there is a hazard when running the build system.
 data Hazard
-    = ReadWriteHazard FilePath Cmd Cmd Bool -- boolean indicates if it is a property violation
+    = ReadWriteHazard FilePath Cmd Cmd Recoverable
     | WriteWriteHazard FilePath Cmd Cmd
       deriving Show
 instance Exception Hazard
 
+data Recoverable = Recoverable | NonRecoverable deriving Show
 
 data Rattle = Rattle
     {options :: RattleOptions
@@ -118,7 +119,7 @@ withRattle options@RattleOptions{..} act = withShared rattleFiles $ \shared -> d
     ((act r <* saveSpeculate state) `finally` writeVar state (Left Finished)) `catch`
         \(h :: Hazard) -> do
             b <- readIORef speculated
-            if nonRecoverableHazard h then throwIO h else do
+            if not $ recoverableHazard h then throwIO h else do
                 -- if we speculated, and we failed with a hazard, try again
                 putStrLn "Warning: Speculation lead to a hazard, retrying without speculation"
                 print h
@@ -127,9 +128,10 @@ withRattle options@RattleOptions{..} act = withShared rattleFiles $ \shared -> d
                 let r = Rattle{speculate=[], ..}
                 (act r <* saveSpeculate state) `finally` writeVar state (Left Finished)
 
-nonRecoverableHazard :: Hazard -> Bool
-nonRecoverableHazard (WriteWriteHazard f c1 c2) = True
-nonRecoverableHazard (ReadWriteHazard f c1 c2 b) = b
+recoverableHazard :: Hazard -> Bool
+recoverableHazard (WriteWriteHazard _ _ _) = False
+recoverableHazard (ReadWriteHazard _ _ _ Recoverable) = True
+recoverableHazard (ReadWriteHazard _ _ _ NonRecoverable) = False
 
 runSpeculate :: Rattle -> IO ()
 runSpeculate rattle@Rattle{..} = void $ forkIO $ void $ withLimitMaybe limit $
@@ -265,10 +267,10 @@ mergeFileOps :: [Cmd] -> [Cmd] -> FilePath -> (ReadOrWrite, T, Cmd) -> (ReadOrWr
 mergeFileOps r s x (Read, t1, cmd1) (Read, t2, cmd2) = Right (Read, min t1 t2, if t1 < t2 then cmd1 else cmd2)
 mergeFileOps r s x (Write, t1, cmd1) (Write, t2, cmd2) = Left $ WriteWriteHazard x cmd1 cmd2
 mergeFileOps r s x (Read, t1, cmd1) (Write, t2, cmd2)
-    | occursBefore cmd1 cmd2 = Left $ ReadWriteHazard x cmd2 cmd1 True
-    | t1 <= t2 = Left $ ReadWriteHazard x cmd2 cmd1 False
+    | listedBefore cmd1 cmd2 = Left $ ReadWriteHazard x cmd2 cmd1 NonRecoverable
+    | t1 <= t2 = Left $ ReadWriteHazard x cmd2 cmd1 Recoverable
     | otherwise = Right (Write, t2, cmd2)
-  where occursBefore c1 c2 = let i1 = elemIndex c1 r
+  where listedBefore c1 c2 = let i1 = elemIndex c1 r
                                  i2 = elemIndex c2 r in
                                f i1 i2 c1 c2
         f Nothing Nothing c1 c2 = let i1 = elemIndex c1 s -- both should be in speculate list
