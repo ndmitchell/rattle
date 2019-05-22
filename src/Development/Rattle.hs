@@ -11,10 +11,9 @@ module Development.Rattle(
     Hazard,
     RattleOptions(..), rattleOptions,
     cmd, CmdOption(..), withCmdOptions,
-    parallel, forP,
+    parallel, forP, forP_,
     memo, memoRec,
-    liftIO, writeProfile, graphData,
-    initDataDirectory
+    liftIO, writeProfile, graphData
     ) where
 
 import Control.Concurrent.Async
@@ -25,7 +24,6 @@ import Data.Either.Extra
 import Control.Concurrent.Extra
 import qualified Data.HashMap.Strict as Map
 import Data.Hashable
-import General.Paths
 import Development.Shake.Command
 import Development.Rattle.Server
 import Development.Rattle.Profile
@@ -46,11 +44,14 @@ parallel xs = do
 forP :: [a] -> (a -> Run b) -> Run [b]
 forP xs f = parallel $ map f xs
 
+-- | Parallel version of 'forM'.
+forP_ :: [a] -> (a -> Run b) -> Run ()
+forP_ xs f = void $ forP xs f
+
 
 -- | Apply specific options ot all nested Run values.
 withCmdOptions :: [CmdOption] -> Run a -> Run a
 withCmdOptions xs (Run act) = Run $ withReaderT (addCmdOptions xs) act
-
 
 instance a ~ () => CmdArguments (Run a) where
     cmdArguments (CmdArgument x) = case partitionEithers x of
