@@ -284,14 +284,12 @@ mergeFileOps r s x (Read, t1, cmd1) (Write, t2, cmd2)
         listedBefore c1 c2 = let i1 = elemIndex c1 r
                                  i2 = elemIndex c2 r in
                                f i1 i2 c1 c2
-        f Nothing Nothing c1 c2 = let i1 = elemIndex c1 s -- both should be in speculate list
-                                      i2 = elemIndex c2 s in
-                                    g i1 i2
+        f Nothing Nothing c1 c2 = let Just i1 = elemIndex c1 s -- both should be in speculate list
+                                      Just i2 = elemIndex c2 s
+                                  in i1 < i2 -- speculate list is reverse of required
         f (Just i1) (Just i2) _ _ = i1 > i2
         f (Just i1) Nothing _ _ = True -- 2nd one isn't in required list so it must be listed after i1
         f Nothing (Just i2) _ _ = False -- first one isn't in required list so it must be listed after i2
-        g (Just i1) (Just i2) = i1 < i2 -- speculate list is reverse of required
-        g _ _ = error "This should never occur."
 mergeFileOps r s x v1 v2 = mergeFileOps r s x v2 v1 -- must be Write/Read, so match the other way around
 
 
