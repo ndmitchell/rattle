@@ -80,7 +80,9 @@ getFile :: Shared -> Hash -> IO (Maybe (FilePath -> IO ()))
 getFile (Shared lock dir) hash = do
     let file = dir </> "files" </> filename hash
     b <- doesFileExist file
-    return $ if not b then Nothing else Just $ copyFile file
+    return $ if not b then Nothing else Just $ \out -> do
+        createDirectoryRecursive $ takeDirectory out
+        copyFile file out
 
 setFile :: Shared -> FilePath -> Hash -> IO Bool -> IO ()
 setFile (Shared lock dir) source hash check = do

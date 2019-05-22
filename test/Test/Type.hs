@@ -1,14 +1,16 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Test.Type(
-    withOutput,
+    root,
     ignoreIO,
     assertWithin,
     (===),
-    meetup
+    meetup,
+    testGit
     ) where
 
 import Development.Rattle
+import Development.Shake.Command
 import System.Time.Extra
 import Control.Monad
 import Control.Concurrent.QSemN
@@ -16,12 +18,8 @@ import Control.Exception.Extra
 import System.Directory
 
 
-withOutput :: (FilePath -> IO a) -> IO a
-withOutput act = do
-    initDataDirectory
-    ignoreIO $ removeDirectoryRecursive "output"
-    createDirectoryIfMissing True "output"
-    withCurrentDirectory "output" $ act ".."
+root :: FilePath
+root = "../.."
 
 ignoreIO :: IO () -> IO ()
 ignoreIO act = catch act $ \(_ :: IOException) -> return ()
@@ -54,3 +52,12 @@ meetup n = do
         signalQSemN sem 1
         waitQSemN sem n
         signalQSemN sem n
+
+
+testGit :: String -> Run () -> IO ()
+testGit url run = do
+    b <- doesDirectoryExist ".git"
+    if b then cmd "git fetch" else cmd_ "git clone" url "."
+    forM_ [10,9..0] $ \i -> do
+        cmd_ "git reset --hard" ["origin/master~" ++ show i]
+        rattle rattleOptions run
