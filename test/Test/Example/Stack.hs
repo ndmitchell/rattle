@@ -46,7 +46,7 @@ stack :: String -> [PackageName] -> Run ()
 stack resolver packages = do
     let config = resolver <.> "config"
     -- Shell below is to hack around an fsatrace issue
-    cmd Shell "curl" ("https://www.stackage.org/" ++ resolver ++ "/cabal.config") "-o" config
+    cmd Shell "curl -sSL" ("https://www.stackage.org/" ++ resolver ++ "/cabal.config") "-o" config
     versions <- liftIO $ readResolver config
     let askVersion x = fromMaybe (error $ "Don't know version for " ++ show x) $ Map.lookup x versions
     needPkg <- memoRec $ \needPkg name -> do
