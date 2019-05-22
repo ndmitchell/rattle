@@ -85,7 +85,7 @@ createEdge p1@(cmd1,ts) p2@(cmd2,ls) = -- first look for write write hazard then
   case writeWriteHazard ts ls of
     Just fp -> Just $ Edge p1 p2 $ Just $ WriteWriteHazard fp cmd1 cmd2
     Nothing -> case readWriteHazard ts ls of
-                 Just fp -> Just $ Edge p1 p2 $ Just $ ReadWriteHazard fp cmd1 cmd2 True
+                 Just fp -> Just $ Edge p1 p2 $ Just $ ReadWriteHazard fp cmd1 cmd2 NonRecoverable
                  Nothing -> -- check for a non hazard edge
                    case readWriteHazard ls ts of
                      Just fp -> Just $ Edge p1 p2 Nothing -- regular edge
