@@ -37,6 +37,7 @@ installPackage dep config name version = do
     let dir = name ++ "-" ++ version
     cmd "cabal unpack" dir
     depends <- liftIO $ cabalDepends $ dir </> name <.> "cabal"
+    depends <- return $ delete name $ nubSort depends
     dependsVer <- forP depends dep
     cmd (Cwd dir) "cabal v1-configure"
         "--disable-library-profiling --disable-optimisation"
@@ -73,7 +74,10 @@ cabalDepends :: FilePath -> IO [PackageName]
 cabalDepends file = do
     bs <- BS.readFile file
     return $ case parseGenericPackageDescriptionMaybe bs of
-        Just x | Just x <- condLibrary x -> map (unPackageName . depPkgName) $ treeConstraints x
+        Just x -> map (unPackageName . depPkgName) $ concatMap treeConstraints $
+            -- we only build the library, but configure requires all the executables to
+            -- have their dependencies available
+            maybeToList (void <$> condLibrary x) ++ map (void . snd) (condExecutables x)
         _ -> return []
 
 treeConstraints :: CondTree a [b] c -> [b]
