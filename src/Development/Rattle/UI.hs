@@ -1,7 +1,7 @@
 {-# LANGUAGE Rank2Types #-}
 
 module Development.Rattle.UI(
-    UI, withUI, addUI,
+    UI, withUI, addUI, isControlledUI,
     ) where
 
 
@@ -63,11 +63,13 @@ display width header time s = (s{sUnwind=length post}, escCursorUp (sUnwind s) +
               | otherwise = " (" ++ escForeground (if i > 20 then Red else Yellow) ++ s ++ escNormal ++ ")"
             where s = m ++ [' ' | m /= ""] ++ showDurationSecs i
 
-data UI = UI (forall a . String -> String -> IO a -> IO a)
+data UI = UI Bool (forall a . String -> String -> IO a -> IO a)
 
 addUI :: UI -> String -> String -> IO a -> IO a
-addUI (UI x) = x
+addUI (UI _ x) = x
 
+isControlledUI :: UI -> Bool
+isControlledUI (UI x _) = x
 
 showDurationSecs :: Seconds -> String
 showDurationSecs = replace ".00s" "s" . showDuration . intToDouble . round
@@ -90,7 +92,7 @@ withUICompact header act = do
             w <- maybe 80 Terminal.width <$> Terminal.size
             mask_ $ putStr =<< atomicModifyIORef ref (display w h t)
     withAsync (forever (tick >> sleep 0.4) `finally` tick)  $ \_ ->
-        act $ UI $ \s1 s2 act -> do
+        act $ UI True $ \s1 s2 act -> do
             t <- time
             bracket_
                 (tweak $ addTrace s1 s2 t)
@@ -99,6 +101,6 @@ withUICompact header act = do
 
 withUISerial :: (UI -> IO a) -> IO a
 withUISerial act =
-    act $ UI $ \msg1 msg2 act -> do
+    act $ UI False $ \msg1 msg2 act -> do
         BS.putStrLn $ BS.pack $ msg1 ++ if null msg2 then "" else " (" ++ msg2 ++ ")"
         act
