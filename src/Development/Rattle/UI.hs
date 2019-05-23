@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, RecordWildCards, TupleSections, ViewPatterns, LambdaCase #-}
+{-# LANGUAGE ScopedTypeVariables, RecordWildCards, TupleSections, ViewPatterns, LambdaCase, Rank2Types #-}
 
 module Development.Rattle.UI(
     UI, withUI, addUI,
@@ -63,9 +63,9 @@ display width header time s = (s{sUnwind=length post}, escCursorUp (sUnwind s) +
               | otherwise = " (" ++ escForeground (if i > 20 then Red else Yellow) ++ s ++ escNormal ++ ")"
             where s = m ++ [' ' | m /= ""] ++ showDurationSecs i
 
-newtype UI = UI (String -> String -> IO (IO ()))
+data UI = UI (forall a . String -> String -> IO a -> IO a)
 
-addUI :: UI -> String -> String -> IO (IO ())
+addUI :: UI -> String -> String -> IO a -> IO a
 addUI (UI x) = x
 
 
@@ -90,13 +90,15 @@ withUICompact header act = do
             w <- maybe 80 Terminal.width <$> Terminal.size
             mask_ $ putStr =<< atomicModifyIORef ref (display w h t)
     withAsync (forever (tick >> sleep 0.4) `finally` tick)  $ \_ ->
-        act $ UI $ \s1 s2 -> do
+        act $ UI $ \s1 s2 act -> do
             t <- time
-            tweak $ addTrace s1 s2 t
-            return $ tweak $ delTrace s1 s2 t
+            bracket_
+                (tweak $ addTrace s1 s2 t)
+                (tweak $ delTrace s1 s2 t)
+                act
 
 withUISerial :: (UI -> IO a) -> IO a
 withUISerial act =
-    act $ UI $ \msg1 msg2 -> do
+    act $ UI $ \msg1 msg2 act -> do
         BS.putStrLn $ BS.pack $ msg1 ++ if null msg2 then "" else " (" ++ msg2 ++ ")"
-        return $ return ()
+        act

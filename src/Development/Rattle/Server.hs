@@ -221,17 +221,13 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
                 else firstJustM (\t -> fmap (t,) <$> allMaybeM fetch (tWrite t)) histRead
             case download of
                 Just (t, download) -> do
-                    undo <- display ["copying"]
-                    sequence_ download
-                    undo
+                    display ["copying"] $ sequence_ download
                     cmdRattleFinished rattle start cmd t False
                 Nothing -> do
-                    undo <- display []
                     timer <- liftIO offsetTime
-                    c <- C.cmd (opts ++ [C.EchoStdout False,C.EchoStderr False]) opts exe args
+                    c <- display [] $ C.cmd (opts ++ [C.EchoStdout False,C.EchoStderr False]) opts exe args
                     end <- timer
                     t <- return $ fsaTrace end runNum c
-                    undo
                     let pats = matchMany (map ((),) $ rattleIgnore options)
                     let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x || pats [((),x)] /= []
                     let f xs = mapMaybeM (\x -> fmap (x,) <$> hashFile x) $ filter (not . skip) $ map fst xs
