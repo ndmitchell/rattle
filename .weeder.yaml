@@ -9,7 +9,7 @@
 # but only a subset is used here
 - message:
   - name: Weeds exported
-  - module: [General.Bilist]
+  - module: [General.Bilist, General.EscCodes]
 
 # Module still in development
 - message:
