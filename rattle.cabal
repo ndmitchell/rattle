@@ -59,12 +59,14 @@ library
         Development.Rattle.Hash
         Development.Rattle.Server
         Development.Rattle.Shared
+        Development.Rattle.UI
         Development.Rattle.Types
         Development.Rattle.Profile
         General.Bilist
         General.Extra
         General.Limit
         General.Paths
+        General.EscCodes
         General.Template
         Paths_rattle
 
@@ -100,12 +102,14 @@ test-suite rattle-test
         Development.Rattle.Hash
         Development.Rattle.Profile
         Development.Rattle.Server
+        Development.Rattle.UI
         Development.Rattle.Shared
         Development.Rattle.Types
         General.Bilist
         General.Extra
         General.Limit
         General.Paths
+        General.EscCodes
         General.Template
         Paths_rattle
         Test.Example.FSATrace

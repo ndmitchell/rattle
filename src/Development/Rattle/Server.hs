@@ -10,6 +10,7 @@ module Development.Rattle.Server(
 import Control.Monad.Extra
 import General.Limit
 import Development.Rattle.Types
+import Development.Rattle.UI
 import Development.Rattle.Shared
 import Development.Rattle.Hash
 import Control.Exception.Extra
@@ -17,7 +18,6 @@ import Control.Concurrent.Extra
 import General.Extra
 import System.FilePath
 import System.FilePattern
-import qualified Data.ByteString.Char8 as BS
 import System.IO.Unsafe(unsafeInterleaveIO)
 import qualified Development.Shake.Command as C
 import qualified Data.HashMap.Strict as Map
@@ -93,6 +93,7 @@ data Rattle = Rattle
     ,state :: Var (Either Problem S)
     ,speculated :: IORef Bool
     ,limit :: Limit
+    ,ui :: UI
     ,shared :: Shared
     }
 
@@ -102,7 +103,7 @@ addCmdOptions new r@Rattle{options=o@RattleOptions{rattleCmdOptions=old}} =
 
 
 withRattle :: RattleOptions -> (Rattle -> IO a) -> IO a
-withRattle options@RattleOptions{..} act = withShared rattleFiles $ \shared -> do
+withRattle options@RattleOptions{..} act = withUI (return "Running") $ \ui -> withShared rattleFiles $ \shared -> do
     speculate <- maybe (return []) (getSpeculate shared) rattleSpeculate
     speculate <- fmap (takeWhile (not . null . snd)) $ forM speculate $ \x -> (x,) <$> unsafeInterleaveIO (getCmdTraces shared x)
     runNum <- nextRun shared rattleMachine
@@ -146,7 +147,7 @@ runSpeculate rattle@Rattle{..} = void $ forkIO $ void $ withLimitMaybe limit $
     join $ modifyVar state $ \s -> case s of
         Right s | Just cmd <- nextSpeculate rattle s -> do
             writeIORef speculated True
-            cmdRattleStarted rattle cmd s ["speculating"]
+            cmdRattleStarted rattle cmd s ["speculative"]
         _ -> return (s,  return ())
 
 
@@ -220,15 +221,17 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
                 else firstJustM (\t -> fmap (t,) <$> allMaybeM fetch (tWrite t)) histRead
             case download of
                 Just (t, download) -> do
-                    display ["copying"]
+                    undo <- display ["copying"]
                     sequence_ download
+                    undo
                     cmdRattleFinished rattle start cmd t False
                 Nothing -> do
-                    display []
+                    undo <- display []
                     timer <- liftIO offsetTime
-                    c <- C.cmd opts exe args
+                    c <- C.cmd (opts ++ [C.EchoStdout False,C.EchoStderr False]) opts exe args
                     end <- timer
                     t <- return $ fsaTrace end runNum c
+                    undo
                     let pats = matchMany (map ((),) $ rattleIgnore options)
                     let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x || pats [((),x)] /= []
                     let f xs = mapMaybeM (\x -> fmap (x,) <$> hashFile x) $ filter (not . skip) $ map fst xs
@@ -238,7 +241,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
                             setFile shared fp h ((== Just h) <$> hashFile fp)
                     cmdRattleFinished rattle start cmd t True
     where
-        display msgs2 = BS.putStrLn $ BS.pack $ unwords $ "#" : cwd ++ exe : args ++ ["(" ++ unwords (msgs ++ msgs2) ++ ")" | not $ null $ msgs ++ msgs2]
+        display msgs2 = addUI ui (unwords $ cwd ++ exe : args) (unwords $ msgs ++ msgs2)
         cwd = ["cd " ++ x ++ " &&" | C.Cwd x <- opts]
 
 -- | I finished running a command
