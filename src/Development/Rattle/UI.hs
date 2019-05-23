@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, RecordWildCards, TupleSections, ViewPatterns, LambdaCase, Rank2Types #-}
+{-# LANGUAGE Rank2Types #-}
 
 module Development.Rattle.UI(
     UI, withUI, addUI,
