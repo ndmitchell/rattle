@@ -23,7 +23,7 @@ main = unless isMac $ do
             cmd ["./Main" <.> exe]
 
     putStrLn "Build 1: Expect everything"
-    rattle rattleOptions build
+    rattleRun rattleOptions build
     putStrLn "Getting profiling data"
     writeProfile rattleOptions $ root ++ "/report.html"
     (w,s,p) <- graphData rattleOptions
@@ -31,24 +31,24 @@ main = unless isMac $ do
     putStrLn $ "Span: " ++ show s
     putStrLn $ "Parallelism: " ++ show p
     putStrLn "Build 2: Expect nothing"
-    rattle rattleOptions build
+    rattleRun rattleOptions build
     wipe
     putStrLn "Build 3: Expect cached (some speculation)"
-    rattle rattleOptions build
+    rattleRun rattleOptions build
 
 
     putStrLn "Build 4: Read/write hazard"
     handle (\(h :: Hazard) -> print h) $ do
-        rattle rattleOptions{rattleSpeculate=Nothing} $ do
+        rattleRun rattleOptions{rattleSpeculate=Nothing} $ do
             cmd ["./Main" <.> exe]
             cmd "gcc -o" ["Main" <.> exe] (reverse $ map toO cs)
         putStrLn "Hoped it failed, but doesn't always"
         -- fail "Expected a hazard"
 
     putStrLn "Build 5: Rebuild after"
-    rattle rattleOptions build
+    rattleRun rattleOptions build
 
     putStrLn "Build 6: Rebuild from a different directory"
     createDirectoryIfMissing True "inner"
     withCurrentDirectory "inner" $
-        rattle rattleOptions $ withCmdOptions [Cwd ".."]  build
+        rattleRun rattleOptions $ withCmdOptions [Cwd ".."]  build

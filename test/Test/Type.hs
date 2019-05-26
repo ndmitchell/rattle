@@ -60,4 +60,4 @@ testGit url run = do
     if b then cmd "git fetch" else cmd_ "git clone" url "."
     forM_ [10,9..0] $ \i -> do
         cmd_ "git reset --hard" ["origin/master~" ++ show i]
-        rattle rattleOptions run
+        rattleRun rattleOptions run

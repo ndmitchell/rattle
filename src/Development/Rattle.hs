@@ -7,7 +7,7 @@
 -- * Don't delete files that have been produced. Each command should make
 --   new files, not delete old files.
 module Development.Rattle(
-    rattle, Run,
+    rattleRun, Run,
     Hazard,
     RattleOptions(..), rattleOptions,
     cmd, CmdOption(..), withCmdOptions,
@@ -61,8 +61,8 @@ instance a ~ () => CmdArguments (Run a) where
         _ -> error "Error, no executable or arguments given to Development.Rattle.cmd"
 
 -- | Given an Action to run, and a list of previous commands that got run, run it again
-rattle :: RattleOptions -> Run a -> IO a
-rattle opts (Run act) = withRattle opts $ \r ->
+rattleRun :: RattleOptions -> Run a -> IO a
+rattleRun opts (Run act) = withRattle opts $ \r ->
     runReaderT act r
 
 -- | Memoize an IO action
