@@ -36,7 +36,7 @@ main = do
 installPackage :: (PackageName -> Run (Maybe PackageVersion)) -> FilePath -> PackageName -> PackageVersion -> Run ()
 installPackage dep config name version = do
     let dir = name ++ "-" ++ version
-    cmd "cabal unpack" dir
+    cmd "pipeline rm -rf" dir "&& cabal unpack" dir
     depends <- liftIO $ cabalDepends $ dir </> name <.> "cabal"
     depends <- return $ delete name $ nubSort depends
     dependsVer <- forP depends dep
