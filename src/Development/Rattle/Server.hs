@@ -43,7 +43,14 @@ data RattleOptions = RattleOptions
 
 -- | Default 'RattleOptions' value.
 rattleOptions :: RattleOptions
-rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 8 [] []
+rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 0 [] []
+
+
+rattleOptionsExplicit :: RattleOptions -> IO RattleOptions
+rattleOptionsExplicit o = do
+    o <- if rattleProcesses o /= 0 then return o else do p <- getProcessorCount; return o{rattleProcesses=p}
+    return o
+
 
 data ReadOrWrite = Read | Write deriving (Show,Eq)
 
@@ -104,6 +111,7 @@ addCmdOptions new r@Rattle{options=o@RattleOptions{rattleCmdOptions=old}} =
 
 withRattle :: RattleOptions -> (Rattle -> IO a) -> IO a
 withRattle options@RattleOptions{..} act = withUI (return "Running") $ \ui -> withShared rattleFiles $ \shared -> do
+    options@RattleOptions{..} <- rattleOptionsExplicit options
     speculate <- maybe (return []) (getSpeculate shared) rattleSpeculate
     speculate <- fmap (takeWhile (not . null . snd)) $ forM speculate $ \x -> (x,) <$> unsafeInterleaveIO (getCmdTraces shared x)
     runNum <- nextRun shared rattleMachine
