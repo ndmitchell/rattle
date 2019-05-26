@@ -8,7 +8,7 @@ module Development.Rattle.Server(
     ) where
 
 import Control.Monad.Extra
-import General.Limit
+import General.Pool
 import Development.Rattle.Types
 import Development.Rattle.UI
 import Development.Rattle.Shared
@@ -92,7 +92,7 @@ data Rattle = Rattle
     ,runNum :: !T -- ^ Run# we are on
     ,state :: Var (Either Problem S)
     ,speculated :: IORef Bool
-    ,limit :: Limit
+    ,pool :: Pool
     ,ui :: UI
     ,shared :: Shared
     }
@@ -110,9 +110,6 @@ withRattle options@RattleOptions{..} act = withUI (return "Running") $ \ui -> wi
     speculated <- newIORef False
     let s0 = Right $ S t0 Map.empty [] Map.empty [] []
     state <- newVar s0
-    limit <- newLimit rattleProcesses
-    let r = Rattle{..}
-    runSpeculate r
 
     let saveSpeculate state =
             whenJust rattleSpeculate $ \name ->
@@ -120,24 +117,28 @@ withRattle options@RattleOptions{..} act = withUI (return "Running") $ \ui -> wi
                     setSpeculate shared name $ reverse $ required v
 
     -- first try and run it
-    ((act r <* saveSpeculate state) `finally` writeVar state (Left Finished)) `catch`
-        \(h :: Hazard) -> do
-            b <- readIORef speculated
-            if not $ recoverableHazard h then throwIO h else do
-                -- if we speculated, and we failed with a hazard, try again
-                putStrLn "Warning: Speculation lead to a hazard, retrying without speculation"
-                print h
-                state <- newVar s0
-                limit <- newLimit rattleProcesses
+    let attempt1 = withPool rattleProcesses $ \pool -> do
+            let r = Rattle{..}
+            runSpeculate r
+            ((act r <* saveSpeculate state) `finally` writeVar state (Left Finished))
+    attempt1 `catch` \(h :: Hazard) -> do
+        b <- readIORef speculated
+        if not $ recoverableHazard h then throwIO h else do
+            -- if we speculated, and we failed with a hazard, try again
+            putStrLn "Warning: Speculation lead to a hazard, retrying without speculation"
+            print h
+            state <- newVar s0
+            withPool rattleProcesses $ \pool -> do
                 let r = Rattle{speculate=[], ..}
                 (act r <* saveSpeculate state) `finally` writeVar state (Left Finished)
+
 
 recoverableHazard :: Hazard -> Bool
 recoverableHazard WriteWriteHazard{} = False
 recoverableHazard (ReadWriteHazard _ _ _ r) = r == Recoverable
 
 runSpeculate :: Rattle -> IO ()
-runSpeculate rattle@Rattle{..} = void $ forkIO $ void $ withLimitMaybe limit $
+runSpeculate rattle@Rattle{..} = void $ forkIO $ void $ runPoolMaybe pool $
     -- speculate on a process iff it is the first process in speculate that:
     -- 1) we have some parallelism free
     -- 2) it is the first eligible in the list
@@ -176,7 +177,7 @@ cmdRattle :: Rattle -> [C.CmdOption] -> String -> [String] -> IO ()
 cmdRattle rattle opts exe args = cmdRattleRequired rattle $ Cmd (rattleCmdOptions (options rattle) ++ opts) exe args
 
 cmdRattleRequired :: Rattle -> Cmd -> IO ()
-cmdRattleRequired rattle@Rattle{..} cmd = withLimit limit $ do
+cmdRattleRequired rattle@Rattle{..} cmd = runPool pool $ do
     modifyVar_ state $ return . fmap (\s -> s{required = cmd : required s})
     cmdRattleStart rattle cmd
 
