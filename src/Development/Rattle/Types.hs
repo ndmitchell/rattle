@@ -12,9 +12,11 @@ import Data.Hashable
 import Data.List.Extra
 import Development.Shake.Command
 import Data.Semigroup
+import qualified Data.HashSet as Set
 import GHC.Generics
 import Prelude
 import System.Time.Extra
+
 
 data Cmd = Cmd [CmdOption] String [String]
     deriving (Show, Read, Eq, Generic, Hashable)
@@ -42,7 +44,7 @@ instance Hashable a => Hashable (Trace a) where
 
 fsaTrace :: Seconds -> T -> [FSATrace] -> Trace ()
 fsaTrace t rr [] = Trace t rr [] []
-fsaTrace t rr fs = nubTrace . mconcat $ map f fs
+fsaTrace t rr fs = normTrace . mconcat $ map f fs
     where
         g r w = Trace t rr (map (,()) r) (map (,()) w)
         f (FSAWrite x) = g [] [x]
@@ -52,8 +54,10 @@ fsaTrace t rr fs = nubTrace . mconcat $ map f fs
         f (FSAQuery x) = g [x] []
         f (FSATouch x) = g [] [x]
 
-nubTrace :: Ord a => Trace a -> Trace a
-nubTrace (Trace t r a b) = Trace t r (nubOrd a \\ b) (nubOrd b)
+normTrace :: (Eq a, Hashable a) => Trace a -> Trace a
+normTrace (Trace t r a b) = Trace t r (Set.toList $ a2 `Set.difference` b2) (Set.toList b2)
+    where a2 = Set.fromList a
+          b2 = Set.fromList b
 
 
 newtype T = T Int -- timestamps
