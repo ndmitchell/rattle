@@ -33,17 +33,33 @@ main = do
     rattleRun rattleOptions{rattleIgnore=ignore} $ stack "nightly-2019-05-15" $ args ++ ["cereal" | null args]
 
 
-installPackage :: (PackageName -> Run (Maybe PackageVersion)) -> FilePath -> PackageName -> PackageVersion -> Run ()
-installPackage dep config name version = do
+installPackage :: (PackageName -> Run (Maybe PackageVersion)) -> FilePath -> [String] -> PackageName -> PackageVersion -> Run ()
+installPackage dep config flags name version = do
     let dir = name ++ "-" ++ version
     cmd "pipeline rm -rf" dir "&& cabal unpack" dir
     depends <- liftIO $ cabalDepends $ dir </> name <.> "cabal"
     depends <- return $ delete name $ nubSort depends
     dependsVer <- forP depends dep
-    cmd (Cwd dir) "cabal v1-configure"
+    cmd (Cwd dir) "cabal v1-configure" flags
         "--disable-library-profiling --disable-optimisation"
         ["--package-db=../" ++ n ++ "-" ++ v ++ "/dist/package.conf.inplace" | (n, Just v) <- zip depends dependsVer]
     cmd (Cwd dir) "cabal v1-build" ("lib:" ++ name)
+
+
+extraConfigureFlags :: IO [String]
+extraConfigureFlags = do
+    -- Cabal create dist/setup-config during configure
+    -- That serialises a LocalBuildInfo, which with withPrograms contains ConfiguredProgram
+    -- The ConfiguredProgram contains programMonitorFiles which ends up containing a list of all directories the binary
+    -- _might_ be in. Unfortunately, Cabal puts the current directory in that list.
+    -- However, if we pass --with-hscolour=... then it doesn't bother looking for the program, so programMonitorFiles is
+    -- empty and thus doesn't change between computers.
+    let progs = ["hscolour","alex","happy","ghc","cpphs","doctest"]
+    forM progs $ \prog -> do
+        location <- findExecutable prog
+        -- WARNING: If this returns Nothing (because you don't have doctest installed, for instance)
+        --          your cache will not be stable.
+        return $ "--with-" ++ prog ++ "=" ++ fromMaybe prog location
 
 
 stack :: String -> [PackageName] -> Run ()
@@ -52,10 +68,11 @@ stack resolver packages = do
     -- Shell below is to hack around an fsatrace issue
     cmd Shell "curl -sSL" ("https://www.stackage.org/" ++ resolver ++ "/cabal.config") "-o" config
     versions <- liftIO $ readResolver config
+    flags <- liftIO extraConfigureFlags
     let askVersion x = fromMaybe (error $ "Don't know version for " ++ show x) $ Map.lookup x versions
     needPkg <- memoRec $ \needPkg name -> do
         let v = askVersion name
-        whenJust v $ installPackage needPkg config name
+        whenJust v $ installPackage needPkg config flags name
         return v
     forP_ packages needPkg
 
