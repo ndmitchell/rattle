@@ -1,4 +1,3 @@
-{-# LANGUAGE ViewPatterns #-}
 
 module Development.Rattle.Shared(
     Shared, withShared,
@@ -33,7 +32,7 @@ withShared dir act = do
     act $ Shared lock dir
 
 filename :: Hash -> String
-filename (fromHash -> a:b:cs) = [a,b] </> cs
+filename (Hash (a:b:cs)) = [a,b] </> cs
 
 getList :: (Show a, Read b) => String -> Shared -> a -> IO [b]
 getList typ (Shared lock dir) name = withLock lock $ do

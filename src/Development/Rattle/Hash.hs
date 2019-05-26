@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Development.Rattle.Hash(
-    Hash, fromHash,
+    Hash(..),
     hashFile, hashString
     ) where
 
@@ -25,9 +25,6 @@ import Control.DeepSeq
 
 newtype Hash = Hash String
     deriving (NFData, Show, Read, Eq, Hashable)
-
-fromHash :: Hash -> String
-fromHash (Hash x) = x
 
 
 mkHash :: BS.ByteString -> Hash
