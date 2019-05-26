@@ -13,7 +13,7 @@ import General.Extra
 import Development.Rattle.Types
 import Development.Rattle.Hash
 import System.FilePath
-import System.Directory
+import System.Directory.Extra
 import System.IO.Extra
 import Data.Maybe
 import Control.Monad.Extra
@@ -100,3 +100,26 @@ getCmdTraces = getList "command"
 
 addCmdTrace :: Shared -> Cmd -> Trace Hash -> IO ()
 addCmdTrace share cmd t = setList "command" AppendMode share cmd [t]
+
+
+---------------------------------------------------------------------
+-- DUMPING
+
+dumpList :: (String -> IO ()) -> FilePath -> String -> IO ()
+dumpList out dir name = do
+    out ""
+    out $ "## " ++ name
+    dirs <- listDirectories $ dir </> name
+    forM_ dirs $ \x -> do
+        files <- filter (".txt" `isExtensionOf`) <$> listFiles x
+        forM_ files $ \file -> do
+            out ""
+            name <- readFileUTF8' file
+            out $ "### " ++ name
+            out =<< readFileUTF8' (dropExtension file)
+
+
+dump :: (String -> IO ()) -> FilePath -> IO ()
+dump out dir = do
+    out $ "# Rattle dump: " ++ dir
+    mapM_ (dumpList out dir) ["run","speculate","command"]

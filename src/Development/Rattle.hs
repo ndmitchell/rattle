@@ -8,6 +8,7 @@
 --   new files, not delete old files.
 module Development.Rattle(
     rattleRun, Run,
+    rattleDump,
     Hazard,
     RattleOptions(..), rattleOptions,
     cmd, CmdOption(..), withCmdOptions,
@@ -26,6 +27,7 @@ import qualified Data.HashMap.Strict as Map
 import Data.Hashable
 import Development.Shake.Command
 import Development.Rattle.Server
+import Development.Rattle.Shared
 import Development.Rattle.Profile
 
 
@@ -64,6 +66,10 @@ instance a ~ () => CmdArguments (Run a) where
 rattleRun :: RattleOptions -> Run a -> IO a
 rattleRun opts (Run act) = withRattle opts $ \r ->
     runReaderT act r
+
+-- | Dunmp the contents of a shared cache
+rattleDump :: (String -> IO ()) -> FilePath -> IO ()
+rattleDump = dump
 
 -- | Memoize an IO action
 memo :: (Eq a, Hashable a, MonadIO m) => (a -> m b) -> m (a -> m b)
