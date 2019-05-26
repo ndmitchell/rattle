@@ -3,6 +3,8 @@
 module Test(main) where
 
 import Control.Monad
+import Data.Char
+import Data.List
 import System.Directory
 import System.Environment
 import System.Exit
@@ -35,7 +37,7 @@ main = do
                 putStrLn $ "\n# Test " ++ name
                 runAct name act
         name:args
-            | Just act <- lookup name tests -> do
+            | Just act <- lookup (dropWhileEnd isDigit name) tests -> do
                 putStrLn $ "\n# Test " ++ name
                 withArgs args $ runAct name act
         _ -> do
