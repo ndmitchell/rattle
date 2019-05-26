@@ -95,10 +95,10 @@ getSpeculate = getList "speculate"
 setSpeculate :: Shared -> String -> [Cmd] -> IO ()
 setSpeculate = setList "speculate" WriteMode
 
-getCmdTraces :: Shared -> Cmd -> IO [Trace Hash]
+getCmdTraces :: Shared -> Cmd -> IO [Trace (FilePath, Hash)]
 getCmdTraces = getList "command"
 
-addCmdTrace :: Shared -> Cmd -> Trace Hash -> IO ()
+addCmdTrace :: Shared -> Cmd -> Trace (FilePath, Hash) -> IO ()
 addCmdTrace share cmd t = setList "command" AppendMode share cmd [t]
 
 

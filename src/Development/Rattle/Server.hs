@@ -60,14 +60,14 @@ data S = S
     ,started :: Map.HashMap Cmd (NoShow (IO ()))
         -- ^ Things that have got to running - if you find a duplicate just run the IO
         --   to wait for it.
-    ,running :: [(T, Cmd, [Trace ()])]
+    ,running :: [(T, Cmd, [Trace FilePath])]
         -- ^ Things currently running, with the time they started,
         --    and an amalgamation of their previous Trace (if we have any)
     ,hazard :: Map.HashMap FilePath (ReadOrWrite, T, Cmd)
         -- ^ Things that have been read or written, at what time, and by which command
         --   Used to detect hazards.
         --   Read is recorded as soon as it can, Write as late as it can, as that increases hazards.
-    ,pending :: [(T, Cmd, Trace Hash)]
+    ,pending :: [(T, Cmd, Trace (FilePath, Hash))]
         -- ^ Things that have completed, and would like to get recorded, but have to wait
         --   to confirm they didn't cause hazards
     ,required :: [Cmd]
@@ -95,7 +95,7 @@ data Recoverable = Recoverable | NonRecoverable deriving (Show,Eq)
 
 data Rattle = Rattle
     {options :: RattleOptions
-    ,speculate :: [(Cmd, [Trace Hash])] -- ^ Things that were used in the last speculation with this name
+    ,speculate :: [(Cmd, [Trace (FilePath, Hash)])] -- ^ Things that were used in the last speculation with this name
     ,runNum :: !T -- ^ Run# we are on
     ,state :: Var (Either Problem S)
     ,speculated :: IORef Bool
@@ -166,7 +166,7 @@ nextSpeculate Rattle{..} S{..}
     | otherwise = step (addTrace (Set.empty, Set.empty) $ mconcat $ concatMap thd3 running) speculate
     where
         addTrace (r,w) Trace{..} = (f r tRead, f w tWrite)
-            where f set xs = Set.union set $ Set.fromList $ map fst xs
+            where f set xs = Set.union set $ Set.fromList xs
 
         step _ [] = Nothing
         step rw ((x,_):xs)
@@ -178,7 +178,7 @@ nextSpeculate Rattle{..} S{..}
                 -- if anyone I read might be being written right now, that would be bad
                 = Just x
             | otherwise
-                = step (addTrace rw t) xs
+                = step (addTrace rw $ fmap fst t) xs
 
 
 cmdRattle :: Rattle -> [C.CmdOption] -> String -> [String] -> IO ()
@@ -203,13 +203,13 @@ cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
         Nothing -> do
             hist <- unsafeInterleaveIO $ getCmdTraces shared cmd
             go <- once $ cmdRattleRun rattle cmd start hist msgs
-            s <- return s{running = (start, cmd, map void hist) : running s}
+            s <- return s{running = (start, cmd, map (fmap fst) hist) : running s}
             s <- return s{started = Map.insert cmd (NoShow go) $ started s}
             return (Right s, runSpeculate rattle >> go >> runSpeculate rattle)
 
 
 -- either fetch it from the cache or run it)
-cmdRattleRun :: Rattle -> Cmd -> T -> [Trace Hash] -> [String] -> IO ()
+cmdRattleRun :: Rattle -> Cmd -> T -> [Trace (FilePath, Hash)] -> [String] -> IO ()
 cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
     hasher <- memoIO hashFile
     let match (fp, h) = (== Just h) <$> hasher fp
@@ -240,7 +240,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
                     t <- return $ fsaTrace end runNum c
                     let pats = matchMany (map ((),) $ rattleIgnore options)
                     let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x || pats [((),x)] /= []
-                    let f xs = mapMaybeM (\x -> fmap (x,) <$> hashFile x) $ filter (not . skip) $ map fst xs
+                    let f xs = mapMaybeM (\x -> fmap (x,) <$> hashFile x) $ filter (not . skip) xs
                     t <- Trace (tTime t) (tRun t) <$> f (tRead t) <*> f (tWrite t)
                     when (rattleShare options) $
                         forM_ (tWrite t) $ \(fp, h) ->
@@ -251,7 +251,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
         cwd = ["cd " ++ x ++ " &&" | C.Cwd x <- opts]
 
 -- | I finished running a command
-cmdRattleFinished :: Rattle -> T -> Cmd -> Trace Hash -> Bool -> IO ()
+cmdRattleFinished :: Rattle -> T -> Cmd -> Trace (FilePath, Hash) -> Bool -> IO ()
 cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{..} save = join $ modifyVar state $ \case
     Left e -> throwProblem e
     Right s -> do

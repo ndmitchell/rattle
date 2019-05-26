@@ -28,8 +28,8 @@ deriving instance Hashable CmdOption
 data Trace a = Trace
     {tTime :: Seconds
     ,tRun :: !T
-    ,tRead :: [(FilePath, a)]
-    ,tWrite :: [(FilePath, a)]
+    ,tRead :: [a]
+    ,tWrite :: [a]
     } deriving (Show, Read, Functor, Foldable, Traversable, Eq)
 
 instance Semigroup (Trace a) where
@@ -42,11 +42,11 @@ instance Monoid (Trace a) where
 instance Hashable a => Hashable (Trace a) where
   hashWithSalt s (Trace tt rr tr tw) = hashWithSalt s (tt,rr,tr,tw)
 
-fsaTrace :: Seconds -> T -> [FSATrace] -> Trace ()
+fsaTrace :: Seconds -> T -> [FSATrace] -> Trace FilePath
 fsaTrace t rr [] = Trace t rr [] []
 fsaTrace t rr fs = normTrace . mconcat $ map f fs
     where
-        g r w = Trace t rr (map (,()) r) (map (,()) w)
+        g = Trace t rr
         f (FSAWrite x) = g [] [x]
         f (FSARead x) = g [x] []
         f (FSADelete x) = g [] [x]
