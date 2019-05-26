@@ -120,7 +120,7 @@ withRattle options@RattleOptions{..} act = withUI (return "Running") $ \ui -> wi
     let attempt1 = withPool rattleProcesses $ \pool -> do
             let r = Rattle{..}
             runSpeculate r
-            ((act r <* saveSpeculate state) `finally` writeVar state (Left Finished))
+            (act r <* saveSpeculate state) `finally` writeVar state (Left Finished)
     attempt1 `catch` \(h :: Hazard) -> do
         b <- readIORef speculated
         if not $ recoverableHazard h then throwIO h else do
