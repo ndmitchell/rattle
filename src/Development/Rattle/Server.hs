@@ -17,6 +17,7 @@ import Control.Exception.Extra
 import Control.Concurrent.Extra
 import General.Extra
 import System.FilePath
+import System.Directory
 import System.FilePattern
 import System.IO.Unsafe(unsafeInterleaveIO)
 import qualified Development.Shake.Command as C
@@ -24,6 +25,7 @@ import qualified Data.HashMap.Strict as Map
 import qualified Data.HashSet as Set
 import Data.IORef
 import Data.Hashable
+import Data.Maybe
 import Data.List.Extra
 import Data.Tuple.Extra
 import System.Time.Extra
@@ -39,17 +41,34 @@ data RattleOptions = RattleOptions
     ,rattleProcesses :: Int -- ^ Number of simulateous processes
     ,rattleCmdOptions :: [C.CmdOption] -- ^ Extra options added to every command line
     ,rattleIgnore :: [FilePattern] -- ^ Rattle files to ignore
+    ,rattleNamedDirs :: [(String, FilePath)] -- ^ Named directories
     } deriving Show
 
 -- | Default 'RattleOptions' value.
 rattleOptions :: RattleOptions
-rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 0 [] []
+rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 0 [] [] [("PWD",".")]
 
 
 rattleOptionsExplicit :: RattleOptions -> IO RattleOptions
 rattleOptionsExplicit o = do
     o <- if rattleProcesses o /= 0 then return o else do p <- getProcessorCount; return o{rattleProcesses=p}
+    o <- do
+        xs <- sequence [(a,) . addTrailingPathSeparator <$> canonicalizePath b | (a,b) <- rattleNamedDirs o]
+        -- sort so all prefixes come last, so we get the most specific match
+        return o{rattleNamedDirs = reverse $ sortOn snd xs}
     return o
+
+
+shorten :: [(String, FilePath)] -> FilePath -> FilePath
+shorten named x = fromMaybe x $ firstJust f named
+    where f (name,dir) = do rest <- stripPrefix dir x; return $ "$" ++ name </> rest
+
+expand :: [(String, FilePath)] -> FilePath -> FilePath
+expand named ('$':x)
+    | (x1, _:x2) <- break isPathSeparator x
+    , Just y <- lookup x1 named
+    = y ++ x2
+expand _ x = x
 
 
 data ReadOrWrite = Read | Write deriving (Show,Eq)
@@ -205,7 +224,7 @@ cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
     case Map.lookup cmd (started s) of
         Just (NoShow wait) -> return (Right s, wait)
         Nothing -> do
-            hist <- unsafeInterleaveIO $ getCmdTraces shared cmd
+            hist <- unsafeInterleaveIO $ map (fmap $ first $ expand $ rattleNamedDirs options) <$> getCmdTraces shared cmd
             go <- once $ cmdRattleRun rattle cmd start hist msgs
             s <- return s{running = (start, cmd, map (fmap fst) hist) : running s}
             s <- return s{started = Map.insert cmd (NoShow go) $ started s}
@@ -278,7 +297,7 @@ cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{..} save = join $ modi
                 let earliest = minimum $ succ stop : map fst3 (running s)
                 (safe, pending) <- return $ partition (\x -> fst3 x < earliest) $ pending s
                 s <- return s{pending = pending}
-                return (Right s, forM_ safe $ \(_,c,t) -> addCmdTrace shared c t)
+                return (Right s, forM_ safe $ \(_,c,t) -> addCmdTrace shared c $ fmap (first $ shorten (rattleNamedDirs options)) t)
 
 -- r is required list; s is speculate list
 mergeFileOps :: [Cmd] -> [Cmd] -> FilePath -> (ReadOrWrite, T, Cmd) -> (ReadOrWrite, T, Cmd) -> Either Hazard (ReadOrWrite, T, Cmd)
