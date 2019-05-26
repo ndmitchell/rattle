@@ -10,6 +10,7 @@ module Development.Rattle.Types(
 
 import Data.Hashable
 import Data.List.Extra
+import System.Directory
 import Development.Shake.Command
 import Data.Semigroup
 import qualified Data.HashSet as Set
@@ -42,9 +43,10 @@ instance Monoid (Trace a) where
 instance Hashable a => Hashable (Trace a) where
   hashWithSalt s (Trace tt rr tr tw) = hashWithSalt s (tt,rr,tr,tw)
 
-fsaTrace :: Seconds -> T -> [FSATrace] -> Trace FilePath
-fsaTrace t rr [] = Trace t rr [] []
-fsaTrace t rr fs = normTrace . mconcat $ map f fs
+fsaTrace :: Seconds -> T -> [FSATrace] -> IO (Trace FilePath)
+fsaTrace t rr [] = return $ Trace t rr [] []
+-- normalize twice because normalisation is cheap, but canonicalisation might be expensive
+fsaTrace t rr fs = fmap normTrace $ canonicalizeTrace $ normTrace $ mconcat $ map f fs
     where
         g = Trace t rr
         f (FSAWrite x) = g [] [x]
@@ -59,6 +61,9 @@ normTrace :: (Ord a, Hashable a) => Trace a -> Trace a
 normTrace (Trace t r a b) = Trace t r (sort $ Set.toList $ a2 `Set.difference` b2) (sort $ Set.toList b2)
     where a2 = Set.fromList a
           b2 = Set.fromList b
+
+canonicalizeTrace :: Trace FilePath -> IO (Trace FilePath)
+canonicalizeTrace (Trace t rr r w) = Trace t rr <$> mapM canonicalizePath r <*> mapM canonicalizePath w
 
 
 newtype T = T Int -- timestamps

@@ -241,7 +241,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
                     let opts2 = if isControlledUI ui then [C.EchoStdout False,C.EchoStderr False] else []
                     c <- display [] $ C.cmd (opts ++ opts2) exe args
                     end <- timer
-                    t <- return $ fsaTrace end runNum c
+                    t <- fsaTrace end runNum c
                     let pats = matchMany (map ((),) $ rattleIgnore options)
                     let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x || pats [((),x)] /= []
                     let f xs = mapMaybeM (\x -> fmap (x,) <$> hashFile x) $ filter (not . skip) xs
