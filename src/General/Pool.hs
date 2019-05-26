@@ -31,13 +31,14 @@ withPool n act = do
 
 
 spawn :: Var (Maybe (Set.HashSet (Async ()))) -> IO a -> IO a
-spawn var act = uninterruptibleMask $ \restore -> do
+spawn var act = mask $ \restore1 -> uninterruptibleMask $ \restore2 -> do
     -- Important we do uninterruptibleMask since spawning async is interruptible
     -- and after we have spawn'd async its important it ends up in the mp so it can be cancelled
+    -- However, relax that during cleanup, since if someone wants to abort cleanup its their choice
     (thing, after) <- modifyVar var $ \case
         Nothing -> return (Nothing, (fail "runPool after pool has terminated", return ()))
         Just mp -> do
-            a <- async $ restore act
+            a <- async $ restore1 act
             let undo = modifyVar_ var $ \case
                     Nothing -> return Nothing
                     Just mp -> do
@@ -45,8 +46,8 @@ spawn var act = uninterruptibleMask $ \restore -> do
                         return $ Just mp
             mp <- evaluate $ Set.insert (void a) mp
             return (Just mp, (wait a, cancel a >> undo))
-    r <- restore thing `onException` after
-    after
+    r <- restore1 thing `onException` restore2 after
+    restore2 after
     return r
 
 
