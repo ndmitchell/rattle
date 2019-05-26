@@ -94,11 +94,18 @@ getSpeculate = getList "speculate"
 setSpeculate :: Shared -> String -> [Cmd] -> IO ()
 setSpeculate = setList "speculate" WriteMode
 
+-- Intermediate data type which puts spaces in the right places to get better
+-- word orientated diffs when looking at the output in a text editor
+data File = File FilePath String
+    deriving (Show,Read)
+
 getCmdTraces :: Shared -> Cmd -> IO [Trace (FilePath, Hash)]
-getCmdTraces = getList "command"
+getCmdTraces shared cmd = map (fmap fromFile) <$> getList "command" shared cmd
+    where fromFile (File path x) = (path, Hash x)
 
 addCmdTrace :: Shared -> Cmd -> Trace (FilePath, Hash) -> IO ()
-addCmdTrace share cmd t = setList "command" AppendMode share cmd [t]
+addCmdTrace share cmd t = setList "command" AppendMode share cmd [fmap toFile t]
+    where toFile (path, Hash x) = File path x
 
 
 ---------------------------------------------------------------------
