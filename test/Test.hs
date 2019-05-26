@@ -1,4 +1,3 @@
-{-# LANGUAGE TupleSections #-}
 
 module Test(main) where
 
