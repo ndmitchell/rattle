@@ -16,6 +16,7 @@ import Development.Rattle.Hash
 import Control.Exception.Extra
 import Control.Concurrent.Extra
 import General.Extra
+import Data.Ord
 import System.FilePath
 import System.Directory
 import System.FilePattern
@@ -50,13 +51,16 @@ rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 0 [] [] [("PWD",".")
 
 
 rattleOptionsExplicit :: RattleOptions -> IO RattleOptions
-rattleOptionsExplicit o = do
-    o <- if rattleProcesses o /= 0 then return o else do p <- getProcessorCount; return o{rattleProcesses=p}
-    o <- do
-        xs <- sequence [(a,) . addTrailingPathSeparator <$> canonicalizePath b | (a,b) <- rattleNamedDirs o]
-        -- sort so all prefixes come last, so we get the most specific match
-        return o{rattleNamedDirs = reverse $ sortOn snd xs}
-    return o
+rattleOptionsExplicit = fixProcessorCount >=> fixNamedDirs
+    where
+        fixProcessorCount o
+            | rattleProcesses o /= 0 = return o
+            | otherwise = do p <- getProcessorCount; return o{rattleProcesses=p}
+
+        fixNamedDirs o = do
+            xs <- sequence [(a,) . addTrailingPathSeparator <$> canonicalizePath b | (a,b) <- rattleNamedDirs o]
+            -- sort so all prefixes come last, so we get the most specific match
+            return o{rattleNamedDirs = sortOn (Down . snd) xs}
 
 
 shorten :: [(String, FilePath)] -> FilePath -> FilePath

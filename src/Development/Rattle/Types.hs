@@ -1,4 +1,4 @@
-{-# LANGUAGE TupleSections, GeneralizedNewtypeDeriving, DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
 {-# LANGUAGE StandaloneDeriving, DeriveAnyClass, DeriveGeneric #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
