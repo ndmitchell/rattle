@@ -15,6 +15,7 @@ import System.FilePath
 import System.Directory.Extra
 import System.IO.Extra
 import Data.Maybe
+import Data.List
 import Control.Monad.Extra
 import Text.Read
 import Control.Concurrent.Extra
@@ -117,7 +118,7 @@ dumpList out dir name = do
     out $ "## " ++ name
     dirs <- listDirectories $ dir </> name
     forM_ dirs $ \x -> do
-        files <- filter (".txt" `isExtensionOf`) <$> listFiles x
+        files <- filter (".txt" `isSuffixOf`) <$> listFiles x
         forM_ files $ \file -> do
             out ""
             name <- readFileUTF8' file
