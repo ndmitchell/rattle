@@ -44,7 +44,7 @@ getCmdsTraces options@RattleOptions{..} = withShared rattleFiles$ \shared -> do
 getLastRun :: RattleOptions -> IO (Maybe T)
 getLastRun options@RattleOptions{..} = withShared rattleFiles $ \shared ->
   lastRun shared rattleMachine
-  
+
 constructGraph :: RattleOptions -> IO Graph
 constructGraph options@RattleOptions{..} = do
   cmdsWTraces <- getCmdsTraces options
