@@ -48,11 +48,11 @@ main = do
             withCurrentDirectory dir act
 
 
-
 dump :: IO ()
 dump = do
-    [x] <- getArgs
-    withCurrentDirectory ".." $
-        withFile (x </> "dump.rattle") WriteMode $ \h ->
-            rattleDump (hPutStrLn h) $ x </> ".rattle"
-    putStrLn $ "Dump written to " ++ x </> "dump.rattle"
+    xs <- getArgs
+    forM_ xs $ \x -> do
+        withCurrentDirectory ".." $
+            withFile (x </> "dump.rattle") WriteMode $ \h ->
+                rattleDump (hPutStrLn h) $ x </> ".rattle"
+        putStrLn $ "Dump written to " ++ x </> "dump.rattle"
