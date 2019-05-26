@@ -17,7 +17,7 @@ import qualified Test.Limit
 import qualified Test.Simple
 import qualified Test.Trace
 
-tests =
+tests = let (*) = (,) in
     ["trace" * Test.Trace.main
     ,"limit" * Test.Limit.main
     ,"simple" * Test.Simple.main
@@ -25,11 +25,6 @@ tests =
     ,"stack" * Test.Example.Stack.main
     ,"dump" * dump
     ]
-    where
-        name * act = (name,) $ do
-            let dir = "output" </> name
-            createDirectoryIfMissing True dir
-            withCurrentDirectory dir act
 
 main = do
     initDataDirectory
@@ -38,14 +33,20 @@ main = do
         [] ->
             forM_ tests $ \(name, act) -> do
                 putStrLn $ "\n# Test " ++ name
-                act
+                runAct name act
         name:args
             | Just act <- lookup name tests -> do
                 putStrLn $ "\n# Test " ++ name
-                withArgs args act
+                withArgs args $ runAct name act
         _ -> do
             putStrLn $ "Unknown arguments, expected one of\n  " ++ unwords (map fst tests)
             exitFailure
+    where
+        runAct name act = do
+            let dir = "output" </> name
+            createDirectoryIfMissing True dir
+            withCurrentDirectory dir act
+
 
 
 dump :: IO ()
