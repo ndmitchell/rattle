@@ -5,7 +5,8 @@ module Development.Rattle.Shared(
     getSpeculate, setSpeculate,
     getFile, setFile,
     getCmdTraces, addCmdTrace,
-    nextRun, lastRun
+    nextRun, lastRun,
+    dump
     ) where
 
 import General.Extra
@@ -19,6 +20,9 @@ import Control.Monad.Extra
 import Text.Read
 import Control.Concurrent.Extra
 
+
+---------------------------------------------------------------------
+-- PRIMITIVES
 
 data Shared = Shared Lock FilePath
 
@@ -47,6 +51,35 @@ setList typ mode (Shared lock dir) name vals = withLock lock $ do
         hSetEncoding h utf8
         hPutStr h $ unlines $ map show vals
 
+
+---------------------------------------------------------------------
+-- SPECIAL SUPPORT FOR FILES
+
+getFile :: Shared -> Hash -> IO (Maybe (FilePath -> IO ()))
+getFile (Shared lock dir) hash = do
+    let file = dir </> "files" </> filename hash
+    b <- doesFileExist file
+    return $ if not b then Nothing else Just $ \out -> do
+        createDirectoryRecursive $ takeDirectory out
+        copyFile file out
+
+setFile :: Shared -> FilePath -> Hash -> IO Bool -> IO ()
+setFile (Shared lock dir) source hash check = do
+    let file = dir </> "files" </> filename hash
+    b <- doesFileExist file
+    unlessM (doesFileExist file) $ withLock lock $ do
+        createDirectoryRecursive $ takeDirectory file
+        copyFile source (file <.> "tmp")
+        good <- check
+        if not good then
+            removeFile $ file <.> "tmp"
+         else
+            renameFile (file <.> "tmp") file
+
+
+---------------------------------------------------------------------
+-- TYPE SAFE WRAPPERS
+
 nextRun :: Shared -> String -> IO T
 nextRun s n = do
   ls <- getList "run" s n
@@ -74,25 +107,3 @@ getCmdTraces = getList "command"
 
 addCmdTrace :: Shared -> Cmd -> Trace Hash -> IO ()
 addCmdTrace share cmd t = setList "command" AppendMode share cmd [t]
-
-
-getFile :: Shared -> Hash -> IO (Maybe (FilePath -> IO ()))
-getFile (Shared lock dir) hash = do
-    let file = dir </> "files" </> filename hash
-    b <- doesFileExist file
-    return $ if not b then Nothing else Just $ \out -> do
-        createDirectoryRecursive $ takeDirectory out
-        copyFile file out
-
-setFile :: Shared -> FilePath -> Hash -> IO Bool -> IO ()
-setFile (Shared lock dir) source hash check = do
-    let file = dir </> "files" </> filename hash
-    b <- doesFileExist file
-    unlessM (doesFileExist file) $ withLock lock $ do
-        createDirectoryRecursive $ takeDirectory file
-        copyFile source (file <.> "tmp")
-        good <- check
-        if not good then
-            removeFile $ file <.> "tmp"
-         else
-            renameFile (file <.> "tmp") file
