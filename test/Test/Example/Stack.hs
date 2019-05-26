@@ -55,11 +55,11 @@ extraConfigureFlags = do
     -- However, if we pass --with-hscolour=... then it doesn't bother looking for the program, so programMonitorFiles is
     -- empty and thus doesn't change between computers.
     let progs = ["hscolour","alex","happy","ghc","cpphs","doctest"]
-    forM progs $ \prog -> do
+    flip mapMaybeM progs $ \prog -> do
         location <- findExecutable prog
         -- WARNING: If this returns Nothing (because you don't have doctest installed, for instance)
         --          your cache will not be stable.
-        return $ "--with-" ++ prog ++ "=" ++ fromMaybe prog location
+        return $ fmap (\x -> "--with-" ++ prog ++ "=" ++ x) location
 
 
 stack :: String -> [PackageName] -> Run ()
