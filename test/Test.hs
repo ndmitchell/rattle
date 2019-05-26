@@ -6,8 +6,10 @@ import Control.Monad
 import System.Directory
 import System.Environment
 import System.Exit
+import System.IO
 import System.FilePath
 import General.Paths
+import Development.Rattle
 
 import qualified Test.Example.FSATrace
 import qualified Test.Example.Stack
@@ -21,6 +23,7 @@ tests =
     ,"simple" * Test.Simple.main
     ,"fsatrace" * Test.Example.FSATrace.main
     ,"stack" * Test.Example.Stack.main
+    ,"dump" * dump
     ]
     where
         name * act = (name,) $ do
@@ -43,3 +46,12 @@ main = do
         _ -> do
             putStrLn $ "Unknown arguments, expected one of\n  " ++ unwords (map fst tests)
             exitFailure
+
+
+dump :: IO ()
+dump = do
+    [x] <- getArgs
+    withCurrentDirectory ".." $
+        withFile (x </> "dump.rattle") WriteMode $ \h ->
+            rattleDump (hPutStrLn h) $ x </> ".rattle"
+    putStrLn $ "Dump written to " ++ x </> "dump.rattle"
