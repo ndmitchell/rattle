@@ -54,8 +54,9 @@ fsaTrace t rr fs = normTrace . mconcat $ map f fs
         f (FSAQuery x) = g [x] []
         f (FSATouch x) = g [] [x]
 
-normTrace :: (Eq a, Hashable a) => Trace a -> Trace a
-normTrace (Trace t r a b) = Trace t r (Set.toList $ a2 `Set.difference` b2) (Set.toList b2)
+normTrace :: (Ord a, Hashable a) => Trace a -> Trace a
+-- added 'sort' because HashSet uses the ordering of the hashes, which is confusing
+normTrace (Trace t r a b) = Trace t r (sort $ Set.toList $ a2 `Set.difference` b2) (sort $ Set.toList b2)
     where a2 = Set.fromList a
           b2 = Set.fromList b
 
