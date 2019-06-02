@@ -27,6 +27,7 @@ import qualified Data.HashMap.Strict as Map
 import Data.Hashable
 import Development.Shake.Command
 import Development.Rattle.Server
+import Development.Rattle.Options
 import Development.Rattle.CmdOption
 import Development.Rattle.Shared
 import Development.Rattle.Profile

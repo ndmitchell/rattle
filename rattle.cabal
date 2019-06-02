@@ -59,6 +59,7 @@ library
     other-modules:
         Development.Rattle.CmdOptions
         Development.Rattle.Hash
+        Development.Rattle.Options
         Development.Rattle.Server
         Development.Rattle.Shared
         Development.Rattle.UI
@@ -113,6 +114,7 @@ test-suite rattle-test
         Development.Rattle
         Development.Rattle.CmdOptions
         Development.Rattle.Hash
+        Development.Rattle.Options
         Development.Rattle.Profile
         Development.Rattle.Server
         Development.Rattle.UI

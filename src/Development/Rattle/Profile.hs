@@ -7,6 +7,7 @@ module Development.Rattle.Profile(
   ) where
 
 import Development.Rattle.Server
+import Development.Rattle.Options
 import Development.Rattle.Types
 import Development.Rattle.Hash
 import Development.Rattle.Shared

@@ -1,7 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables, RecordWildCards, TupleSections, ViewPatterns, LambdaCase #-}
 
 module Development.Rattle.Server(
-    RattleOptions(..), rattleOptions,
     Rattle, withRattle,
     Hazard(..), Recoverable(..),
     addCmdOptions, cmdRattle
@@ -12,15 +11,14 @@ import General.Pool
 import Development.Rattle.Types
 import Development.Rattle.UI
 import Development.Rattle.Shared
+import Development.Rattle.Options
 import Development.Rattle.Hash
 import Development.Rattle.CmdOption
 import Control.Exception.Extra
 import Control.Concurrent.Extra
 import General.Extra
 import Data.Either
-import Data.Ord
 import System.FilePath
-import System.Directory
 import System.FilePattern
 import System.IO.Unsafe(unsafeInterleaveIO)
 import qualified Development.Shake.Command as C
@@ -28,52 +26,10 @@ import qualified Data.HashMap.Strict as Map
 import qualified Data.HashSet as Set
 import Data.IORef
 import Data.Hashable
-import Data.Maybe
 import Data.List.Extra
 import Data.Tuple.Extra
 import System.Time.Extra
 import Control.Monad.IO.Class
-
-
--- | Basic options for configuring rattle.
-data RattleOptions = RattleOptions
-    {rattleFiles :: FilePath -- ^ Where all my shared files go
-    ,rattleSpeculate :: Maybe String -- ^ Should I speculate? Under which key?
-    ,rattleMachine :: String -- ^ Key to store run#
-    ,rattleShare :: Bool -- ^ Should I share files from the cache
-    ,rattleProcesses :: Int -- ^ Number of simulateous processes
-    ,rattleCmdOptions :: [C.CmdOption] -- ^ Extra options added to every command line
-    ,rattleNamedDirs :: [(String, FilePath)] -- ^ Named directories
-    } deriving Show
-
--- | Default 'RattleOptions' value.
-rattleOptions :: RattleOptions
-rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 0 [] [("PWD",".")]
-
-
-rattleOptionsExplicit :: RattleOptions -> IO RattleOptions
-rattleOptionsExplicit = fixProcessorCount >=> fixNamedDirs
-    where
-        fixProcessorCount o
-            | rattleProcesses o /= 0 = return o
-            | otherwise = do p <- getProcessorCount; return o{rattleProcesses=p}
-
-        fixNamedDirs o = do
-            xs <- sequence [(a,) . addTrailingPathSeparator <$> canonicalizePath b | (a,b) <- rattleNamedDirs o]
-            -- sort so all prefixes come last, so we get the most specific match
-            return o{rattleNamedDirs = sortOn (Down . snd) xs}
-
-
-shorten :: [(String, FilePath)] -> FilePath -> FilePath
-shorten named x = fromMaybe x $ firstJust f named
-    where f (name,dir) = do rest <- stripPrefix dir x; return $ "$" ++ name </> rest
-
-expand :: [(String, FilePath)] -> FilePath -> FilePath
-expand named ('$':x)
-    | (x1, _:x2) <- break isPathSeparator x
-    , Just y <- lookup x1 named
-    = y ++ x2
-expand _ x = x
 
 
 data ReadOrWrite = Read | Write deriving (Show,Eq)
