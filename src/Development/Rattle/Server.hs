@@ -261,8 +261,8 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
                     cmdRattleFinished rattle start cmd t False
                 Nothing -> do
                     timer <- liftIO offsetTime
-                    let opts2 = if isControlledUI ui then [C.EchoStdout False,C.EchoStderr False] else []
-                    c <- display [] $ C.cmd (opts ++ opts2) exe args
+                    let optsUI = if isControlledUI ui then [C.EchoStdout False,C.EchoStderr False] else []
+                    c <- display [] $ C.cmd (opts ++ optsUI) exe args
                     end <- timer
                     t <- fsaTrace end runNum c
                     let pats = matchMany (map ((),) $ rattleIgnore options)
