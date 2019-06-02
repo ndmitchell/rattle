@@ -2,7 +2,8 @@
 
 module Development.Rattle.Hash(
     Hash(..),
-    hashFile, hashString
+    hashFile, hashString,
+    hashFileForward, toHashForward, fromHashForward
     ) where
 
 import System.IO
@@ -18,6 +19,8 @@ import System.IO.Unsafe
 import System.IO.Error
 import Control.Monad.Extra
 import Data.IORef
+import Data.List.Extra
+import System.FilePath
 import Numeric
 import Control.Exception.Extra
 import Control.DeepSeq
@@ -41,6 +44,24 @@ hashCache = unsafePerformIO $ newIORef Map.empty
 getModTime :: FilePath -> IO (Maybe UTCTime)
 getModTime x = handleBool isDoesNotExistError (const $ return Nothing) (Just <$> getModificationTime x)
 
+toHashForward :: FilePath -> Maybe FilePath
+toHashForward x | ".rattle.hash" `isSuffixOf` x = Nothing
+                | otherwise = Just $ x <.> "rattle.hash"
+
+fromHashForward :: FilePath -> Maybe FilePath
+fromHashForward x | Just x <- stripSuffix ".rattle.hash" x = Just x
+                  | otherwise = Nothing
+
+-- | If there is a forwarding hash, and this file exists, use the forwarding hash instead
+hashFileForward :: FilePath -> IO (Maybe Hash)
+hashFileForward file =
+    case toHashForward file of
+        Nothing -> hashFile file
+        Just file2 -> do
+            b2 <- doesFileExist file2
+            if not b2 then hashFile file else do
+                b <- doesFileExist file
+                if not b then return Nothing else hashFile file2
 
 hashFile :: FilePath -> IO (Maybe Hash)
 hashFile file = do

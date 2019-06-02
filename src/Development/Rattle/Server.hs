@@ -18,6 +18,8 @@ import Control.Exception.Extra
 import Control.Concurrent.Extra
 import General.Extra
 import Data.Either
+import Data.Maybe
+import System.Directory
 import System.FilePath
 import System.FilePattern
 import System.IO.Unsafe(unsafeInterleaveIO)
@@ -195,7 +197,7 @@ cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
 -- either fetch it from the cache or run it)
 cmdRattleRun :: Rattle -> Cmd -> T -> [Trace (FilePath, Hash)] -> [String] -> IO ()
 cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
-    hasher <- memoIO hashFile
+    hasher <- memoIO hashFileForward
     let match (fp, h) = (== Just h) <$> hasher fp
     histRead <- filterM (allM match . tRead) hist
     histBoth <- filterM (allM match . tWrite) histRead
@@ -223,10 +225,11 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
                     c <- display [] $ C.cmd (opts ++ optsUI) exe args
                     end <- timer
                     t <- fsaTrace end runNum c
+                    checkHashForwardConsistency t
                     let pats = matchMany [((), x) | Ignored xs <- opts2, x <- xs]
                     let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x || pats [((),x)] /= []
-                    let f xs = mapMaybeM (\x -> fmap (x,) <$> hashFile x) $ filter (not . skip) xs
-                    t <- Trace (tTime t) (tRun t) <$> f (tRead t) <*> f (tWrite t)
+                    let f hasher xs = mapMaybeM (\x -> fmap (x,) <$> hasher x) $ filter (not . skip) xs
+                    t <- Trace (tTime t) (tRun t) <$> f hashFileForward (tRead t) <*> f hashFile (tWrite t)
                     when (rattleShare options) $
                         forM_ (tWrite t) $ \(fp, h) ->
                             setFile shared fp h ((== Just h) <$> hashFile fp)
@@ -235,6 +238,22 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
         display msgs2 = addUI ui (head $ overrides ++ [cmdline]) (unwords $ msgs ++ msgs2)
         overrides = [x | C.Traced x <- opts] ++ [x | C.UserCommand x <- opts]
         cmdline = unwords $ ["cd " ++ x ++ " &&" | C.Cwd x <- opts] ++ exe : args
+
+
+checkHashForwardConsistency :: Trace FilePath -> IO ()
+checkHashForwardConsistency Trace{..} = do
+    -- check that anyone who is writing forwarding hashes is writing the actual file
+    let sources = mapMaybe fromHashForward tWrite
+    let bad = sources \\ tWrite
+    when (bad /= []) $
+        fail $ "Wrote to the forwarding file, but not the source: " ++ show bad
+
+    -- and anyone writing to a file with a hash also updates it
+    forwards <- filterM doesFileExist $ mapMaybe toHashForward tWrite
+    let bad = forwards \\ tWrite
+    when (bad /= []) $
+        fail $ "Wrote to the source file which has a forwarding hash, but didn't touch the hash: " ++ show bad
+
 
 -- | I finished running a command
 cmdRattleFinished :: Rattle -> T -> Cmd -> Trace (FilePath, Hash) -> Bool -> IO ()
