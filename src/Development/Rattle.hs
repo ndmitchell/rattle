@@ -11,7 +11,7 @@ module Development.Rattle(
     rattleDump,
     Hazard,
     RattleOptions(..), rattleOptions,
-    cmd, CmdOption(..), withCmdOptions,
+    cmd, CmdOption(..), CmdOption2(..), toCmdOption, withCmdOptions,
     parallel, forP, forP_,
     memo, memoRec,
     liftIO, writeProfile, graphData
@@ -27,6 +27,7 @@ import qualified Data.HashMap.Strict as Map
 import Data.Hashable
 import Development.Shake.Command
 import Development.Rattle.Server
+import Development.Rattle.CmdOption
 import Development.Rattle.Shared
 import Development.Rattle.Profile
 

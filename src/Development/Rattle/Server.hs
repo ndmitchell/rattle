@@ -13,9 +13,11 @@ import Development.Rattle.Types
 import Development.Rattle.UI
 import Development.Rattle.Shared
 import Development.Rattle.Hash
+import Development.Rattle.CmdOption
 import Control.Exception.Extra
 import Control.Concurrent.Extra
 import General.Extra
+import Data.Either
 import Data.Ord
 import System.FilePath
 import System.Directory
@@ -41,13 +43,12 @@ data RattleOptions = RattleOptions
     ,rattleShare :: Bool -- ^ Should I share files from the cache
     ,rattleProcesses :: Int -- ^ Number of simulateous processes
     ,rattleCmdOptions :: [C.CmdOption] -- ^ Extra options added to every command line
-    ,rattleIgnore :: [FilePattern] -- ^ Rattle files to ignore
     ,rattleNamedDirs :: [(String, FilePath)] -- ^ Named directories
     } deriving Show
 
 -- | Default 'RattleOptions' value.
 rattleOptions :: RattleOptions
-rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 0 [] [] [("PWD",".")]
+rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 0 [] [("PWD",".")]
 
 
 rattleOptionsExplicit :: RattleOptions -> IO RattleOptions
@@ -261,11 +262,12 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
                     cmdRattleFinished rattle start cmd t False
                 Nothing -> do
                     timer <- liftIO offsetTime
+                    (opts, opts2) <- return $ partitionEithers $ map fromCmdOption opts
                     let optsUI = if isControlledUI ui then [C.EchoStdout False,C.EchoStderr False] else []
                     c <- display [] $ C.cmd (opts ++ optsUI) exe args
                     end <- timer
                     t <- fsaTrace end runNum c
-                    let pats = matchMany (map ((),) $ rattleIgnore options)
+                    let pats = matchMany [((), x) | Ignored xs <- opts2, x <- xs]
                     let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x || pats [((),x)] /= []
                     let f xs = mapMaybeM (\x -> fmap (x,) <$> hashFile x) $ filter (not . skip) xs
                     t <- Trace (tTime t) (tRun t) <$> f (tRead t) <*> f (tWrite t)
