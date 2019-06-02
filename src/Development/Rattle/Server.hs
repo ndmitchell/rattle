@@ -276,8 +276,9 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
                             setFile shared fp h ((== Just h) <$> hashFile fp)
                     cmdRattleFinished rattle start cmd t True
     where
-        display msgs2 = addUI ui (unwords $ cwd ++ exe : args) (unwords $ msgs ++ msgs2)
-        cwd = ["cd " ++ x ++ " &&" | C.Cwd x <- opts]
+        display msgs2 = addUI ui (head $ overrides ++ [cmdline]) (unwords $ msgs ++ msgs2)
+        overrides = [x | C.Traced x <- opts] ++ [x | C.UserCommand x <- opts]
+        cmdline = unwords $ ["cd " ++ x ++ " &&" | C.Cwd x <- opts] ++ exe : args
 
 -- | I finished running a command
 cmdRattleFinished :: Rattle -> T -> Cmd -> Trace (FilePath, Hash) -> Bool -> IO ()
