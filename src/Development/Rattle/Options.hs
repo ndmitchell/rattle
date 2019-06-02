@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, RecordWildCards, TupleSections, ViewPatterns, LambdaCase #-}
+{-# LANGUAGE TupleSections #-}
 
 module Development.Rattle.Options(
     RattleOptions(..), rattleOptions,
