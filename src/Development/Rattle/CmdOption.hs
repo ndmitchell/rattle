@@ -12,6 +12,7 @@ import System.FilePattern
 
 data CmdOption2
     = Ignored [FilePattern] -- Files that are ignored
+    | HashNonDeterministic [FilePattern] -- Files that have non-det outputs, so hash the inputs
       deriving (Read, Show)
 
 

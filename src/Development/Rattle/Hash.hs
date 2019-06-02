@@ -2,7 +2,7 @@
 
 module Development.Rattle.Hash(
     Hash(..),
-    hashFile, hashString,
+    hashFile, hashString, hashHash,
     hashFileForward, toHashForward, fromHashForward
     ) where
 
@@ -88,3 +88,7 @@ hashFile file = do
 hashString :: String -> Hash
 -- we first 'show' the String to avoid having > 256 characters in it
 hashString = mkHash . SHA.hash . BS.pack . show
+
+
+hashHash :: Hash -> Hash
+hashHash (Hash x) = mkHash $ SHA.hash $ BS.pack x

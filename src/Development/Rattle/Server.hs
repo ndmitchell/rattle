@@ -230,6 +230,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
                     let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x || pats [((),x)] /= []
                     let f hasher xs = mapMaybeM (\x -> fmap (x,) <$> hasher x) $ filter (not . skip) xs
                     t <- Trace (tTime t) (tRun t) <$> f hashFileForward (tRead t) <*> f hashFile (tWrite t)
+                    x <- generateHashForwards cmd [x | HashNonDeterministic xs <- opts2, x <- xs] t
                     when (rattleShare options) $
                         forM_ (tWrite t) $ \(fp, h) ->
                             setFile shared fp h ((== Just h) <$> hashFile fp)
@@ -254,6 +255,19 @@ checkHashForwardConsistency Trace{..} = do
     when (bad /= []) $
         fail $ "Wrote to the source file which has a forwarding hash, but didn't touch the hash: " ++ show bad
 
+
+-- | If you hae been asked to generate a forwarding hash for writes
+generateHashForwards :: Cmd -> [FilePattern] -> Trace (FilePath, Hash) -> IO (Trace (FilePath, Hash))
+generateHashForwards cmd ms t = do
+    let match = matchMany $ map ((),) ms
+    let (normal, forward) = partition (\(x, _) -> isJust (toHashForward x) && null (match [((), x)])) $ tWrite t
+    let Hash hash = hashString $ show (cmd, tRead t, normal)
+    let hhash = hashHash $ Hash hash
+    forward <- forM forward $ \(x,_) -> do
+        let Just x2 = toHashForward x -- checked this is OK earlier
+        writeFile x2 hash
+        return (x2, hhash)
+    return t{tWrite = tWrite t ++ forward}
 
 -- | I finished running a command
 cmdRattleFinished :: Rattle -> T -> Cmd -> Trace (FilePath, Hash) -> Bool -> IO ()
