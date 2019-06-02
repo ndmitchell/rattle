@@ -24,11 +24,13 @@ data RattleOptions = RattleOptions
     ,rattleProcesses :: Int -- ^ Number of simulateous processes
     ,rattleCmdOptions :: [C.CmdOption] -- ^ Extra options added to every command line
     ,rattleNamedDirs :: [(String, FilePath)] -- ^ Named directories
+    ,rattleFancyUI :: Maybe Bool -- ^ True for Yes, Nothing for auto detect, False for no
     } deriving Show
+
 
 -- | Default 'RattleOptions' value.
 rattleOptions :: RattleOptions
-rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 0 [] [("PWD",".")]
+rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 0 [] [("PWD",".")] Nothing
 
 
 rattleOptionsExplicit :: RattleOptions -> IO RattleOptions

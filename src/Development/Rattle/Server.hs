@@ -92,7 +92,7 @@ addCmdOptions new r@Rattle{options=o@RattleOptions{rattleCmdOptions=old}} =
 
 
 withRattle :: RattleOptions -> (Rattle -> IO a) -> IO a
-withRattle options@RattleOptions{..} act = withUI (return "Running") $ \ui -> withShared rattleFiles $ \shared -> do
+withRattle options@RattleOptions{..} act = withUI rattleFancyUI (return "Running") $ \ui -> withShared rattleFiles $ \shared -> do
     options@RattleOptions{..} <- rattleOptionsExplicit options
 
     speculate <- maybe (return []) (getSpeculate shared) rattleSpeculate

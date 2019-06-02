@@ -76,10 +76,16 @@ showDurationSecs = replace ".00s" "s" . showDuration . intToDouble . round
 
 
 -- | Run a compact UI, with the ShakeOptions modifier, combined with
-withUI :: IO String -> (UI -> IO a) -> IO a
-withUI header act = do
-    b <- checkEscCodes
-    if b then withUICompact header act else withUISerial act
+withUI :: Maybe Bool -> IO String -> (UI -> IO a) -> IO a
+withUI fancy header act = case fancy of
+    Nothing -> withUISerial act
+    Just True -> do
+        -- checking the escape codes may also enable them
+        checkEscCodes
+        withUICompact header act
+    Just False -> do
+        b <- checkEscCodes
+        if b then withUICompact header act else withUISerial act
 
 withUICompact :: IO String -> (UI -> IO a) -> IO a
 withUICompact header act = do
