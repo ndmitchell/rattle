@@ -1,4 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, GADTs #-}
 
 -- | General rules for writing consistent rattle build systems:
 --

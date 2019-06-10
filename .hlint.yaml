@@ -1,0 +1,6 @@
+# HLint configuration file
+# https://github.com/ndmitchell/hlint
+##########################
+
+# Current HLint doesn't support [|| typed splices ||]
+- ignore: {name: "Parse error"}
