@@ -13,6 +13,7 @@ module Development.Rattle(
     RattleOptions(..), rattleOptions,
     cmd, CmdOption(..), CmdOption2(..), toCmdOption,
     module Development.Rattle.Derived,
+    module Development.Rattle.Program,
     liftIO, writeProfile, graphData
     ) where
 
@@ -25,6 +26,8 @@ import Development.Rattle.Options
 import Development.Rattle.CmdOption
 import Development.Rattle.Shared
 import Development.Rattle.Profile
+import Development.Rattle.Program
+
 
 -- | Given an Action to run, and a list of previous commands that got run, run it again
 rattleRun :: RattleOptions -> Run a -> IO a
