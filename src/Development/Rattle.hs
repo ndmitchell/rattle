@@ -14,6 +14,7 @@ module Development.Rattle(
     cmd, CmdOption(..), CmdOption2(..), toCmdOption, withCmdOptions,
     parallel, forP, forP_,
     memo, memoRec,
+    cmdWriteFile,
     liftIO, writeProfile, graphData
     ) where
 
@@ -51,6 +52,10 @@ forP xs f = parallel $ map f xs
 -- | Parallel version of 'forM'.
 forP_ :: [a] -> (a -> Run b) -> Run ()
 forP_ xs f = void $ forP xs f
+
+
+cmdWriteFile :: FilePath -> String -> Run ()
+cmdWriteFile file str = cmd (WriteFile file) [str]
 
 
 -- | Apply specific options ot all nested Run values.

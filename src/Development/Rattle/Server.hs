@@ -22,6 +22,7 @@ import Data.Maybe
 import System.Directory
 import System.FilePath
 import System.FilePattern
+import System.IO.Extra
 import System.IO.Unsafe(unsafeInterleaveIO)
 import qualified Development.Shake.Command as C
 import qualified Data.HashMap.Strict as Map
@@ -239,10 +240,14 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) start hist msgs = do
 cmdRattleRaw :: UI -> [C.CmdOption] -> [String] -> IO ([CmdOption2], [C.FSATrace])
 cmdRattleRaw ui opts args = do
     (opts, opts2) <- return $ partitionEithers $ map fromCmdOption opts
-    let optsUI = if isControlledUI ui then [C.EchoStdout False,C.EchoStderr False] else []
-    res <- C.cmd (opts ++ optsUI) args
-    return (opts2, res)
-
+    case [x | WriteFile x <- opts2] of
+        [] -> do
+            let optsUI = if isControlledUI ui then [C.EchoStdout False,C.EchoStderr False] else []
+            res <- C.cmd (opts ++ optsUI) args
+            return (opts2, res)
+        files -> do
+            mapM_ (`writeFileUTF8` concat args) files
+            return (opts2, map C.FSAWrite files)
 
 checkHashForwardConsistency :: Trace FilePath -> IO ()
 checkHashForwardConsistency Trace{..} = do
