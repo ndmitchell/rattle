@@ -11,10 +11,8 @@ module Development.Rattle(
     rattleDump,
     Hazard,
     RattleOptions(..), rattleOptions,
-    cmd, CmdOption(..), CmdOption2(..), toCmdOption, withCmdOptions,
-    parallel, forP, forP_,
-    memo, memoRec,
-    cmdWriteFile,
+    cmd, CmdOption(..), CmdOption2(..), toCmdOption,
+    module Development.Rattle.Derived,
     liftIO, writeProfile, graphData
     ) where
 
