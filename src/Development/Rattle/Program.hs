@@ -12,17 +12,19 @@ import System.IO.Unsafe
 import System.FilePath
 import Language.Haskell.TH
 
-
+-- | A program that can be run externally.
 data Program a = Program
     {programDisplay :: a -> String
     ,programContents :: String
     ,programHash :: Hash
     }
 
+-- | Create a new program which is based on a TH splice.
 newProgram :: (Show a, Read a) => (a -> String) -> Q (TExp (a -> IO ())) -> Program a
 newProgram display expr = Program display contents (hashString contents)
     where contents = unlines $ generate $ unsafePerformIO $ runQ expr
 
+-- | Run a program.
 runProgram :: Show a => Program a -> a -> Run ()
 runProgram Program{..} x = do
     let Hash unhash = programHash

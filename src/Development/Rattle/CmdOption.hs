@@ -10,6 +10,7 @@ module Development.Rattle.CmdOption(
 import Development.Shake.Command
 import System.FilePattern
 
+-- | A data type for additional rattle options
 data CmdOption2
     = Ignored [FilePattern] -- Files that are ignored
     | HashNonDeterministic [FilePattern] -- Files that have non-det outputs, so hash the inputs
@@ -20,9 +21,11 @@ data CmdOption2
 instance IsCmdArgument CmdOption2 where
     toCmdArgument = toCmdArgument . toCmdOption
 
+-- | Convert a new option into a standard one.
 toCmdOption :: CmdOption2 -> CmdOption
 toCmdOption = AddEnv "#!RATTLE" . show
 
+-- | Convert a normal option into potentially a rattle one.
 fromCmdOption :: CmdOption -> Either CmdOption CmdOption2
 fromCmdOption (AddEnv "#!RATTLE" x) = Right $ read x
 fromCmdOption x = Left x
