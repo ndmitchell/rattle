@@ -21,8 +21,9 @@ import Distribution.Types.Dependency
 import Distribution.Types.PackageName(unPackageName)
 
 
-type PackageName = String
-type PackageVersion = String
+type PackageName = String -- e.g. "shake"
+type PackageVersion = String -- e.g. "1.0.7"
+
 
 main :: IO ()
 main = do
