@@ -57,14 +57,16 @@ library
         Development.Rattle
 
     other-modules:
-        Development.Rattle.CmdOptions
+        Development.Rattle.CmdOption
+        Development.Rattle.Derived
         Development.Rattle.Hash
         Development.Rattle.Options
+        Development.Rattle.Profile
+        Development.Rattle.Program
         Development.Rattle.Server
         Development.Rattle.Shared
-        Development.Rattle.UI
         Development.Rattle.Types
-        Development.Rattle.Profile
+        Development.Rattle.UI
         General.Bilist
         General.Extra
         General.Limit
@@ -112,14 +114,16 @@ test-suite rattle-test
 
     other-modules:
         Development.Rattle
-        Development.Rattle.CmdOptions
+        Development.Rattle.CmdOption
+        Development.Rattle.Derived
         Development.Rattle.Hash
         Development.Rattle.Options
         Development.Rattle.Profile
+        Development.Rattle.Program
         Development.Rattle.Server
-        Development.Rattle.UI
         Development.Rattle.Shared
         Development.Rattle.Types
+        Development.Rattle.UI
         General.Bilist
         General.Extra
         General.Limit
