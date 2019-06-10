@@ -220,9 +220,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) start hist msgs = do
                     cmdRattleFinished rattle start cmd t False
                 Nothing -> do
                     timer <- liftIO offsetTime
-                    (opts, opts2) <- return $ partitionEithers $ map fromCmdOption opts
-                    let optsUI = if isControlledUI ui then [C.EchoStdout False,C.EchoStderr False] else []
-                    c <- display [] $ C.cmd (opts ++ optsUI) args
+                    (opts2, c) <- display [] $ cmdRattleRaw ui opts args
                     end <- timer
                     t <- fsaTrace end runNum c
                     checkHashForwardConsistency t
@@ -239,6 +237,14 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) start hist msgs = do
         display msgs2 = addUI ui (head $ overrides ++ [cmdline]) (unwords $ msgs ++ msgs2)
         overrides = [x | C.Traced x <- opts] ++ [x | C.UserCommand x <- opts]
         cmdline = unwords $ ["cd " ++ x ++ " &&" | C.Cwd x <- opts] ++ args
+
+
+cmdRattleRaw :: UI -> [C.CmdOption] -> [String] -> IO ([CmdOption2], [C.FSATrace])
+cmdRattleRaw ui opts args = do
+    (opts, opts2) <- return $ partitionEithers $ map fromCmdOption opts
+    let optsUI = if isControlledUI ui then [C.EchoStdout False,C.EchoStderr False] else []
+    res <- C.cmd (opts ++ optsUI) args
+    return (opts2, res)
 
 
 checkHashForwardConsistency :: Trace FilePath -> IO ()
