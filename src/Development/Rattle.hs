@@ -22,7 +22,6 @@ import Control.Concurrent.Async
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
 import Control.Monad
-import Data.Either.Extra
 import Control.Concurrent.Extra
 import qualified Data.HashMap.Strict as Map
 import Data.Hashable
@@ -33,10 +32,6 @@ import Development.Rattle.CmdOption
 import Development.Rattle.Shared
 import Development.Rattle.Profile
 
-
--- | Type of actions to run. Executed using 'rattle'.
-newtype Run a = Run {fromRun :: ReaderT Rattle IO a}
-    deriving (Functor, Applicative, Monad, MonadIO)
 
 -- | Run a sequence of 'Run' actions in parallel. They will be run in parallel with no limit
 --   on simultaneous executions.
@@ -61,12 +56,6 @@ cmdWriteFile file str = cmd (WriteFile file) [str]
 -- | Apply specific options ot all nested Run values.
 withCmdOptions :: [CmdOption] -> Run a -> Run a
 withCmdOptions xs (Run act) = Run $ withReaderT (addCmdOptions xs) act
-
-instance a ~ () => CmdArguments (Run a) where
-    cmdArguments (CmdArgument x) = do
-        let (opts, args) = partitionEithers x
-        r <- Run ask
-        liftIO $ cmdRattle r opts args
 
 -- | Given an Action to run, and a list of previous commands that got run, run it again
 rattleRun :: RattleOptions -> Run a -> IO a

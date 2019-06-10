@@ -1,12 +1,15 @@
 {-# LANGUAGE ScopedTypeVariables, RecordWildCards, TupleSections, ViewPatterns, LambdaCase #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, GADTs #-}
 
 module Development.Rattle.Server(
-    Rattle, withRattle,
+    Rattle, withRattle, Run(..),
     Hazard(..), Recoverable(..),
     addCmdOptions, cmdRattle
     ) where
 
 import Control.Monad.Extra
+import Control.Monad.Trans.Reader
+import Control.Monad.IO.Class
 import General.Pool
 import Development.Rattle.Types
 import Development.Rattle.UI
@@ -32,6 +35,18 @@ import Data.Hashable
 import Data.List.Extra
 import Data.Tuple.Extra
 import System.Time.Extra
+
+
+-- | Type of actions to run. Executed using 'rattle'.
+newtype Run a = Run {fromRun :: ReaderT Rattle IO a}
+    deriving (Functor, Applicative, Monad, MonadIO)
+
+instance a ~ () => C.CmdArguments (Run a) where
+    cmdArguments (C.CmdArgument x) = do
+        let (opts, args) = partitionEithers x
+        r <- Run ask
+        liftIO $ cmdRattle r opts args
+
 
 
 data ReadOrWrite = Read | Write deriving (Show,Eq)
@@ -232,6 +247,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) start hist msgs = do
                             setFile shared fp h ((== Just h) <$> hashFile fp)
                     cmdRattleFinished rattle start cmd t True
     where
+        display :: [String] -> IO a -> IO a
         display msgs2 = addUI ui (head $ overrides ++ [cmdline]) (unwords $ msgs ++ msgs2)
         overrides = [x | C.Traced x <- opts] ++ [x | C.UserCommand x <- opts]
         cmdline = unwords $ ["cd " ++ x ++ " &&" | C.Cwd x <- opts] ++ args
