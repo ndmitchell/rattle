@@ -31,7 +31,6 @@ import Data.Hashable
 import Data.List.Extra
 import Data.Tuple.Extra
 import System.Time.Extra
-import Control.Monad.IO.Class
 
 
 data ReadOrWrite = Read | Write deriving (Show,Eq)
@@ -219,10 +218,8 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) start hist msgs = do
                     display ["copying"] $ sequence_ download
                     cmdRattleFinished rattle start cmd t False
                 Nothing -> do
-                    timer <- liftIO offsetTime
-                    (opts2, c) <- display [] $ cmdRattleRaw ui opts args
-                    end <- timer
-                    t <- fsaTrace end runNum c
+                    (time, (opts2, c)) <- duration $ display [] $ cmdRattleRaw ui opts args
+                    t <- fsaTrace time runNum c
                     checkHashForwardConsistency t
                     let pats = matchMany [((), x) | Ignored xs <- opts2, x <- xs]
                     let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x || pats [((),x)] /= []
