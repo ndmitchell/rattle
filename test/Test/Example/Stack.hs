@@ -31,6 +31,8 @@ main = do
     tdir <- canonicalizePath =<< getTemporaryDirectory
     let ignore = toCmdOption $ Ignored ["**/hackage-security-lock", "**/package.cache.lock", tdir ++ "/**"]
     rattleRun rattleOptions{rattleCmdOptions=[ignore]} $ stack "nightly-2019-05-15" $ args ++ ["cereal" | null args]
+    rattleRun rattleOptions{rattleCmdOptions=[ignore]} $
+        stack "nightly-2019-05-15" $ args ++ ["cereal" | null args]
 
 
 installPackage :: (PackageName -> Run (Maybe PackageVersion)) -> FilePath -> [String] -> PackageName -> PackageVersion -> Run ()
