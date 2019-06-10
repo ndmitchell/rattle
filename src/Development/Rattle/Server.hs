@@ -262,7 +262,9 @@ cmdRattleRaw ui opts args = do
             res <- C.cmd (opts ++ optsUI) args
             return (opts2, res)
         files -> do
-            mapM_ (`writeFileUTF8` concat args) files
+            forM_ files $ \file -> do
+                createDirectoryIfMissing True $ takeDirectory file
+                writeFileUTF8 file $ concat args
             return (opts2, map C.FSAWrite files)
 
 checkHashForwardConsistency :: Trace FilePath -> IO ()
