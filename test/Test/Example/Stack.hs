@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 
 -- | Try performing a Stack-like install.
 module Test.Example.Stack(main) where
@@ -6,10 +7,11 @@ import Development.Rattle
 import Development.Shake.FilePath
 import System.IO.Extra
 import qualified Data.ByteString as BS
+import qualified Development.Shake.Command as C
 import Data.Maybe
 import Control.Monad.Extra
 import System.Environment
-import System.Directory
+import System.Directory.Extra
 import Data.List.Extra
 import qualified Data.HashMap.Strict as Map
 
@@ -36,17 +38,42 @@ main = do
         stack "nightly-2019-05-15" $ args ++ ["cereal" | null args]
 
 
+-- morally: cabal unpack $PACKAGE
+cabalUnpack :: Program String
+cabalUnpack = newProgram (\dir -> "cabal unpack " ++ dir) [|| \dir -> do
+    -- we'd rather just call unpack directly, but it's not idempotent
+    -- (fails if the directory already exists), so combine it with deleting files
+    removePathForcibly dir
+    C.cmd "cabal unpack" dir
+    ||]
+
+-- morally: cd dir && cabal v1-build lib:$PACKAGE
+cabalBuild :: Program (FilePath, PackageName)
+cabalBuild = newProgram (\(_, name) -> "cabal build " ++ name) [|| \(dir, name) -> do
+    -- we'd like to call cabal v1-build directly, but that adds absolute file paths
+    -- on values we don't care, like the docs path. Therefore, we tidy up the inplace file
+    -- after to ensure its deterministic
+    C.cmd_ (Cwd dir) "cabal v1-build" ("lib:" ++ name)
+    xs <- filter (".conf" `isExtensionOf`) <$> listFiles (dir </> "dist/package.conf.inplace")
+    pwd <- getCurrentDirectory
+    forM_ xs $ \x -> do
+        src <- readFileUTF8' x
+        writeFileUTF8 x $ replace (addTrailingPathSeparator pwd) "" src
+    C.cmd "ghc-pkg recache" ("--package-db=" ++ dir </> "dist/package.conf.inplace")
+    ||]
+
+
 installPackage :: (PackageName -> Run (Maybe PackageVersion)) -> FilePath -> [String] -> PackageName -> PackageVersion -> Run ()
 installPackage dep config flags name version = do
     let dir = name ++ "-" ++ version
-    cmd "pipeline rm -rf" dir "&& cabal unpack" dir
+    runProgram cabalUnpack dir
     depends <- liftIO $ cabalDepends $ dir </> name <.> "cabal"
     depends <- return $ delete name $ nubSort depends
     dependsVer <- forP depends dep
     cmd (Cwd dir) "cabal v1-configure" flags
         "--disable-library-profiling --disable-optimisation"
         ["--package-db=../" ++ n ++ "-" ++ v ++ "/dist/package.conf.inplace" | (n, Just v) <- zip depends dependsVer]
-    cmd (Cwd dir) "cabal v1-build" ("lib:" ++ name)
+    runProgram cabalBuild (dir, name)
 
 
 extraConfigureFlags :: IO [String]
