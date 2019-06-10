@@ -36,7 +36,7 @@ forP_ xs f = void $ forP xs f
 
 
 cmdWriteFile :: FilePath -> String -> Run ()
-cmdWriteFile file str = cmd (WriteFile file) [str]
+cmdWriteFile file str = cmd (Traced $ "Writing file " ++ file) (WriteFile file) [str]
 
 
 -- | Apply specific options ot all nested Run values.
