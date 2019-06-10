@@ -19,7 +19,7 @@ import Prelude
 import System.Time.Extra
 
 
-data Cmd = Cmd [CmdOption] String [String]
+data Cmd = Cmd [CmdOption] [String]
     deriving (Show, Read, Eq, Generic, Hashable)
 
 deriving instance Read CmdOption

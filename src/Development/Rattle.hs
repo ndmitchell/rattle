@@ -58,11 +58,10 @@ withCmdOptions :: [CmdOption] -> Run a -> Run a
 withCmdOptions xs (Run act) = Run $ withReaderT (addCmdOptions xs) act
 
 instance a ~ () => CmdArguments (Run a) where
-    cmdArguments (CmdArgument x) = case partitionEithers x of
-        (opts, x:xs) -> do
-            r <- Run ask
-            liftIO $ cmdRattle r opts x xs
-        _ -> error "Error, no executable or arguments given to Development.Rattle.cmd"
+    cmdArguments (CmdArgument x) = do
+        let (opts, args) = partitionEithers x
+        r <- Run ask
+        liftIO $ cmdRattle r opts args
 
 -- | Given an Action to run, and a list of previous commands that got run, run it again
 rattleRun :: RattleOptions -> Run a -> IO a

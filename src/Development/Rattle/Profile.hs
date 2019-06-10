@@ -126,7 +126,7 @@ showEdges [] = ""
 showEdges (x:xs) = show x ++ "\n" ++ showEdges xs
 
 showCmd :: Cmd -> String
-showCmd (Cmd _ exe args) = show $ showCmdHelper $ exe : args
+showCmd (Cmd _ args) = show $ showCmdHelper args
 
 showCmdHelper :: [String] -> String
 showCmdHelper [] = ""

@@ -167,8 +167,8 @@ nextSpeculate Rattle{..} S{..}
                 = step (addTrace rw t) xs
 
 
-cmdRattle :: Rattle -> [C.CmdOption] -> String -> [String] -> IO ()
-cmdRattle rattle opts exe args = cmdRattleRequired rattle $ Cmd (rattleCmdOptions (options rattle) ++ opts) exe args
+cmdRattle :: Rattle -> [C.CmdOption] -> [String] -> IO ()
+cmdRattle rattle opts args = cmdRattleRequired rattle $ Cmd (rattleCmdOptions (options rattle) ++ opts) args
 
 cmdRattleRequired :: Rattle -> Cmd -> IO ()
 cmdRattleRequired rattle@Rattle{..} cmd = runPool pool $ do
@@ -196,7 +196,7 @@ cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
 
 -- either fetch it from the cache or run it)
 cmdRattleRun :: Rattle -> Cmd -> T -> [Trace (FilePath, Hash)] -> [String] -> IO ()
-cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
+cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) start hist msgs = do
     hasher <- memoIO hashFileForward
     let match (fp, h) = (== Just h) <$> hasher fp
     histRead <- filterM (allM match . tRead) hist
@@ -222,7 +222,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
                     timer <- liftIO offsetTime
                     (opts, opts2) <- return $ partitionEithers $ map fromCmdOption opts
                     let optsUI = if isControlledUI ui then [C.EchoStdout False,C.EchoStderr False] else []
-                    c <- display [] $ C.cmd (opts ++ optsUI) exe args
+                    c <- display [] $ C.cmd (opts ++ optsUI) args
                     end <- timer
                     t <- fsaTrace end runNum c
                     checkHashForwardConsistency t
@@ -238,7 +238,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts exe args) start hist msgs = do
     where
         display msgs2 = addUI ui (head $ overrides ++ [cmdline]) (unwords $ msgs ++ msgs2)
         overrides = [x | C.Traced x <- opts] ++ [x | C.UserCommand x <- opts]
-        cmdline = unwords $ ["cd " ++ x ++ " &&" | C.Cwd x <- opts] ++ exe : args
+        cmdline = unwords $ ["cd " ++ x ++ " &&" | C.Cwd x <- opts] ++ args
 
 
 checkHashForwardConsistency :: Trace FilePath -> IO ()
