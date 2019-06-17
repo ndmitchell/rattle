@@ -3,7 +3,6 @@
 module Sequential(seqsched) where
 
 import Types
-import Tree
 import Shared
 import qualified Data.HashSet as Set
 import qualified Data.HashMap.Strict as Map
@@ -33,7 +32,7 @@ finish st@State{..} = let e = getFinished running timer
                           ne = e{stop=ts:(stop e),traces=tr:(traces e)} 
                           nh = Map.fromList $ map (,(Write,head (stop ne) ,e)) (wfiles e) ++
                                               map (,(Read ,head (start ne),e)) (rfiles e) in
-                        case Tree.insert (Tree (fst done) (snd done)) $ Tree (L e) nh of
+                        case (Tree (fst done) (snd done)) <> Tree (L e) nh of
                           Hazard h -> Right h
                           Tree t f -> Left st{running=(delete e running)
                                            ,done=(t,f)
