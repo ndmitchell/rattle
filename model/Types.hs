@@ -8,6 +8,7 @@ import qualified Data.HashSet as Set
 import qualified Data.HashMap.Strict as Map
 import Data.Hashable
 import Data.List
+import Debug.Trace as Trace
 
 data ReadOrWrite = Read | Write deriving (Show,Eq) -- copied from Server.hs
 
@@ -24,7 +25,10 @@ data Cmd = Cmd { id :: String
 instance Show Cmd where
   show Cmd{..} = id
 
-data State = State { toRun :: [Cmd]
+instance Hashable Cmd where
+  hashWithSalt s Cmd{..} = s `hashWithSalt`(id,pos,cost,start,stop,rfiles,wfiles) `hashWithSalt` traces
+
+data State = State { toRun :: [Cmd] -- required list in rattle
                    , prevRun :: [Cmd] -- speculation list in rattle
                    , running :: [Cmd]
                    , done :: (Tree,Map.HashMap FilePath (ReadOrWrite, T, Cmd))
@@ -40,79 +44,88 @@ data Action = Done | Start | Finished | Wait
 newtype T = T Int -- timestamps
   deriving (Enum,Eq,Ord,Show,Read)
 
+instance Hashable T where
+  hashWithSalt s (T i) = hashWithSalt s i
+
 t0 :: T
 t0 = T 0
 
 add :: T -> T -> T
 add (T i) (T i2) = T (i + i2)
-
 -------------------- tree --------------------------- 
 
-data Tree = Par {pc1 :: Tree
-                ,pc2 :: Tree}
-          | Seq {c1 :: Tree
-                ,c2 :: Tree}
-          | L {c :: Cmd}
-          | E {}
+data Tree = Seq [Tree]
+          | Par (Set.HashSet Tree)
+          | L Cmd
+          | E
+
+instance Hashable Tree where
+  hashWithSalt s E = hashWithSalt s ""
+  hashWithSalt s (L c) = hashWithSalt s c
+  hashWithSalt s (Seq ls) = hashWithSalt s ls
+  hashWithSalt s (Par ls) = hashWithSalt s ls
 
 instance Show Tree where
-  show E{} = ""
-  show L{..} = show c
-  show Seq{..} = "(seq " ++ (show c1) ++ " " ++ (show c2) ++ ")"
-  show Par{..} = "(par " ++ (show pc1) ++ " " ++ (show pc2) ++ ")"
-  
+  show E = ""
+  show (L c) = show c
+  show (Seq cs) = (foldl' (\str c ->  str ++ " " ++ (show c)) "(seq" cs) ++ ")"
+  show (Par cs) = (Set.foldl' (\str c -> str ++ " " ++ (show c)) "(par" cs) ++ ")"
+ 
 instance Eq Tree where
-  t1 == t2 = f (reduce t1) (reduce t2)
+  t1 == t2 = f t1 t2
     where f E E = True
           f (L c) (L c2) = c == c2
-          f (Seq c1 (Seq c2 c3)) (Seq (Seq c4 c5) c6) = c1 == c4 && c2 == c5 && c3 == c6
-          f (Seq c1 c2) (Seq c3 c4) = c1 == c3 && c2 == c4
-          f (Par (Par c1 c2) c3) (Par c4 (Par c5 c6)) = (c1 == c4 && c2 == c5 && c3 == c6)
-                                                        || (c1 == c4 && c2 == c6 && c3 == c5)
-                                                        || (c1 == c5 && c2 == c5 && c3 == c4)
-                                                        || (c1 == c5 && c2 == c4 && c3 == c5)
-                                                        || (c1 == c6 && c2 == c4 && c3 == c5)
-                                                        || (c1 == c6 && c2 == c5 && c3 == c4)
-          f (Par c1 c2) (Par c3 c4) = (c1 == c3 && c2 == c4) || (c1 == c4 && c2 == c3)
-          f t1 t2 = f t2 t1
+          f (Seq cs1) (Seq cs2) = cs1 == cs2
+          f (Par cs1) (Par cs2) = cs1 == cs2
+          f _ _ = False
 
 instance Semigroup Tree where
-  t1 <> t2 = f (reduce t1) (reduce t2)
+  t1_ <> t2_ = f (reduce t1_) (reduce t2_)
     where f E t = t
           f t E = t
           f l@L{} l2@L{} = if isBefore l l2
-                           then Seq l l2
+                           then Seq [l,l2]
                            else if isAfter l l2
-                                then Seq l2 l
-                                else Par l l2
-  
-          f s@(Seq t1 t2) t3 = if isParallel s t3
-                               then Par s t3
-                               else if isAfter t2 t3
-                                    then Seq (f t1 t3) t2
-                                    else Seq t1 (f t2 t3)
-          f t1 s@Seq{} = f s t1
-          
-          f p@(Par t1 t2) t3 = if isParallel p t3 -- parallel w/both
-                               then Par p t3
-                               else if isAfter t3 p
-                                    then Seq p t3
-                                    else if isBefore t3 p
-                                         then Seq t3 p
-                                         else if isParallel t1 t3
-                                              then Par t1 (f t2 t3)
-                                              else Par (f t1 t3) t2
-          f t1 p@Par{} = f p t1
+                                then Seq [l2, l]
+                                else Par $ Set.union (Set.singleton l) (Set.singleton l2)
+          f s@(Seq cs) t3 = if isAfter t3 s -- avoid going through cs if unnecessary
+                            then Seq $ cs ++ [t3]
+                            else helper [] [] cs t3
+          f p@(Par ps) t3 = if isBefore t3 p
+                            then Seq [t3,p]
+                            else if isAfter t3 p
+                                 then Seq [p,t3]
+                                 else let par = Set.filter (isParallel t3) ps
+                                          npar = Set.difference ps par in
+                                        if Set.null npar
+                                        then Par $ Set.insert t3 ps
+                                        else if isBefore t3 $ Par npar
+                                             then Par $ Set.insert (Seq [t3,Par npar]) par
+                                             else Par $ Set.insert (Seq [Par npar, t3]) par
+          f t1 t2 = t1 -- f t2 t1
 
+          helper ls [] [] t1 = Seq $ ls ++ [t1]
+          helper ls ls2 [] t1 = Seq $ ls ++ [Par $ Set.union (Set.singleton $ Seq ls2)
+                                                             (Set.singleton t1)]
+          helper ls [] (x:xs) t1 = if isBefore t1 x -- can stop
+                                   then Seq $ ls ++ [t1] ++ (x:xs)
+                                   else if isAfter t1 x
+                                        then helper (x:ls) [] xs t1
+                                        else helper ls [x] xs t1 -- must be parallel
+          helper ls ls2 (x:xs) t1 = if isBefore t1 x -- can stop
+                                    then Seq $ ls ++ [Par $ Set.union (Set.singleton $ Seq ls2)
+                                                      (Set.singleton t1)] ++ (x:xs)
+                                    else helper ls (ls2 ++ [x]) xs t1 --  must be parallel
+                               
 instance Monoid Tree where
   mempty= E
 
 isBefore :: Tree -> Tree -> Bool
 isBefore (L c) (L c2) = (stop c) < (start c2)
-isBefore (Seq t1 t2) t3 = isBefore t2 t3
-isBefore t1 (Seq t2 t3) = isBefore t1 t2
-isBefore (Par t1 t2) t3 = isBefore t1 t3 && isBefore t2 t3
-isBefore t1 (Par t2 t3) = isBefore t1 t2 && isBefore t1 t3
+isBefore (Seq ls) t3 = isBefore (head ls) t3
+isBefore t1 (Seq ls) = isBefore t1 (head ls)
+isBefore (Par ls) t3 = Set.foldl' (\b t -> b && isBefore t t3) True ls 
+isBefore t1 (Par ls) = Set.foldl' (\b t -> b && isBefore t1 t) True ls
 
 isAfter :: Tree -> Tree -> Bool
 isAfter t1 t2 = isBefore t2 t1
@@ -120,16 +133,33 @@ isAfter t1 t2 = isBefore t2 t1
 isParallel :: Tree -> Tree -> Bool
 isParallel t1 t2 = (not $ isBefore t1 t2) && (not $ isAfter t1 t2)
 
+-- reduce to a fixed point?
 reduce :: Tree -> Tree
-reduce E = E
-reduce l@L{} = l
-reduce (Seq c1 E) = reduce c1
-reduce (Seq E c2) = reduce c2
-reduce (Par c1 E) = reduce c1
-reduce (Par E c2) = reduce c2
-reduce (Seq c1 c2) = Seq (reduce c1) (reduce c2)
-reduce (Par c1 c2) = Par (reduce c1) (reduce c2)
+reduce t = let r = reduce_ t in
+             if r == t
+             then r
+             else reduce r
+  where reduce_ E = E
+        reduce_ l@L{} = l
+        reduce_ (Seq []) = E
+        reduce_ (Par ls) | Set.null ls = E
+        reduce_ (Seq [(Par ls)]) = reduce $ Par ls
+        reduce_ (Seq [(Seq ls)]) = reduce $ Seq ls
+        reduce_ (Seq xs) = Seq $ f xs
+        reduce_ (Par s) =  Par $ Set.fromList $ g $ Set.toList s
+        f [] = []
+        f (x:xs) = case reduce x of
+                     E        -> f xs
+                     l@L{}    -> l:(f xs)
+                     (Seq ls) -> ls ++ (f xs)
+                     (Par ls) -> (Par ls):(f xs)
 
+        g [] = []
+        g (x:xs) = case reduce x of
+                     E        -> g xs
+                     l@L{}    -> l:(g xs)
+                     (Seq ls) -> (Seq ls):(g xs)
+                     (Par ls) -> (Set.toList ls) ++ (g xs)
   
 ----------------------- end of tree ------------------------------          
 
@@ -140,7 +170,7 @@ data TreeOrHazard = Tree {t :: Tree
 instance Eq TreeOrHazard where
   Tree t1 f1 == Tree t2 f2 = t1 == t2
   Hazard h == Hazard h2 = h == h2
-  x == x2 = False
+  _ == _ = False
 
 instance Semigroup TreeOrHazard where
   h@(Hazard (WriteWriteHazard _ _ _)) <> _ = h
