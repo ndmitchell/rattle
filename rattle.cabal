@@ -101,7 +101,7 @@ executable model
         Speculate
         Original
         Types
-        Shared                                       
+        Scheduler                                     
 
 test-suite rattle-test
     default-language: Haskell2010

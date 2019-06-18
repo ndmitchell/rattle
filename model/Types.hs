@@ -1,8 +1,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards  #-}
 
-module Types(Cmd(..), State(..), Hazard(..), Recoverable(..), Action(..)
+module Types(Cmd(..), State(..), Hazard(..), Recoverable(..), Action(..), Which(..)
             , T(..), t0, add, ReadOrWrite(..), Tree(..), TreeOrHazard(..)
-            , reduce) where
+            , reduce, createState, inTree) where
 
 import qualified Data.HashSet as Set
 import qualified Data.HashMap.Strict as Map
@@ -12,21 +12,26 @@ import Debug.Trace as Trace
 
 data ReadOrWrite = Read | Write deriving (Show,Eq) -- copied from Server.hs
 
+data Which = Required | Speculated deriving (Eq)
+
 data Cmd = Cmd { id :: String
-               , pos :: !T
+               , pos :: (T,Which)
                , cost :: !T -- predetermined time it takes to "run" this cmd
                , start :: [T]
                , stop :: [T]
                , rfiles :: [String] -- files actually read
                , wfiles :: [String] -- files actually written
-               , traces :: [([String],[String])]} -- files recorded read and written
-           deriving(Eq) -- arbitrary
+               , traces :: [([String], [String])]} -- files recorded read and written
+            -- arbitrary
 
 instance Show Cmd where
   show Cmd{..} = id
 
+instance Eq Cmd where
+  Cmd{id=id1} == Cmd{id=id2} = id1 == id2 -- I believe this is rattle's standard
+
 instance Hashable Cmd where
-  hashWithSalt s Cmd{..} = s `hashWithSalt`(id,pos,cost,start,stop,rfiles,wfiles) `hashWithSalt` traces
+  hashWithSalt s Cmd{..} = s `hashWithSalt` (id,cost,start,stop,rfiles,wfiles,traces)
 
 data State = State { toRun :: [Cmd] -- required list in rattle
                    , prevRun :: [Cmd] -- speculation list in rattle
@@ -34,8 +39,11 @@ data State = State { toRun :: [Cmd] -- required list in rattle
                    , done :: (Tree,Map.HashMap FilePath (ReadOrWrite, T, Cmd))
                    , timer :: !T }
 
+createState :: [Cmd] -> State
+createState ls = State ls [] [] (E,Map.empty) t0
+
 data Hazard = ReadWriteHazard FilePath Cmd Cmd Recoverable
-            | WriteWriteHazard FilePath Cmd Cmd deriving (Eq)
+            | WriteWriteHazard FilePath Cmd Cmd deriving (Show,Eq)
 
 data Recoverable = Recoverable | NonRecoverable deriving (Show,Eq)
 
@@ -133,6 +141,12 @@ isAfter t1 t2 = isBefore t2 t1
 isParallel :: Tree -> Tree -> Bool
 isParallel t1 t2 = (not $ isBefore t1 t2) && (not $ isAfter t1 t2)
 
+inTree :: Cmd -> Tree -> Bool
+inTree _ E = False
+inTree c (L c1) = c == c1
+inTree c (Seq cs) = any (inTree c) cs
+inTree c (Par cs) = any (inTree c) $ Set.toList cs
+
 -- reduce to a fixed point?
 reduce :: Tree -> Tree
 reduce t = let r = reduce_ t in
@@ -201,10 +215,12 @@ mergeFileOps :: FilePath -> (ReadOrWrite, T, Cmd) -> (ReadOrWrite, T, Cmd) -> Ei
 mergeFileOps x (Read, t1, cmd1) (Read, t2, cmd2) = Right (Read, min t1 t2, if t1 < t2 then cmd1 else cmd2)
 mergeFileOps x (Write, t1, cmd1) (Write, t2, cmd2) = Left $ WriteWriteHazard x cmd1 cmd2
 mergeFileOps x (Read, t1, cmd1) (Write, t2, cmd2)
-    | listedBefore cmd1 cmd2 = Left $ ReadWriteHazard x cmd2 cmd1 NonRecoverable
+    | listedBefore (pos cmd1) (pos cmd2) = Left $ ReadWriteHazard x cmd2 cmd1 NonRecoverable
     | t1 <= t2 = Left $ ReadWriteHazard x cmd2 cmd1 Recoverable
     | otherwise = Right (Write, t2, cmd2)
-  where -- FIXME: listedBefore is O(n) so want to make that partly cached
-        listedBefore Cmd{pos=p1} Cmd{pos=p2} = p1 < p2 -- need to fix this still
+  where listedBefore (p1,Required) (p2,Required) = p1 < p2
+        listedBefore (p1,Speculated) (p2,Speculated) = p1 < p2
+        listedBefore (p1,Required) (p2,_) = False -- recoverable
+        listedBefore (p1,_) (p2,Required) = False -- shouldn't even need to re-execute in this case 
 mergeFileOps x v1 v2 = mergeFileOps x v2 v1 -- must be Write/Read, so match the other way around
 

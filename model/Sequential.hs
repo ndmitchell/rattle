@@ -1,53 +1,30 @@
 {-# LANGUAGE RecordWildCards, TupleSections #-}
 
-module Sequential(seqsched) where
+module Sequential(seqSched) where
 
 import Types
-import Shared
+import Scheduler
 import qualified Data.HashSet as Set
 import qualified Data.HashMap.Strict as Map
 import Data.List
+import Data.Functor.Identity
+import Debug.Trace as Trace
 
 -- Decides whether to start a cmd or finish a cmd
-seqOracle :: State -> Action
-seqOracle (State [] _ [] _ _) = Done
-seqOracle (State tr pr [] _ _) = Start
+seqOracle :: State -> Identity Action
 seqOracle (State tr pr r _ t) = if isSomethingDone r t
-                                then Finished 
-                                else Wait
+                                then return Finished 
+                                else return Wait
 
--- takes a step which costs 1 unit of time
-seqStep :: State -> (Either State Hazard)
-seqStep st = case seqOracle st of
-               Finished -> finish st
-               Start    -> Left $ seqrun st
-               _        -> Left st{timer=(succ $ timer st)}
-
--- removes a cmd which finished earliest from running list and adds it to done list
--- then checks for hazards
-finish :: State -> (Either State Hazard)
-finish st@State{..} = let e = getFinished running timer 
-                          ts = timer
-                          tr = (rfiles e, wfiles e)
-                          ne = e{stop=ts:(stop e),traces=tr:(traces e)} 
-                          nh = Map.fromList $ map (,(Write,head (stop ne) ,e)) (wfiles e) ++
-                                              map (,(Read ,head (start ne),e)) (rfiles e) in
-                        case (Tree (fst done) (snd done)) <> Tree (L e) nh of
-                          Hazard h -> Right h
-                          Tree t f -> Left st{running=(delete e running)
-                                           ,done=(t,f)
-                                           ,timer=(succ timer)}
-
--- runs a cmd; takes first command from torun list and moves it to running
-seqrun :: State -> State
-seqrun st@State{..} = let e = head toRun
-                          ts = timer in
-                     st{toRun=(tail toRun), running=(e{start=ts:(start e)}:running), timer=(succ timer)}
+pickCmd :: State -> Cmd
+pickCmd State{..} = f toRun running $ fst done
+  where f [] xs d = error $ "state: " ++ show d
+        f (t:ts) [] d | inTree t d = f ts [] d
+                      | otherwise = t
+        f (t:ts) (x:xs) d | t == x = f ts xs d
+                          | inTree t d = f ts (x:xs) d
+                          | otherwise = t
 
 -- continues to take a step until a hazard is encountered or the build is done; nothing running or to run
-seqsched :: State -> (Either State Hazard)
-seqsched t = f $ Left t
-  where f (Right h) = Right h
-        f (Left st@(State [] _ [] _ _)) = Left st
-        f (Left st) = f $ seqStep st
-
+seqSched :: State -> Identity (Either State Hazard)
+seqSched = sched seqOracle pickCmd
