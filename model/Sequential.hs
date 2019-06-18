@@ -45,8 +45,9 @@ seqrun st@State{..} = let e = head toRun
                      st{toRun=(tail toRun), running=(e{start=ts:(start e)}:running), timer=(succ timer)}
 
 -- continues to take a step until a hazard is encountered or the build is done; nothing running or to run
-seqsched :: (Either State Hazard) -> (Either State Hazard)
-seqsched (Right h) = Right h                          
-seqsched (Left st@(State [] _ [] _ _)) = Left st
-seqsched (Left st) = seqsched $ seqStep st
+seqsched :: State -> (Either State Hazard)
+seqsched t = f $ Left t
+  where f (Right h) = Right h
+        f (Left st@(State [] _ [] _ _)) = Left st
+        f (Left st) = f $ seqStep st
 
