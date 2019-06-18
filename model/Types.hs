@@ -2,7 +2,7 @@
 
 module Types(Cmd(..), State(..), Hazard(..), Recoverable(..), Action(..), Which(..)
             , T(..), t0, add, ReadOrWrite(..), Tree(..), TreeOrHazard(..)
-            , reduce, createState, inTree) where
+            , reduce, createState, inTree, resetState) where
 
 import qualified Data.HashSet as Set
 import qualified Data.HashMap.Strict as Map
@@ -41,6 +41,9 @@ data State = State { toRun :: [Cmd] -- required list in rattle
 
 createState :: [Cmd] -> State
 createState ls = State ls [] [] (E,Map.empty) t0
+
+resetState :: State -> State
+resetState st@State{..} = st{done=(E,Map.empty), timer=t0}
 
 data Hazard = ReadWriteHazard FilePath Cmd Cmd Recoverable
             | WriteWriteHazard FilePath Cmd Cmd deriving (Show,Eq)

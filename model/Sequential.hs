@@ -18,8 +18,7 @@ seqOracle (State tr pr r _ t) = if isSomethingDone r t
 
 pickCmd :: State -> Cmd
 pickCmd State{..} = f toRun running $ fst done
-  where f [] xs d = error $ "state: " ++ show d
-        f (t:ts) [] d | inTree t d = f ts [] d
+  where f (t:ts) [] d | inTree t d = f ts [] d
                       | otherwise = t
         f (t:ts) (x:xs) d | t == x = f ts xs d
                           | inTree t d = f ts (x:xs) d

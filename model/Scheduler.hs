@@ -61,11 +61,14 @@ run f st@State{..} = let e = f st in
 {- scheduler function that runs to completion -}
 
 sched :: Monad m => (State -> m Action) -> (State -> Cmd) -> State -> m (Either State Hazard)
-sched o p st = f $ Left st
+sched o p st = f ( Left $ resetState st)
   where f (Right h) = return $ Right h
-        f (Left st@(State r _ _ d _)) | inTree (last r) (fst d) = return $ Left st
+        f (Left st@(State r _ _ d _)) | inTree (last r) (fst d) = return (Left $ update st)
                                       | otherwise = do
                                           nst <- step o p st
                                           f nst
+
+update :: State -> State
+update st@State{..} = st{prevRun=(map (\c@Cmd{..} -> c{pos=(fst pos, Speculated)}) toRun)} 
 
 

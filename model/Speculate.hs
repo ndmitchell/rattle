@@ -9,7 +9,6 @@ import Data.Maybe
 import Data.List
 import qualified Data.HashSet as Set
 import qualified Data.HashMap.Strict as Map
-import Data.Functor.Identity
 
 speculativeOracle :: State -> IO Action
 speculativeOracle st@(State tr pr r _ t)
