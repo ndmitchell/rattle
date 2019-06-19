@@ -25,14 +25,14 @@ somethingToRun :: State -> Bool
 somethingToRun st = (isJust $ somethingToSpeculate st) || (isJust $ somethingToRequire st)
 
 somethingToRequire :: State -> Maybe Cmd
-somethingToRequire State{..} = f toRun running $ fst done
+somethingToRequire (State toRun _ running (Left done) _) = f toRun running $ fst done
   where f [] _ _ = Nothing
         f (t:ts) xs d | elem t xs = Nothing
                       | inTree t d = f ts xs d
                       | otherwise = Just t
                        
 somethingToSpeculate :: State -> Maybe Cmd
-somethingToSpeculate State{..}
+somethingToSpeculate (State _ prevRun running (Left done) _)
   | any (null . traces) running = Nothing
   | otherwise = helper (foldl' (\p r -> addTraces p $ traces r) (Set.empty, Set.empty) running)
                 (filter (\c -> null $ traces c) prevRun) (snd done)
@@ -58,6 +58,6 @@ pickCmd st = case somethingToRequire st of
                Just c -> c
                Nothing -> fromJust $ somethingToSpeculate st
 
-speculateSched :: State -> IO (Either State Hazard)
+speculateSched :: State -> IO State
 speculateSched = sched speculativeOracle pickCmd
           

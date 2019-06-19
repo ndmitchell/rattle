@@ -15,9 +15,9 @@ main = let h1 = createState [(Cmd "cmd1" ((T 0),Required) (T 5) [] [] ["a"] ["b"
          case seqSched nh1 of
            (Identity st) ->
              case st of
-               Left st -> do
+               (State _ _ _ (Left _) _) -> do
                  st <- originalSched st
                  case st of
-                   Left st -> putStrLn $ "Tree: " ++ show (fst $ done st)
-                   Right h -> putStrLn $ "Hazard after running again " ++ show h
-               Right h -> putStrLn $ "hazard: " ++ show h
+                   (State _ _ _ (Left done) _) -> putStrLn $ "Tree: " ++ show (fst done)
+                   (State _ _ _ (Right h) _) -> putStrLn $ "Hazard after running again " ++ show h
+               (State _ _ _ (Right h) _) -> putStrLn $ "hazard: " ++ show h

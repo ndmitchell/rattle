@@ -36,14 +36,14 @@ instance Hashable Cmd where
 data State = State { toRun :: [Cmd] -- required list in rattle
                    , prevRun :: [Cmd] -- speculation list in rattle
                    , running :: [Cmd]
-                   , done :: (Tree,Map.HashMap FilePath (ReadOrWrite, T, Cmd))
+                   , done :: Either (Tree,Map.HashMap FilePath (ReadOrWrite, T, Cmd)) Hazard
                    , timer :: !T }
 
 createState :: [Cmd] -> State
-createState ls = State ls [] [] (E,Map.empty) t0
+createState ls = State ls [] [] (Left (E,Map.empty)) t0
 
 resetState :: State -> State
-resetState st@State{..} = st{done=(E,Map.empty), timer=t0}
+resetState st@State{..} = st{done=(Left (E,Map.empty)), timer=t0}
 
 data Hazard = ReadWriteHazard FilePath Cmd Cmd Recoverable
             | WriteWriteHazard FilePath Cmd Cmd deriving (Show,Eq)

@@ -24,26 +24,29 @@ isSomethingDone cmds ct = any isDone cmds
 
 {- Taking a step -}
 
-step :: Monad m => (State -> m Action) -> (State -> Cmd) -> State -> m (Either State Hazard)
+step :: Monad m => (State -> m Action) -> (State -> Cmd) -> State -> m State
 step f f2 st = do
   a <- oracle f st
   case a of
     Finished -> finish st
-    Start    -> return (Left $ run f2 st)
-    _        -> return $ Left st{timer=(succ $ timer st)}
+    Start    -> return $ run f2 st
+    _        -> return st{timer=(succ $ timer st)}
 
 
 {- Is finish the same for all schedulers? -}
-finish :: Monad m => State -> m (Either State Hazard)
-finish st@State{..} = let e = getFinished running timer
-                          ne = e{stop=timer:(stop e), traces=(rfiles e, wfiles e):(traces e)}
-                          nh = Map.fromList $ map (,(Write,head (stop ne) ,e)) (wfiles e) ++
-                                              map (,(Read ,head (start ne),e)) (rfiles e) in
-                        case (Tree (fst done) (snd done)) <> Tree (L e) nh of
-                          Hazard h -> return $ Right h
-                          Tree t f -> return $ Left st{running=(delete e running)
-                                                      ,done=(t,f)
-                                                      ,timer=(succ timer)}
+finish :: Monad m => State -> m State
+finish st@(State _ pr running (Left done) timer) =
+  let e = getFinished running timer
+      ne = e{stop=timer:(stop e), traces=(rfiles e, wfiles e):(traces e)}
+      nh = Map.fromList $ map (,(Write,head (stop ne) ,e)) (wfiles e) ++
+           map (,(Read ,head (start ne),e)) (rfiles e) in
+    case (Tree (fst done) (snd done)) <> Tree (L e) nh of
+      Hazard h -> return $ st{running=(delete e running)
+                             ,done=(Right h)
+                             ,timer=(succ timer)}
+      Tree t f -> return $ st{running=(delete e running)
+                             ,done=(Left (t,f))
+                             ,timer=(succ timer)}
 
 getFinished :: [Cmd] -> T -> Cmd
 getFinished xs t = getEarliest $ filter isDone xs
@@ -60,13 +63,13 @@ run f st@State{..} = let e = f st in
 
 {- scheduler function that runs to completion -}
 
-sched :: Monad m => (State -> m Action) -> (State -> Cmd) -> State -> m (Either State Hazard)
-sched o p st = f ( Left $ resetState st)
-  where f (Right h) = return $ Right h
-        f (Left st@(State r _ _ d _)) | inTree (last r) (fst d) = return (Left $ update st)
-                                      | otherwise = do
-                                          nst <- step o p st
-                                          f nst
+sched :: Monad m => (State -> m Action) -> (State -> Cmd) -> State -> m State
+sched o p st = f $ resetState st
+  where f st@(State _ _ _ (Right h) _) = return st 
+        f st@(State r _ _ (Left d) _) | inTree (last r) (fst d) = return $ update st
+                               | otherwise = do
+                                   nst <- step o p st
+                                   f nst
 
 update :: State -> State
 update st@State{..} = st{prevRun=(map (\c@Cmd{..} -> c{pos=(fst pos, Speculated)}) toRun)} 
