@@ -25,21 +25,21 @@ somethingToRun :: State -> Bool
 somethingToRun st = (isJust $ somethingToSpeculate st) || (isJust $ somethingToRequire st)
 
 somethingToRequire :: State -> Maybe Cmd
-somethingToRequire (State toRun _ running (Left done) _) = f toRun running $ fst done
+somethingToRequire (State toRun _ running done@(Tree d _) _) = f toRun running d
   where f [] _ _ = Nothing
         f (t:ts) xs d | elem t xs = Nothing
                       | inTree t d = f ts xs d
                       | otherwise = Just t
                        
 somethingToSpeculate :: State -> Maybe Cmd
-somethingToSpeculate (State _ prevRun running (Left done) _)
+somethingToSpeculate (State _ prevRun running (Tree d fs) _)
   | any (null . traces) running = Nothing
   | otherwise = helper (foldl' (\p r -> addTraces p $ traces r) (Set.empty, Set.empty) running)
-                (filter (\c -> null $ traces c) prevRun) (snd done)
+                (filter (\c -> null $ traces c) prevRun) fs
   -- helper :: (Set String, Set String) -> [Cmd] -> Map String ??
   where helper _ [] _ = Nothing
         helper rw (x:xs) h
-          | elem x running || inTree x (fst done) = helper rw xs h
+          | elem x running || inTree x d = helper rw xs h
         helper rw@(r,w) (x:xs) hazards
           | any (\y -> Set.member y w || Set.member y r || Map.member y hazards) (foldl' (\ws (_,w) -> ws ++ w) [] $ traces x)
           = helper (addTraces rw $ traces x) xs hazards -- still need to check done cmds for some reason?

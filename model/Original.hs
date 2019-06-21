@@ -14,6 +14,6 @@ originalSched :: State -> IO State
 originalSched t = do
   st <- speculateSched t
   case st of
-    (State _ _ _ (Right h) _) -> case seqSched t of
+    (State _ _ _ (Hazard h _) _) -> case seqSched t of -- throw away failed speculatedrun
                                    (Identity st) -> return st
     x -> return x

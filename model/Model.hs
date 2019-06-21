@@ -15,9 +15,12 @@ main = let h1 = createState [(Cmd "cmd1" ((T 0),Required) (T 5) [] [] ["a"] ["b"
          case seqSched nh1 of
            (Identity st) ->
              case st of
-               (State _ _ _ (Left _) _) -> do
+               (State _ _ _ (Tree _ _) _) -> do
                  st <- originalSched st
                  case st of
-                   (State _ _ _ (Left done) _) -> putStrLn $ "Tree: " ++ show (fst done)
-                   (State _ _ _ (Right h) _) -> putStrLn $ "Hazard after running again " ++ show h
-               (State _ _ _ (Right h) _) -> putStrLn $ "hazard: " ++ show h
+                   (State _ _ _ (Tree done _) _) -> putStrLn $ "Tree: " ++ show done
+                   (State _ _ _ (Hazard h t) _) -> putStrLn $ "Hazard after running again " ++ show h
+               (State _ _ _ (Hazard h t) _) -> putStrLn $ "hazard: " ++ show h
+
+-- add a maximum thread limit to state
+-- add the fixup code to <>

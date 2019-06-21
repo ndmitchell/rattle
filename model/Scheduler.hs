@@ -35,18 +35,14 @@ step f f2 st = do
 
 {- Is finish the same for all schedulers? -}
 finish :: Monad m => State -> m State
-finish st@(State _ pr running (Left done) timer) =
+finish st@(State _ pr running t@(Tree _ _) timer) =
   let e = getFinished running timer
       ne = e{stop=timer:(stop e), traces=(rfiles e, wfiles e):(traces e)}
       nh = Map.fromList $ map (,(Write,head (stop ne) ,e)) (wfiles e) ++
            map (,(Read ,head (start ne),e)) (rfiles e) in
-    case (Tree (fst done) (snd done)) <> Tree (L e) nh of
-      Hazard h -> return $ st{running=(delete e running)
-                             ,done=(Right h)
-                             ,timer=(succ timer)}
-      Tree t f -> return $ st{running=(delete e running)
-                             ,done=(Left (t,f))
-                             ,timer=(succ timer)}
+    return $ st{running=(delete e running)
+               ,done=(t <> Tree (L e No) nh)
+               ,timer=(succ timer)}
 
 getFinished :: [Cmd] -> T -> Cmd
 getFinished xs t = getEarliest $ filter isDone xs
@@ -64,12 +60,12 @@ run f st@State{..} = let e = f st in
 {- scheduler function that runs to completion -}
 
 sched :: Monad m => (State -> m Action) -> (State -> Cmd) -> State -> m State
-sched o p st = f $ resetState st
-  where f st@(State _ _ _ (Right h) _) = return st 
-        f st@(State r _ _ (Left d) _) | inTree (last r) (fst d) = return $ update st
-                               | otherwise = do
-                                   nst <- step o p st
-                                   f nst
+sched o p st = f st
+  where f st@(State _ _ _ (Hazard h _) _) = return st 
+        f st@(State r _ _ (Tree t hs) _) | inTree (last r) t = return $ update st
+                                         | otherwise = do
+                                             nst <- step o p st
+                                             f nst
 
 update :: State -> State
 update st@State{..} = st{prevRun=(map (\c@Cmd{..} -> c{pos=(fst pos, Speculated)}) toRun)} 
