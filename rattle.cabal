@@ -99,11 +99,10 @@ executable model
     other-modules:
         Sequential
         Speculate
-        Original
-        Conservative
         Types
         Shared
-        Scheduler                                     
+        Scheduler
+        Combinations                                     
 
 test-suite rattle-test
     default-language: Haskell2010

@@ -2,8 +2,7 @@
 module Model(main) where
 
 import Sequential
-import Original
-import Conservative
+import Combinations
 import Types
 import qualified Data.HashMap.Strict as Map
 import qualified Data.HashSet as Set
