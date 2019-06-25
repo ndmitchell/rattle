@@ -4,6 +4,7 @@ module Sequential(seqSched) where
 
 import Types
 import Scheduler
+import Shared
 import qualified Data.HashSet as Set
 import qualified Data.HashMap.Strict as Map
 import Data.List

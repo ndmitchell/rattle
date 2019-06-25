@@ -19,9 +19,9 @@ data Cmd = Cmd { id :: String
                , cost :: !T -- predetermined time it takes to "run" this cmd
                , start :: [T]
                , stop :: [T]
-               , rfiles :: [String] -- files actually read
-               , wfiles :: [String] -- files actually written
-               , traces :: [([String], [String])]} -- files recorded read and written
+               , rfiles :: Set.HashSet String -- files actually read
+               , wfiles :: Set.HashSet String -- files actually written
+               , traces :: [(Set.HashSet String, Set.HashSet String)]} -- files recorded read and written
             -- arbitrary
 
 instance Show Cmd where
@@ -205,7 +205,11 @@ reduce t = let r = reduce_ t in
 data TreeOrHazard = Hazard {h :: Hazard
                            ,t2 :: TreeOrHazard}
                   | Tree {t :: Tree
-                         ,hs  :: Map.HashMap FilePath (ReadOrWrite, T, Cmd)}
+                         ,hs  :: Map.HashMap FilePath [(ReadOrWrite, T, Cmd)]}
+
+instance Show TreeOrHazard where
+  show (Hazard h t) = "Hazard: " ++ show h
+  show (Tree t f) = "Tree: " ++ show t
 
 instance Eq TreeOrHazard where
   Tree t1 f1 == Tree t2 f2 = t1 == t2
@@ -224,34 +228,36 @@ instance Semigroup TreeOrHazard where
                                    ([], f3) -> Tree (t1 <> t2) f3
     where fixup (Hazard h@(ReadWriteHazard fp c1 c2 Recoverable) (Tree t hs)) =
             (Hazard h (Tree (setFailed c2 t) (removeFiles c2 hs)))
-          removeFiles c@Cmd{..} fs = foldl' (\m fp -> case Map.lookup fp m of
-                                                      Nothing -> m
-                                                      Just (_,t,c1) ->
-                                                        if c == c1
-                                                        then  Map.delete fp m
-                                                        else m) fs $ (fst (head traces)) ++ (snd (head traces))
-                                     
-                                                          -- delete from map..... i don't think this is actually the right thing to do
-            
+          fixup x = x -- don't fixup non-recoverable hazards
+          removeFiles c@Cmd{..} fs =
+            Set.foldl' (\m fp -> case Map.lookup fp m of
+                                   Nothing -> m
+                                   Just [(_,t,c1)] ->
+                                     if c == c1
+                                     then  Map.delete fp m
+                                     else m
+                                   Just xs ->
+                                     Map.insert fp (filter (\(_,_,c1) -> c == c1) xs) m)
+            fs $ (fst (head traces)) `Set.union` (snd (head traces))
 
 instance Monoid TreeOrHazard where
   mempty = Tree E Map.empty
 
 
--- copied from rattle
-unionWithKeyEithers :: (Eq k, Hashable k) => (k -> v -> v -> Either (a,v) v) -> Map.HashMap k v -> Map.HashMap k v -> ([(a,v)], Map.HashMap k v)
+-- adopted from rattle
+unionWithKeyEithers :: (Eq k, Hashable k) => (k -> [v] -> [v] -> Either (a,v) v) -> Map.HashMap k [v] -> Map.HashMap k [v] -> ([(a,v)], Map.HashMap k [v])
 unionWithKeyEithers op lhs rhs = foldl' f ([], lhs) $ Map.toList rhs
     where
         f (es, mp) (k, v2) = case Map.lookup k mp of
-            Nothing -> (es, Map.insert k v2 mp)
+            Nothing -> (es, Map.insert k v2 mp) -- v2 is a list
             Just v1 -> case op k v1 v2 of
-                         Left x@(a,v) -> (x:es, Map.insert k v mp) -- fix here to do the insertion as well
-                         Right v -> (es, Map.insert k v mp)
+                         Left x@(a,v) -> (x:es, Map.insert k (v:v1) mp) -- fix here to do the insertion as well
+                         Right v -> (es, Map.insert k (v:v1) mp)
 
-mergeFileOps :: FilePath -> (ReadOrWrite, T, Cmd) -> (ReadOrWrite, T, Cmd) -> Either (Hazard,(ReadOrWrite, T, Cmd)) (ReadOrWrite, T, Cmd)
-mergeFileOps x (Read, t1, cmd1) (Read, t2, cmd2) = Right (Read, min t1 t2, if t1 < t2 then cmd1 else cmd2)
-mergeFileOps x (Write, t1, cmd1) (Write, t2, cmd2) = Left (WriteWriteHazard x cmd1 cmd2, (Write, max t1 t2, if t1 < t2 then cmd2 else cmd1))
-mergeFileOps x (Read, t1, cmd1) (Write, t2, cmd2)
+mergeFileOps :: FilePath -> [(ReadOrWrite, T, Cmd)] -> [(ReadOrWrite, T, Cmd)] -> Either (Hazard,(ReadOrWrite, T, Cmd)) (ReadOrWrite, T, Cmd)
+mergeFileOps x ((Read, t1, cmd1):xs) ((Read, t2, cmd2):ys) = Right (Read, min t1 t2, if t1 < t2 then cmd1 else cmd2)
+mergeFileOps x ((Write, t1, cmd1):xs) ((Write, t2, cmd2):ys) = Left (WriteWriteHazard x cmd1 cmd2, (Write, max t1 t2, if t1 < t2 then cmd2 else cmd1))
+mergeFileOps x ((Read, t1, cmd1):xs) ((Write, t2, cmd2):ys)
     | listedBefore (pos cmd1) (pos cmd2) = Left (ReadWriteHazard x cmd2 cmd1 NonRecoverable, (Write, t2, cmd2))
     | t1 <= t2 = Left (ReadWriteHazard x cmd2 cmd1 Recoverable, (Write, t2, cmd2))
     | otherwise = Right (Write, t2, cmd2)

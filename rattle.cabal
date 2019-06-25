@@ -100,7 +100,9 @@ executable model
         Sequential
         Speculate
         Original
+        Conservative
         Types
+        Shared
         Scheduler                                     
 
 test-suite rattle-test
