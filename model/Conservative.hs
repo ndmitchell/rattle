@@ -20,8 +20,8 @@ consSched :: State -> IO State
 consSched st = do
   st <- speculateSched st
   case st of
-    (State _ _ _ (Hazard (ReadWriteHazard _ _ _ Recoverable) _) _) ->
-      speculateAfterSched st
+    (State _ _ _ (Hazard (ReadWriteHazard _ _ _ Recoverable) t) _) ->
+      speculateAfterSched st{done=t}
     x -> return x
 
 -- need a new oracle in the case of re-execution

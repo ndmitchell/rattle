@@ -85,7 +85,8 @@ instance Hashable Tree where
 
 instance Show Tree where
   show E = ""
-  show (L c _) = show c
+  show (L c Yes) = "[" ++ show c ++ "]"
+  show (L c No) = show c
   show (Seq cs) = (foldl' (\str c ->  str ++ " " ++ (show c)) "(seq" cs) ++ ")"
   show (Par cs) = (Set.foldl' (\str c -> str ++ " " ++ (show c)) "(par" cs) ++ ")"
  
@@ -232,13 +233,13 @@ instance Semigroup TreeOrHazard where
           removeFiles c@Cmd{..} fs =
             Set.foldl' (\m fp -> case Map.lookup fp m of
                                    Nothing -> m
-                                   Just [(_,t,c1)] ->
+                                   Just [(_,_,c1)] ->
                                      if c == c1
                                      then  Map.delete fp m
                                      else m
                                    Just xs ->
-                                     Map.insert fp (filter (\(_,_,c1) -> c == c1) xs) m)
-            fs $ (fst (head traces)) `Set.union` (snd (head traces))
+                                     Map.insert fp (filter (\(_,_,c1) -> not $ c == c1) xs) m)
+            fs $ (fst (head traces)) `Set.union` (snd (head traces)) -- if traces are not up to date........
 
 instance Monoid TreeOrHazard where
   mempty = Tree E Map.empty

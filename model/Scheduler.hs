@@ -11,13 +11,15 @@ import qualified Data.HashSet as Set
 
 {- An oracle which decides what step to take next [in the case of choice] -}
 oracle :: Monad m => (State -> m Action) -> State -> m Action
-oracle _ (State [] pr [] _ _) = return Done
-oracle _ (State tr pr [] _ _) = return Start
-oracle _ (State [] pr r _ t) = if isSomethingDone r t
-                               then return Finished
-                               else return Wait
-oracle f st = f st -- choice
+oracle _ st@(State tr pr [] _ _) | isDone st = return Done
+                                 | otherwise = return Start
+oracle f st@(State tr pr r _ t) | isDone st = return Done -- choice
+                                | otherwise = f st -- choice
 
+-- the torun list hasn't been completed
+isDone :: State -> Bool
+isDone (State tr _ _ (Tree t _) _) = all (`inTree` t) tr
+isDone (State tr _ _ (Hazard h (Tree t _)) _) = all (`inTree` t) tr
 
 {- Deciding whether there is something to run -}
 
@@ -36,11 +38,11 @@ step f f2 st = do
 finish :: Monad m => State -> m State
 finish st@(State _ pr running t@(Tree _ _) timer) =
   let e = getFinished running timer
-      ne = e{stop=timer:(stop e), traces=(rfiles e, wfiles e):(traces e)}
-      nh = Map.fromList $ map (,[(Write,head (stop ne) ,e)]) (Set.toList $ wfiles e) ++
-           map (,[(Read ,head (start ne),e)]) (Set.toList (rfiles e `Set.difference` wfiles e)) in
+      ne = e{stop=timer:(stop e), traces=((rfiles e, wfiles e):(traces e))}
+      nh = Map.fromList $ map (,[(Write,head (stop ne) ,ne)]) (Set.toList $ wfiles e) ++
+           map (,[(Read ,head (start ne),ne)]) (Set.toList (rfiles e `Set.difference` wfiles e)) in
     return $ st{running=(delete e running)
-               ,done=(t <> Tree (L e No) nh)
+               ,done=(t <> Tree (L ne No) nh)
                ,timer=(succ timer)}
 
 getFinished :: [Cmd] -> T -> Cmd
@@ -61,7 +63,7 @@ run f st@State{..} = let e = f st in
 sched :: Monad m => (State -> m Action) -> (State -> Cmd) -> State -> m State
 sched o p st = f st
   where f st@(State _ _ _ (Hazard h _) _) = return st 
-        f st@(State r _ _ (Tree t hs) _) | inTree (last r) t = return $ update st
+        f st@(State r _ _ (Tree t hs) _) | all (`inTree` t) r = return $ update st
                                          | otherwise = do
                                              nst <- step o p st
                                              f nst

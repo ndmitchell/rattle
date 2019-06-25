@@ -19,8 +19,10 @@ main = let t1 = createState [(Cmd "cmd1" ((T 0),Required) (T 5) [] [] (Set.singl
            t3 = createState [(Cmd "cmd1" ((T 0),Required) (T 10) [] [] (Set.singleton "a") (Set.singleton "a") []) -- nonRecoverable WriteWrite hazard
                             ,(Cmd "cmd2" ((T 1),Required) (T 2) [] [] (Set.singleton "a") (Set.singleton "a") [])]
 
-           t4 = createState [(Cmd "cmd1" ((T 0),Required) (T 5) [] [] (Set.singleton "a") (Set.singleton "b") [((Set.singleton "a"),Set.empty)])
-                            ,(Cmd "cmd2" ((T 1),Required) (T 1) [] [] (Set.singleton "b") (Set.singleton "c") [((Set.singleton "b"),Set.empty)])]
+           t4 = let st = createState [(Cmd "cmd1" ((T 0),Required) (T 10) [] [] (Set.singleton "a") (Set.singleton "b") [((Set.singleton "a"),Set.empty)]) -- pretend we've run it before and have outdated info.
+                                     ,(Cmd "cmd2" ((T 1),Required) (T 1) [] [] (Set.singleton "b") (Set.singleton "c") [((Set.singleton "b"),Set.empty)])] in
+                  st{prevRun=[(Cmd "cmd1" ((T 0),Speculated) (T 10) [] [] (Set.singleton "a") (Set.singleton "b") [((Set.singleton "a"),Set.empty)])
+                             ,(Cmd "cmd2" ((T 1),Speculated) (T 1) [] [] (Set.singleton "b") (Set.singleton "c") [((Set.singleton "b"),Set.empty)])]}
        in
          do
            (Identity t1r1) <- return $ seqSched t1
@@ -47,8 +49,9 @@ main = let t1 = createState [(Cmd "cmd1" ((T 0),Required) (T 5) [] [] (Set.singl
            (Identity t4r1) <- return $ seqSched t4
            t4r2 <- originalSched t4
            t4r3 <- consSched t4
-           case done t4r1 of
-             (Tree _ _) -> putStrLn $ "t4: " ++ (show $ (done t4r1 == done t4r2) && (done t4r2 == done t4r3))
+           case done t4r3 of
+             (Tree _ _) -> (putStrLn $ "t4: " ++ (show $ (done t4r1 == done t4r2) && (done t4r2 == done t4r3))) >>
+               (putStrLn $ "Conservative tree: " ++ (show $ done t4r3))
              x -> putStrLn $ "t4: failed: " ++ show x
 
 -- add a maximum thread limit to state

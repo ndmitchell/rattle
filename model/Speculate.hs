@@ -31,12 +31,12 @@ somethingToRequire (State toRun _ running done@(Tree d _) _) = f toRun running d
         f (t:ts) xs d | elem t xs = Nothing
                       | inTree t d = f ts xs d
                       | otherwise = Just t
-                       
+
 somethingToSpeculate :: State -> Maybe Cmd
 somethingToSpeculate (State _ prevRun running (Tree d fs) _)
   | any (null . traces) running = Nothing
   | otherwise = helper (foldl' (\p r -> addTraces p $ traces r) (Set.empty, Set.empty) running)
-                (filter (\c -> null $ traces c) prevRun) fs
+                (filter (\c -> not$ null $ traces c) prevRun) fs
   -- helper :: (Set String, Set String) -> [Cmd] -> Map String ??
   where helper _ [] _ = Nothing
         helper rw (x:xs) h
