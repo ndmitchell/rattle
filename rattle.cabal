@@ -94,7 +94,8 @@ executable model
         base >= 4.10 && < 5,
         unordered-containers,
         hashable,
-        random
+        random,
+        QuickCheck
         
     other-modules:
         Sequential
@@ -102,7 +103,29 @@ executable model
         Types
         Shared
         Scheduler
-        Combinations                                     
+        Combinations
+
+executable check
+    default-language: Haskell2010
+    hs-source-dirs: model
+    main-is: Check.hs
+    ghc-options: -main-is Check.main
+    build-depends:
+        base >= 4.10 && < 5,
+        unordered-containers,
+        hashable,
+        random,
+        QuickCheck
+
+    other-modules:
+        Sequential
+        Speculate
+        Types
+        Shared
+        Scheduler
+        Combinations
+        Properties
+        CheckTypes
 
 test-suite rattle-test
     default-language: Haskell2010

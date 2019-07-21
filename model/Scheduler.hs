@@ -36,30 +36,26 @@ step f f2 st = do
 
 {- Is finish the same for all schedulers? -}
 finish :: Monad m => State -> m State
-finish st@(State _ pr running t@(Tree _ _) timer) =
+finish st@(State tr pr running t@(Tree _ _) timer) =
   let e = getFinished running timer
-      ne = e{stop=timer:(stop e), traces=((rfiles e, wfiles e):(traces e))}
-      nh = Map.fromList $ map (,[(Write,head (stop ne) ,ne)]) (Set.toList $ wfiles e) ++
-           map (,[(Read ,head (start ne),ne)]) (Set.toList (rfiles e `Set.difference` wfiles e)) in
+      ne = e{stop=timer, traces=((rfiles e, wfiles e):(traces e))}
+      nh = Map.fromList $ map (,[(Write,stop ne,ne)]) (Set.toList $ wfiles e) ++
+           map (,[(Read ,start ne,ne)]) (Set.toList (rfiles e `Set.difference` wfiles e)) in
     return $ st{running=(delete e running)
-               ,done=(t <> Tree (L ne No) nh)
+               ,done=(merge tr t $ Tree (L ne No) nh)
                ,timer=(succ timer)}
-
-getFinished :: [Cmd] -> T -> Cmd
-getFinished xs t = getEarliest $ filter isDone xs
-  where isDone Cmd{..} = ((head start) `add` cost) <= t
-        getEarliest (x:xs) = foldl (\e x -> if ((head $ start e) `add` cost e) < ((head $ start x) `add` cost x)
-                                            then e
-                                            else x) x xs
+    where getFinished xs t = getEarliest $ filter (`isDone` t) xs
+          isDone Cmd{..} t = (start `add` cost) <= t
+          getEarliest (x:xs) = foldl (\e x -> if ((start e) `add` cost e) < ((start x) `add` cost x)
+                                              then e
+                                              else x) x xs
 
 {- Something to run a cmd; how to pick cmd to run -}
-
 run :: (State -> Cmd) -> State -> State
-run f st@State{..} = let e = f st in
-                       st{running=(e{start=timer:(start e)}:running), timer=(succ timer)}
+run pick st@State{..} = let e = pick st in
+                          st{running=(e{start=timer}:running), timer=(succ timer)}
 
 {- scheduler function that runs to completion -}
-
 sched :: Monad m => (State -> m Action) -> (State -> Cmd) -> State -> m State
 sched o p st = f st
   where f st@(State _ _ _ (Hazard h _) _) = return st 
@@ -69,6 +65,6 @@ sched o p st = f st
                                              f nst
 
 update :: State -> State
-update st@State{..} = st{prevRun=(map (\c@Cmd{..} -> c{pos=(fst pos, Speculated)}) toRun)} 
-
-
+update st@(State toRun _ _ (Tree t hs) _) = st{prevRun=(map (\c@Cmd{..} -> c{pos=(fst pos, Speculated),traces=(getTraces c)}) toRun)}
+  where getTraces c = let (Just c2) = getCmd c t in
+                        traces c2
