@@ -4,11 +4,6 @@ module Properties(prop_eq, prop_origEq, prop_consEq, prop_aggrEq
                  ,prop_detectNRH, prop_detectNRHOrig
                  ,prop_detectNRHCons, prop_detectNRHAggr) where
 
-
-{- Todos: 1. define what it means for 2 trees to be equivalent
-          2. define some properties
--}
-
 import Types
 import CheckTypes
 import Sequential
@@ -83,8 +78,8 @@ prop_aggrEqWData (TState st) = monadicIO $ do
 prop_detectNRH :: NRHState -> Bool
 prop_detectNRH (NRHState st) =
   case st of
-    (State [] _ _ _ _)  -> True
-    (State [x] _ _ _ _) -> True
+    (State [] _ _ _ _ _ _)  -> True
+    (State [x] _ _ _ _ _ _) -> True
     st -> let Identity st1 = seqSched st in
             case done st1 of
               (Hazard (ReadWriteHazard _ _ _ NonRecoverable) _) -> True
@@ -94,8 +89,8 @@ prop_detectNRH (NRHState st) =
 prop_detectNRHOrig :: NRHState -> Property
 prop_detectNRHOrig (NRHState st) = monadicIO $ do
   case st of
-    (State [] _ _ _ _)  -> assert True
-    (State [x] _ _ _ _) -> assert True
+    (State [] _ _ _ _ _ _)  -> assert True
+    (State [x] _ _ _ _ _ _) -> assert True
     st -> do
       st <- run (originalSched st)
       assert (case done st of
@@ -106,8 +101,8 @@ prop_detectNRHOrig (NRHState st) = monadicIO $ do
 prop_detectNRHCons :: NRHState -> Property
 prop_detectNRHCons (NRHState st) = monadicIO $ do
   case st of
-    (State [] _ _ _ _)  -> assert True
-    (State [x] _ _ _ _) -> assert True
+    (State [] _ _ _ _ _ _)  -> assert True
+    (State [x] _ _ _ _ _ _) -> assert True
     st -> do
       st <- run (consSched st)
       assert (case done st of
@@ -118,8 +113,8 @@ prop_detectNRHCons (NRHState st) = monadicIO $ do
 prop_detectNRHAggr :: NRHState -> Property
 prop_detectNRHAggr (NRHState st) = monadicIO $ do
   case st of
-    (State [] _ _ _ _) -> assert True
-    (State [x] _ _ _ _) -> assert True
+    (State [] _ _ _ _ _ _) -> assert True
+    (State [x] _ _ _ _ _ _) -> assert True
     st -> do
       st <- run (aggrSched st)
       assert (case done st of

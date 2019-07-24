@@ -2,7 +2,6 @@
 
 module Scheduler(sched) where
 
--- How do we define a scheduler?
 import Types
 import Shared
 import qualified Data.HashMap.Strict as Map
@@ -10,61 +9,86 @@ import Data.List
 import qualified Data.HashSet as Set
 
 {- An oracle which decides what step to take next [in the case of choice] -}
-oracle :: Monad m => (State -> m Action) -> State -> m Action
-oracle _ st@(State tr pr [] _ _) | isDone st = return Done
-                                 | otherwise = return Start
-oracle f st@(State tr pr r _ t) | isDone st = return Done -- choice
-                                | otherwise = f st -- choice
+oracle :: Monad m => Int -> (Int -> State -> m Action) -> State -> m Action
+oracle n f st@(State tr pr r rq _ _ _) | Map.null r && isDone st = return Done
+                                       | otherwise = f n st -- choice
 
 -- the torun list hasn't been completed
 isDone :: State -> Bool
-isDone (State tr _ _ (Tree t _) _) = all (`inTree` t) tr
-isDone (State tr _ _ (Hazard h (Tree t _)) _) = all (`inTree` t) tr
+isDone (State tr _ _ _ (Tree t _) _ _) = all (`inTree` t) tr
+isDone (State tr _ _ _ (Hazard h (Tree t _)) _ _) = all (`inTree` t) tr
 
 {- Deciding whether there is something to run -}
 
 {- Taking a step -}
 
-step :: Monad m => (State -> m Action) -> (State -> Cmd) -> State -> m State
-step f f2 st = do
-  a <- oracle f st
+stepN :: Monad m => Int -> (Int -> State -> m Action) -> (Int -> State -> Cmd) -> State -> m State
+stepN 0 f f2 st = return st
+stepN n f f2 st@(State _ _ _ _ (Hazard _ _) _ _) = return st
+stepN n f f2 st = do
+  st <- step n f f2 st
+  stepN (n-1) f f2 st
+
+{- Required list:
+   Is required running something? If yes then don't change
+   Is required doing nothing? if yes then maybe change
+   How do we know whether to change? The latest thing in torun list that is
+   currently being run by another thread.
+
+-}
+
+step :: Monad m => Int -> (Int -> State -> m Action) -> (Int -> State -> Cmd) -> State -> m State
+step n f f2 st = do
+  a <- oracle n f st
   case a of
-    Finished -> finish st
-    Start    -> return $ run f2 st
-    _        -> return st{timer=(succ $ timer st)}
+    Finished -> finish n st
+    Start    -> return $ run n f2 st
+    _        -> if n == 1
+                then if Map.member 1 $ running st
+                     then return st{timer=(succ $ timer st)} -- don't change required index
+                     else return st{required=(f st)
+                                   ,timer=(succ $ timer st)}
+                else return st{timer=(succ $ timer st)}
+      where f State{..} = g required (Map.elems running) toRun
+            g i [] ls = i
+            g i (x:xs) ls = case elemIndex x ls of
+                              (Just i2) -> g (max i2 i) xs ls
+                              Nothing -> g i xs ls
 
 
 {- Is finish the same for all schedulers? -}
-finish :: Monad m => State -> m State
-finish st@(State tr pr running t@(Tree _ _) timer) =
-  let e = getFinished running timer
+finish :: Monad m => Int -> State -> m State
+finish n st@(State tr pr running rq t@(Tree t2 _) timer _) =
+  let (Just e) = Map.lookup n running
       ne = e{stop=timer, traces=((rfiles e, wfiles e):(traces e))}
       nh = Map.fromList $ map (,[(Write,stop ne,ne)]) (Set.toList $ wfiles e) ++
            map (,[(Read ,start ne,ne)]) (Set.toList (rfiles e `Set.difference` wfiles e)) in
-    return $ st{running=(delete e running)
-               ,done=(merge tr t $ Tree (L ne No) nh)
+    return $ st{running=(Map.delete n running)
+               ,done=(merge (take (rq+1) tr)
+                       t $ Tree (L ne No) nh)
                ,timer=(succ timer)}
-    where getFinished xs t = getEarliest $ filter (`isDone` t) xs
-          isDone Cmd{..} t = (start `add` cost) <= t
-          getEarliest (x:xs) = foldl (\e x -> if ((start e) `add` cost e) < ((start x) `add` cost x)
-                                              then e
-                                              else x) x xs
 
 {- Something to run a cmd; how to pick cmd to run -}
-run :: (State -> Cmd) -> State -> State
-run pick st@State{..} = let e = pick st in
-                          st{running=(e{start=timer}:running), timer=(succ timer)}
+run :: Int -> (Int -> State -> Cmd) -> State -> State
+run 1 pick st@State{..} = let e = pick 1 st
+                              (Just i) = elemIndex e toRun in
+                            st{running=(Map.insert 1 e{start=timer} running)
+                              ,required=i
+                              ,timer=(succ timer)}
+run n pick st@State{..} = let e = pick n st in
+                            st{running=(Map.insert n e{start=timer} running)
+                              ,timer=(succ timer)}
 
 {- scheduler function that runs to completion -}
-sched :: Monad m => (State -> m Action) -> (State -> Cmd) -> State -> m State
+sched :: Monad m => (Int -> State -> m Action) -> (Int -> State -> Cmd) -> State -> m State
 sched o p st = f st
-  where f st@(State _ _ _ (Hazard h _) _) = return st 
-        f st@(State r _ _ (Tree t hs) _) | all (`inTree` t) r = return $ update st
-                                         | otherwise = do
-                                             nst <- step o p st
-                                             f nst
+  where f st@(State _ _ _ _ (Hazard h _) _  _) = return st
+        f st@(State r _ _ _ (Tree t hs) _ l) | all (`inTree` t) r = return $ update st
+                                           | otherwise = do
+                                               nst <- stepN l o p st
+                                               f nst
 
 update :: State -> State
-update st@(State toRun _ _ (Tree t hs) _) = st{prevRun=(map (\c@Cmd{..} -> c{pos=(fst pos, Speculated),traces=(getTraces c)}) toRun)}
+update st@(State toRun _ _ _ (Tree t hs) _ _) = st{prevRun=(map (\c@Cmd{..} -> c{pos=(fst pos, Speculated),traces=(getTraces c)}) toRun)}
   where getTraces c = let (Just c2) = getCmd c t in
                         traces c2

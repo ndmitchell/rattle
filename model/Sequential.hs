@@ -12,13 +12,16 @@ import Data.Functor.Identity
 import Debug.Trace as Trace
 
 -- Decides whether to start a cmd or finish a cmd
-seqOracle :: State -> Identity Action
-seqOracle (State tr pr r _ t) = if isSomethingDone r t
-                                then return Finished 
-                                else return Wait
+seqOracle :: Int -> State -> Identity Action
+seqOracle 1 (State tr pr r _ _ t _) | not $ Map.member 1 r = return Start
+                                    | otherwise = if isSomethingDone 1 r t
+                                                  then return Finished
+                                                  else return Wait
+seqOracle n st = return Wait
 
-pickCmd :: State -> Cmd
-pickCmd (State toRun _ [] (Tree d _) _) = f toRun d
+pickCmd :: Int -> State -> Cmd
+pickCmd 1 (State toRun _ running _ (Tree d _) _ _)
+  | not $ Map.member 1 running = f toRun d
   where f (t:ts) d | inTree t d = f ts d
                    | otherwise = t
 

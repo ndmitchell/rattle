@@ -57,21 +57,24 @@ instance Hashable Cmd where
 
 data State = State { toRun :: [Cmd] -- required list in rattle
                    , prevRun :: [Cmd] -- speculation list in rattle
-                   , running :: [Cmd]
+                   , running :: Map.HashMap Int Cmd
+                   , required :: Int -- index into torun list. 
                    , done :: TreeOrHazard
-                   , timer :: !T }
+                   , timer :: !T
+                   , limit :: Int }
 
 -- error if not finished
 instance Equiv State where
-  equiv (State _ _ _ t1 _) (State _ _ _ t2 _) = t1 `equiv` t2
+  equiv (State _ _ _ _ t1 _ _) (State _ _ _ _ t2 _ _) = t1 `equiv` t2
 
 instance Show State where
-  show (State tr pr rn toh t) = "State: \n" ++
-                                "ToRun: " ++ show tr ++
-                                "\nprevrun: " ++ show pr ++
-                                "\nrunning: " ++ show rn ++
-                                "\nTreeOrHazard: " ++ show toh ++
-                                "\nTimer: " ++ show t
+  show (State tr pr rn rq toh t l) = "State: {\n" ++
+                                     "ToRun: " ++ show tr ++
+                                     "\nprevrun: " ++ show pr ++
+                                     "\nrunning: " ++ show rn ++
+                                     "\nTreeOrHazard: " ++ show toh ++
+                                     "\nTimer: " ++ show t ++
+                                     "\nLimit: " ++ show l ++ "}"
 
 instance Arbitrary State where
   arbitrary = do
@@ -90,7 +93,7 @@ arbitraryListCmds n = f n
           return $ c:ls
 
 createState :: [Cmd] -> State
-createState ls = State ls [] [] (Tree E Map.empty) t0
+createState ls = State ls [] Map.empty (-1) (Tree E Map.empty) t0 8
 
 resetState :: State -> State
 resetState st@State{..} = st{done=(Tree E Map.empty), timer=t0}
@@ -176,7 +179,7 @@ instance Equiv Tree where
           difference s1 s2 = Set.fromList $ g (Set.toList s1) (Set.toList s2)
           g [] ls2 = []
           g ls1 [] = ls1
-          g ls1 (x:xs) = g (delete x ls1) xs -- why doesnt haskell's set difference function seem to work for me??????????????
+          g ls1 (x:xs) = g (delete x ls1) xs
 
 instance Semigroup Tree where
   t1_ <> t2_ = f (reduce t1_) (reduce t2_)
@@ -303,6 +306,20 @@ reduce t = let r = reduce_ t in
                      l@L{}    -> l:(g xs)
                      (Seq ls) -> (Seq ls):(g xs)
                      (Par ls) -> (Set.toList ls) ++ (g xs)
+
+work :: Tree -> Int
+work E = 0
+work (L Cmd{..} _) = case cost of
+                     (T t) -> t
+work (Seq ls) = sum $ map work ls
+work (Par s)  = sum $ map work $ Set.toList s
+
+span_ :: Tree -> Int
+span_ E = 0
+span_ (L Cmd{..} _) = case cost of
+                     (T t) -> t
+span_ (Seq ls) = sum $ map span_ ls
+span_ (Par s) = maximum $ map span_ $ Set.toList s
   
 ----------------------- end of tree ------------------------------          
 
@@ -325,13 +342,6 @@ instance Equiv TreeOrHazard where
   equiv (Tree t1 f1) (Tree t2 f2) = t1 `equiv` t2
   equiv _ _ = False
 
-
--- Even if there is a hazard; we are ALWAYS going to add t2 to t1 so just do it first then check for a hazard?
--- only need the hashmaps to check for hazards AND the torun list. need to know if
--- speculating commands are required
-
--- could get rid of position field if this was fixed.
-
 merge :: [Cmd] -> TreeOrHazard -> TreeOrHazard -> TreeOrHazard
 merge _ h@(Hazard (WriteWriteHazard _ _ _ NonRecoverable) _)  _ = h
 merge _ _  h@(Hazard (WriteWriteHazard _ _ _ NonRecoverable) _) = h
@@ -339,6 +349,8 @@ merge _ h@(Hazard (ReadWriteHazard _ _ _ NonRecoverable) _) _ = h
 merge _ _  h@(Hazard (ReadWriteHazard _ _ _ NonRecoverable) _) = h
 merge _ h@(Hazard (WriteWriteHazard _ _ _ Restartable) _) _ = h
 merge _ _ h@(Hazard (WriteWriteHazard _ _ _ Restartable) _) = h
+merge _ h@(Hazard (ReadWriteHazard _ _ _ Restartable) _) _ = h
+merge _ _ h@(Hazard (ReadWriteHazard _ _ _ Restartable) _) = h
 merge _ h@(Hazard _ _) _ = h
 merge _ _ h@(Hazard _ _) = h
 merge tr (Tree t1 f1) (Tree t2 f2) =
@@ -358,11 +370,14 @@ merge tr (Tree t1 f1) (Tree t2 f2) =
                 | isRecoverable h1 && (isNonRecoverable h2 || isRestartable h2) = h2
                 | otherwise = h1
         fixupAll [] t = t
-        fixupAll ((ReadWriteHazard fp c1 c2 Recoverable):hs) (Tree t fs) = fixupAll hs (Tree (setFailed c2 t) (removeFiles c2 fs))
+        fixupAll ((ReadWriteHazard fp c1 c2 Recoverable):hs) (Tree t fs) =
+          fixupAll hs (Tree (setFailed c2 t) (removeFiles c2 fs))
 
         fixup (Hazard h@(ReadWriteHazard fp c1 c2 Recoverable) (Tree t hs)) =
           (Hazard h (Tree (setFailed c2 t) (removeFiles c2 hs)))
         fixup (Hazard h@(WriteWriteHazard fp c1 c2 Restartable) (Tree t hs)) =
+          (Hazard h (Tree (setAllFailed t) Map.empty))
+        fixup (Hazard h@(ReadWriteHazard fp c1 c2 Restartable) (Tree t hs)) =
           (Hazard h (Tree (setAllFailed t) Map.empty))
         fixup x = x -- don't fixup non-recoverable hazards
         removeFiles c@Cmd{..} fs =
@@ -390,15 +405,18 @@ unionWithKeyEithers op lhs rhs = foldl' f ([], lhs) $ Map.toList rhs
 collectHazards :: [Cmd] -> FilePath -> [(ReadOrWrite, T, Cmd)] -> (ReadOrWrite, T, Cmd) -> [Hazard]
 collectHazards r x vs v = mapMaybe (`collectHazard` v) vs
   where collectHazard (Read, t1, cmd1) (Read, t2, cmd2) = Nothing
-        collectHazard (Write, t1, cmd1) w@(Write, t2, cmd2) | (elem cmd1 r) && (elem cmd2 r) = Just $ WriteWriteHazard x cmd1 cmd2 NonRecoverable
-                                                                | otherwise = Just $ WriteWriteHazard x cmd1 cmd2 Restartable
+        collectHazard (Write, t1, cmd1) w@(Write, t2, cmd2)
+          | (elem cmd1 r) && (elem cmd2 r) = Just $ WriteWriteHazard x cmd1 cmd2 NonRecoverable
+          | otherwise = Just $ WriteWriteHazard x cmd1 cmd2 Restartable
         collectHazard (Read, t1, cmd1) w@(Write, t2, cmd2)
-          | listedBefore cmd1 cmd2 = Just $ ReadWriteHazard x cmd2 cmd1 NonRecoverable
-          | t1 <= t2 = Just $ ReadWriteHazard x cmd2 cmd1 Recoverable
+          | isRequired cmd1 && isRequired cmd2 && listedBefore cmd1 cmd2
+          = Just $ ReadWriteHazard x cmd2 cmd1 NonRecoverable
+          | isRequired cmd1 && isRequired cmd2 = Nothing
+          | isRequired cmd2 && t1 <= t2 = Just $ ReadWriteHazard x cmd2 cmd1 Recoverable
+          | isRequired cmd1 = Just $ ReadWriteHazard x cmd2 cmd1 Restartable
           | otherwise = Nothing
         collectHazard v1 v2 = collectHazard v2 v1
-        listedBefore c1 c2 = let i1 = elemIndex c1 r
-                                 i2 = elemIndex c2 r in
-                               f i1 i2
-        f (Just i1) (Just i2) = i1 < i2
-        f _ _ = False
+        isRequired c = isJust $ elemIndex c r
+        listedBefore c1 c2 = let (Just i1) = elemIndex c1 r
+                                 (Just i2) = elemIndex c2 r in
+                               i1 < i2
