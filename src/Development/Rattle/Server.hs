@@ -84,11 +84,11 @@ throwProblem (Hazard h) = throwIO h
 -- | Type of exception thrown if there is a hazard when running the build system.
 data Hazard
     = ReadWriteHazard FilePath Cmd Cmd Recoverable
-    | WriteWriteHazard FilePath Cmd Cmd
+    | WriteWriteHazard FilePath Cmd Cmd Recoverable
       deriving Show
 instance Exception Hazard
 
-data Recoverable = Recoverable | NonRecoverable deriving (Show,Eq)
+data Recoverable = Recoverable | NonRecoverable | Restartable deriving (Show,Eq)
 
 data Rattle = Rattle
     {options :: RattleOptions
@@ -132,7 +132,7 @@ withRattle options@RattleOptions{..} act = withUI rattleFancyUI (return "Running
             (act r <* saveSpeculate state) `finally` writeVar state (Left Finished)
     attempt1 `catch` \(h :: Hazard) -> do
         b <- readIORef speculated
-        if not $ recoverableHazard h then throwIO h else do
+        if not (recoverableHazard h || restartableHazard h) then throwIO h else do
             -- if we speculated, and we failed with a hazard, try again
             putStrLn "Warning: Speculation lead to a hazard, retrying without speculation"
             print h
@@ -145,6 +145,10 @@ withRattle options@RattleOptions{..} act = withUI rattleFancyUI (return "Running
 recoverableHazard :: Hazard -> Bool
 recoverableHazard WriteWriteHazard{} = False
 recoverableHazard (ReadWriteHazard _ _ _ r) = r == Recoverable
+
+restartableHazard :: Hazard -> Bool
+restartableHazard (WriteWriteHazard _ _ _ r) = r == Restartable
+restartableHazard (ReadWriteHazard _ _ _ r) = r == Restartable
 
 runSpeculate :: Rattle -> IO ()
 runSpeculate rattle@Rattle{..} = void $ forkIO $ void $ runPoolMaybe pool $
@@ -324,11 +328,23 @@ cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{..} save = join $ modi
 -- r is required list; s is speculate list
 mergeFileOps :: [Cmd] -> [Cmd] -> FilePath -> (ReadOrWrite, T, Cmd) -> (ReadOrWrite, T, Cmd) -> Either Hazard (ReadOrWrite, T, Cmd)
 mergeFileOps r s x (Read, t1, cmd1) (Read, t2, cmd2) = Right (Read, min t1 t2, if t1 < t2 then cmd1 else cmd2)
-mergeFileOps r s x (Write, t1, cmd1) (Write, t2, cmd2) = Left $ WriteWriteHazard x cmd1 cmd2
+mergeFileOps r s x (Write, t1, cmd1) (Write, t2, cmd2)
+  | elem cmd1 r && elem cmd2 r = Left $ WriteWriteHazard x cmd1 cmd2 NonRecoverable
+  | otherwise = Left $ WriteWriteHazard x cmd1 cmd2 Restartable -- one write may be an error
 mergeFileOps r s x (Read, t1, cmd1) (Write, t2, cmd2)
-    | listedBefore cmd1 cmd2 = Left $ ReadWriteHazard x cmd2 cmd1 NonRecoverable
-    | t1 <= t2 = Left $ ReadWriteHazard x cmd2 cmd1 Recoverable
-    | otherwise = Right (Write, t2, cmd2)
+  | elem cmd1 r && elem cmd2 r = if listedBefore cmd1 cmd2
+                                 then Left $ ReadWriteHazard x cmd2 cmd1 NonRecoverable
+                                 else Right (Write, t2, cmd2)
+  | elem cmd1 r = Left $ ReadWriteHazard x cmd2 cmd1 Restartable -- order in time doesn't matter
+  | elem cmd2 r = if t1 <= t2
+                  then Left $ ReadWriteHazard x cmd2 cmd1 Recoverable -- read too early
+                  else Right (Write, t2, cmd2)
+  | t1 <= t2 = if listedBefore cmd2 cmd1
+               then Left $ ReadWriteHazard x cmd2 cmd1 Recoverable -- can re-execute read. not sure of implementation details, but currently recovering and restarting are the same.
+               else Left $ ReadWriteHazard x cmd2 cmd1 Restartable
+  | otherwise = if listedBefore cmd2 cmd1
+                then Right (Write, t2, cmd2)
+                else Left $ ReadWriteHazard x cmd2 cmd1 Restartable
   where -- FIXME: listedBefore is O(n) so want to make that partly cached
         listedBefore c1 c2 = let i1 = elemIndex c1 r
                                  i2 = elemIndex c2 r in
