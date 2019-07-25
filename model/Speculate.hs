@@ -1,4 +1,3 @@
-{-# LANGUAGE RecordWildCards, TupleSections #-}
 
 module Speculate(speculateAllSched, speculateAfterSched) where
 
@@ -24,7 +23,7 @@ pickCmdAll n st = fromJust $ somethingToSpeculateAll n st
 -- speculates with abandon
 speculateAllOracle :: Int -> State -> IO Action
 speculateAllOracle n st@(State tr pr r _ _ t _)
-  | (isSomethingDone n r t) && (somethingToRunAll n st) = do
+  | isSomethingDone n r t && somethingToRunAll n st = do
       r_ <- getStdRandom $ randomR ((0,1) :: (Integer,Integer))
       case r_ of
         0 -> return Finished
@@ -39,14 +38,14 @@ somethingToRunAll n st = isJust $ somethingToSpeculateAll n st
 
 somethingToSpeculateAll :: Int -> State -> Maybe Cmd
 somethingToSpeculateAll n (State _ prevRun running _ (Tree d fs) _ l)
-  | (n == 1) || (l < 2) || ((length $ Map.elems running) >= l) = Nothing
+  | (n == 1) || (l < 2) || (length (Map.elems running) >= l) = Nothing
   | any (null . traces) $ Map.elems running = Nothing
   | otherwise = helper (foldl' (\p r -> addTraces p $ traces r) (Set.empty, Set.empty) $ Map.elems running)
-                (filter (\c -> not $ null $ traces c) prevRun) fs
+                (filter (not . null . traces) prevRun) fs
   -- helper :: (Set String, Set String) -> [Cmd] -> Map String ??
   where helper _ [] _ = Nothing
         helper rw (x:xs) h
-          | (elem x $ Map.elems running) || inTree x d = helper rw xs h
+          | elem x (Map.elems running) || inTree x d = helper rw xs h
         helper rw@(r,w) (x:xs) hazards
           | any (\y -> Set.member y w || Set.member y r || Map.member y hazards) $ Set.toList (foldl' (\ws (_,w) -> ws `Set.union` w) Set.empty $ traces x)
           = helper (addTraces rw $ traces x) xs hazards -- still need to check done cmds for some reason?
@@ -67,7 +66,7 @@ pickCmd n st = fromJust $ somethingToSpeculate st
 -- need a new oracle in the case of re-execution
 speculativeOracle :: Int -> State -> IO Action
 speculativeOracle n st@(State tr pr r _ _ t _)
-  | (isSomethingDone n r t) && (somethingToRun n st) = do
+  | isSomethingDone n r t && somethingToRun n st = do
       r_ <- getStdRandom $ randomR ((0,1) :: (Integer,Integer))
       case r_ of
         0 -> return Finished
@@ -83,14 +82,14 @@ somethingToRun n st = isJust $ somethingToSpeculate st
 -- need new definition for something to speculate
 somethingToSpeculate :: State -> Maybe Cmd
 somethingToSpeculate (State _ prevRun running _ (Tree t fs) _ l)
-  | (l < 2) || ((length $ Map.elems running) >= l) = Nothing
+  | (l < 2) || (length (Map.elems running) >= l) = Nothing
   | any (null . traces) $ Map.elems running = Nothing
   | otherwise = helper (foldl' (\p r -> addTraces p $ traces r) (Set.empty, Set.empty) $ Map.elems running)
-                (filter (\c -> not $ null $ traces c) prevRun) fs
+                (filter (not . null . traces) prevRun) fs
   -- helper :: (Set String, Set String) -> [Cmd] -> Map String ??
   where helper _ [] _ = Nothing
         helper rw (x:xs) h
-          | (elem x $ Map.elems running) || inTree x t || inTreeFailed x t = helper rw xs h
+          | elem x (Map.elems running) || inTree x t || inTreeFailed x t = helper rw xs h
         helper rw@(r,w) (x:xs) hazards
           | any (\y -> Set.member y w || Set.member y r || Map.member y hazards) $ Set.toList (foldl' (\ws (_,w) -> ws `Set.union` w) Set.empty $ traces x)
           = helper (addTraces rw $ traces x) xs hazards -- still need to check done cmds for some reason?

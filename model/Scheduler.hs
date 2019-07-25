@@ -45,10 +45,10 @@ step n f f2 st = do
     Start    -> return $ run n f2 st
     _        -> if n == 1
                 then if Map.member 1 $ running st
-                     then return st{timer=(succ $ timer st)} -- don't change required index
-                     else return st{required=(f st)
-                                   ,timer=(succ $ timer st)}
-                else return st{timer=(succ $ timer st)}
+                     then return st{timer=succ $ timer st} -- don't change required index
+                     else return st{required=f st
+                                   ,timer=succ $ timer st}
+                else return st{timer=succ $ timer st}
       where f State{..} = g required (Map.elems running) toRun
             g i [] ls = i
             g i (x:xs) ls = case elemIndex x ls of
@@ -60,28 +60,28 @@ step n f f2 st = do
 finish :: Monad m => Int -> State -> m State
 finish n st@(State tr pr running rq t@(Tree t2 _) timer _) =
   let (Just e) = Map.lookup n running
-      ne = e{stop=timer, traces=((rfiles e, wfiles e):(traces e))}
+      ne = e{stop=timer, traces=(rfiles e, wfiles e):traces e}
       nh = Map.fromList $ map (,[(Write,stop ne,ne)]) (Set.toList $ wfiles e) ++
            map (,[(Read ,start ne,ne)]) (Set.toList (rfiles e `Set.difference` wfiles e)) in
-    return $ st{running=(Map.delete n running)
-               ,done=(merge (take (rq+1) tr)
-                       t $ Tree (L ne No) nh)
-               ,timer=(succ timer)}
+    return $ st{running=Map.delete n running
+               ,done=merge (take (rq+1) tr)
+                       t $ Tree (L ne No) nh
+               ,timer=succ timer}
 
 {- Something to run a cmd; how to pick cmd to run -}
 run :: Int -> (Int -> State -> Cmd) -> State -> State
 run 1 pick st@State{..} = let e = pick 1 st
                               (Just i) = elemIndex e toRun in
-                            st{running=(Map.insert 1 e{start=timer} running)
+                            st{running=Map.insert 1 e{start=timer} running
                               ,required=i
-                              ,timer=(succ timer)}
+                              ,timer=succ timer}
 run n pick st@State{..} = let e = pick n st in
-                            st{running=(Map.insert n e{start=timer} running)
-                              ,timer=(succ timer)}
+                            st{running=Map.insert n e{start=timer} running
+                              ,timer=succ timer}
 
 {- scheduler function that runs to completion -}
 sched :: Monad m => (Int -> State -> m Action) -> (Int -> State -> Cmd) -> State -> m State
-sched o p st = f st
+sched o p = f
   where f st@(State _ _ _ _ (Hazard h _) _  _) = return st
         f st@(State r _ _ _ (Tree t hs) _ l) | all (`inTree` t) r = return $ update st
                                            | otherwise = do
@@ -89,6 +89,6 @@ sched o p st = f st
                                                f nst
 
 update :: State -> State
-update st@(State toRun _ _ _ (Tree t hs) _ _) = st{prevRun=(map (\c@Cmd{..} -> c{pos=(fst pos, Speculated),traces=(getTraces c)}) toRun)}
+update st@(State toRun _ _ _ (Tree t hs) _ _) = st{prevRun=map (\c@Cmd{..} -> c{pos=(fst pos, Speculated),traces=getTraces c}) toRun}
   where getTraces c = let (Just c2) = getCmd c t in
                         traces c2

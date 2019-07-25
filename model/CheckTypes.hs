@@ -25,11 +25,11 @@ arbitraryListTCmds n = f [] n
         f ls m = do
           let p = n - m
           c <- arbitraryTCmd ls  -- arbitrary Cmd
-          c <- return c{pos=((T p),Required)}
+          c <- return c{pos=(T p,Required)}
           f (ls ++ [c]) (m - 1)
               
         arbitraryTCmd ls = do
-          cmd <- suchThat arbitrary (\a -> not $ elem a ls)  -- get a cmd
+          cmd <- suchThat arbitrary (`notElem` ls) -- get a cmd
           i <- choose ((0,1) :: (Int,Int))
           case i of
             0 -> return cmd{traces=[(rfiles cmd, wfiles cmd)]}
@@ -57,14 +57,13 @@ arbitraryListNHCmds n = do
   where f h fs ls 0 = return ls
         f h fs ls m = do
           let p = n - m
-          c <- suchThat arbitrary (\a -> (not $ elem a ls) && (not $ Set.null (Set.union (rfiles a) (wfiles a))))
-          c <- (if p == h
-                then do
-                   let ls2 = Set.toList fs
-                   i <- choose ((0,(length ls2)-1) :: (Int,Int))
-                   return c{pos=((T p),Required)
-                           ,wfiles=(Set.insert (ls2 !! i) $ wfiles c)}
-                 else return c{pos=((T p),Required)})
+          c <- suchThat arbitrary (\a -> notElem a ls && not (Set.null (Set.union (rfiles a) (wfiles a))))
+          c <- if p == h
+               then do let ls2 = Set.toList fs
+                       i <- choose ((0,length ls2 - 1) :: (Int,Int))
+                       return c{pos=(T p,Required)
+                               ,wfiles=(Set.insert (ls2 !! i) $ wfiles c)}
+               else return c{pos=(T p,Required)}
           f h (Set.union (Set.union fs (wfiles c)) (rfiles c)) (ls ++ [c]) $ m - 1          
 
           

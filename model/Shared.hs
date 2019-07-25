@@ -21,6 +21,6 @@ somethingToRequire (State toRun _ running rq (Tree d _) _ _)
   | Map.member 1 running = Nothing
   | otherwise = f toRun (Map.elems running) d
   where f [] _ _ = Nothing
-        f (t:ts) xs d | elem t xs = Nothing
+        f (t:ts) xs d | t `elem` xs = Nothing
                       | inTree t d = f ts xs d
                       | otherwise = Just t

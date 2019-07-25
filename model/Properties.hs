@@ -18,60 +18,41 @@ prop_eq st = let Identity st1 = seqSched st
                  Identity st2 = seqSched st in
                st1 `equiv` st2
 
+prop_seqEq :: (State -> IO State) -> State -> Property
+prop_seqEq f st = monadicIO $ do
+  st1 <- run (return $ runIdentity (seqSched st))
+  st2 <- run $ f st
+  assert $ st1 `equiv` st2
+  
 -- Original scheduler produces a result equivalent to sequential scheduler if it has NO data
 prop_origEq :: State -> Property
-prop_origEq st = monadicIO $ do
-  st1 <- run (case (seqSched st) of
-                 Identity st -> return st)
-  st2 <- run (originalSched st)
-  assert $ st1 `equiv` st2
+prop_origEq = prop_seqEq originalSched
 
 -- Conservative scheduler produces a result equivalent to sequential scheduler if it has NO data
 prop_consEq :: State -> Property
-prop_consEq st = monadicIO $ do
-  st1 <- run (case (seqSched st) of
-                 Identity st -> return st)
-  st2 <- run (consSched st)
-  assert $ st1 `equiv` st2
+prop_consEq = prop_seqEq consSched
 
 -- aggressive scheduler produces a result equivalent to sequential scheduler if it has NO data
 prop_aggrEq :: State -> Property
-prop_aggrEq st = monadicIO $ do
-  st1 <- run (case (seqSched st) of
-                Identity st -> return st)
-  st2 <- run (aggrSched st)
-  assert $ st1 `equiv` st2
+prop_aggrEq = prop_seqEq aggrSched
 
 {- Original scheduler produces a result equivalent to sequential scheduler
    if it has prev data
 -}
 prop_origEqWData :: TState -> Property
-prop_origEqWData (TState st) = monadicIO $ do
-  st1 <- run (case (seqSched st) of
-                Identity st -> return st)
-  st2 <- run (originalSched st)
-  assert $ st1 `equiv` st2
+prop_origEqWData (TState st) = prop_seqEq originalSched st
   
 {- Conservative scheduler produces a result equivalent to sequential scheduler
    if it has prev data
 -}
 prop_consEqWData :: TState -> Property
-prop_consEqWData (TState st) = monadicIO $ do
-  st1 <- run (case (seqSched st) of
-                Identity st -> return st)
-  st2 <- run (consSched st) -- within
-  (assert $ st1 `equiv` st2)
-
+prop_consEqWData (TState st) = prop_seqEq consSched st
 
 {- Aggressive scheduler produces a result equivalent to sequential scheduler
    if it has prev data
 -}
 prop_aggrEqWData :: TState -> Property
-prop_aggrEqWData (TState st) = monadicIO $ do
-  st1 <- run (case (seqSched st) of
-                Identity st -> return st)
-  st2 <- run (aggrSched st)
-  assert $ st1 `equiv` st2
+prop_aggrEqWData (TState st) = prop_seqEq aggrSched st
     
 {- Sequential scheduler detects all non-recoverable hazards
 -}
@@ -99,7 +80,7 @@ prop_detectNRHOrig (NRHState st) = monadicIO $ do
                 _                                                 -> False)
 
 prop_detectNRHCons :: NRHState -> Property
-prop_detectNRHCons (NRHState st) = monadicIO $ do
+prop_detectNRHCons (NRHState st) = monadicIO $
   case st of
     (State [] _ _ _ _ _ _)  -> assert True
     (State [x] _ _ _ _ _ _) -> assert True
@@ -111,7 +92,7 @@ prop_detectNRHCons (NRHState st) = monadicIO $ do
                _                                                  -> False)
 
 prop_detectNRHAggr :: NRHState -> Property
-prop_detectNRHAggr (NRHState st) = monadicIO $ do
+prop_detectNRHAggr (NRHState st) = monadicIO $ 
   case st of
     (State [] _ _ _ _ _ _) -> assert True
     (State [x] _ _ _ _ _ _) -> assert True

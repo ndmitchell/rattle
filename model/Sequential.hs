@@ -1,4 +1,3 @@
-{-# LANGUAGE RecordWildCards, TupleSections #-}
 
 module Sequential(seqSched) where
 

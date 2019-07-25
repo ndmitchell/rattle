@@ -88,7 +88,7 @@ arbitraryListCmds n = f n
         f m = do
           let p = n - m
           c <- arbitrary -- arbitrary cmd
-          c <- return c{pos=((T p),Required)}
+          c <- return c{pos=(T p,Required)}
           ls <- f $ m - 1
           return $ c:ls
 
@@ -96,7 +96,8 @@ createState :: [Cmd] -> State
 createState ls = State ls [] Map.empty (-1) (Tree E Map.empty) t0 8
 
 resetState :: State -> State
-resetState st@State{..} = st{done=(Tree E Map.empty), timer=t0}
+resetState st@State{..} = st{done=Tree E Map.empty
+                            , timer=t0}
 
 data Hazard = ReadWriteHazard FilePath Cmd Cmd Recoverable
             | WriteWriteHazard FilePath Cmd Cmd Recoverable deriving (Show,Eq)
@@ -155,8 +156,8 @@ instance Show Tree where
   show E = ""
   show (L Cmd{..} Yes) = "[" ++ show id ++ "]"
   show (L Cmd{..} No) = show id
-  show (Seq cs) = (foldl' (\str c ->  str ++ " " ++ (show c)) "(seq" cs) ++ ")"
-  show (Par cs) = (Set.foldl' (\str c -> str ++ " " ++ (show c)) "(par" cs) ++ ")"
+  show (Seq cs) = foldl' (\str c ->  str ++ " " ++ show c) "(seq" cs ++ ")"
+  show (Par cs) = Set.foldl' (\str c -> str ++ " " ++ show c) "(par" cs ++ ")"
  
 instance Eq Tree where
   t1 == t2 = f t1 t2
@@ -169,7 +170,7 @@ instance Eq Tree where
 instance Equiv Tree where
   equiv t1 t2 = f (flatten t1) (flatten t2)
     where f Nothing Nothing = True
-          f (Just s1) (Just s2) = (Set.size s1 == Set.size s2) && (Set.null $ Set.difference s1 s2)
+          f (Just s1) (Just s2) = (Set.size s1 == Set.size s2) && Set.null (Set.difference s1 s2)
           f _ _ = False
           flatten E = Nothing
           flatten (L c1 No) = Just $ Set.singleton c1
@@ -185,45 +186,42 @@ instance Semigroup Tree where
   t1_ <> t2_ = f (reduce t1_) (reduce t2_)
     where f E t = t
           f t E = t
-          f l@L{} l2@L{} = if isBefore l l2
-                           then Seq [l,l2]
-                           else if isAfter l l2
-                                then Seq [l2, l]
-                                else Par $ Set.union (Set.singleton l) (Set.singleton l2)
-          f s@(Seq cs) t3 = if isAfter t3 s -- avoid going through cs if unnecessary
-                            then Seq $ cs ++ [t3]
-                            else helper [] [] cs t3
-          f p@(Par ps) t3 = if isBefore t3 p
-                            then Seq [t3,p]
-                            else if isAfter t3 p
-                                 then Seq [p,t3]
-                                 else let par = Set.filter (isParallel t3) ps
-                                          npar = Set.difference ps par in
-                                        if Set.null npar
-                                        then Par $ Set.insert t3 ps
-                                        else if isBefore t3 $ Par npar
-                                             then Par $ Set.insert (Seq [t3,Par npar]) par
-                                             else Par $ Set.insert (Seq [Par npar, t3]) par
+          f l@L{} l2@L{}
+            | isBefore l l2 = Seq [l,l2]
+            | isAfter l l2 = Seq [l2,l]
+            | otherwise = Par $ Set.union (Set.singleton l) (Set.singleton l2)
+          f s@(Seq cs) t3
+            | isAfter t3 s = Seq $ cs ++ [t3]
+            | otherwise = helper [] [] cs t3
+          f p@(Par ps) t3
+            | isBefore t3 p = Seq [t3,p]
+            | isAfter t3 p = Seq [p,t3]
+            | otherwise = let par = Set.filter (isParallel t3) ps
+                              npar = Set.difference ps par in
+                            if Set.null npar
+                            then Par $ Set.insert t3 ps
+                            else if isBefore t3 $ Par npar
+                                 then Par $ Set.insert (Seq [t3,Par npar]) par
+                                 else Par $ Set.insert (Seq [Par npar, t3]) par
           f t1 t2 = t1 -- f t2 t1
 
           helper ls [] [] t1 = Seq $ ls ++ [t1]
           helper ls ls2 [] t1 = Seq $ ls ++ [Par $ Set.union (Set.singleton $ Seq ls2)
                                                              (Set.singleton t1)]
-          helper ls [] (x:xs) t1 = if isBefore t1 x -- can stop
-                                   then Seq $ ls ++ [t1] ++ (x:xs)
-                                   else if isAfter t1 x
-                                        then helper (x:ls) [] xs t1
-                                        else helper ls [x] xs t1 -- must be parallel
-          helper ls ls2 (x:xs) t1 = if isBefore t1 x -- can stop
-                                    then Seq $ ls ++ [Par $ Set.union (Set.singleton $ Seq ls2)
-                                                      (Set.singleton t1)] ++ (x:xs)
-                                    else helper ls (ls2 ++ [x]) xs t1 --  must be parallel
+          helper ls [] (x:xs) t1
+            | isBefore t1 x = Seq $ ls ++ [t1] ++ (x:xs)
+            | isAfter t1 x = helper (x:ls) [] xs t1
+            | otherwise = helper ls [x] xs t1 -- must be parallel
+          helper ls ls2 (x:xs) t1
+            | isBefore t1 x = Seq $ ls ++ [Par $ Set.union (Set.singleton $ Seq ls2) -- can stop
+                                            (Set.singleton t1)] ++ (x:xs)
+            | otherwise = helper ls (ls2 ++ [x]) xs t1 --  must be parallel
                                
 instance Monoid Tree where
   mempty= E
 
 isBefore :: Tree -> Tree -> Bool
-isBefore (L c _) (L c2 _) = (stop c) < (start c2)
+isBefore (L c _) (L c2 _) = stop c < start c2
 isBefore (Seq ls) t3 = isBefore (head ls) t3
 isBefore t1 (Seq ls) = isBefore t1 (head ls)
 isBefore (Par ls) t3 = Set.foldl' (\b t -> b && isBefore t t3) True ls 
@@ -233,7 +231,7 @@ isAfter :: Tree -> Tree -> Bool
 isAfter t1 t2 = isBefore t2 t1
 
 isParallel :: Tree -> Tree -> Bool
-isParallel t1 t2 = (not $ isBefore t1 t2) && (not $ isAfter t1 t2)
+isParallel t1 t2 = not (isBefore t1 t2) && not (isAfter t1 t2)
 
 getLeaf :: Cmd -> Tree -> Maybe Tree
 getLeaf _ E = Nothing
@@ -245,7 +243,7 @@ getLeaf c t = case t of
   where f Nothing t = getLeaf c t
         f (Just l@(L c1 _)) t = case getLeaf c t of
                                   Nothing            -> Just l
-                                  (Just l2@(L c2 _)) -> if (start c1) > (start c2)
+                                  (Just l2@(L c2 _)) -> if start c1 > start c2
                                                         then Just l
                                                         else Just l2
 
@@ -289,23 +287,23 @@ reduce t = let r = reduce_ t in
         reduce_ l@L{} = l
         reduce_ (Seq []) = E
         reduce_ (Par ls) | Set.null ls = E
-        reduce_ (Seq [(Par ls)]) = reduce $ Par ls
-        reduce_ (Seq [(Seq ls)]) = reduce $ Seq ls
+        reduce_ (Seq [Par ls]) = reduce $ Par ls
+        reduce_ (Seq [Seq ls]) = reduce $ Seq ls
         reduce_ (Seq xs) = Seq $ f xs
         reduce_ (Par s) =  Par $ Set.fromList $ g $ Set.toList s
         f [] = []
         f (x:xs) = case reduce x of
                      E        -> f xs
-                     l@L{}    -> l:(f xs)
-                     (Seq ls) -> ls ++ (f xs)
-                     (Par ls) -> (Par ls):(f xs)
+                     l@L{}    -> l : f xs
+                     (Seq ls) -> ls ++ f xs
+                     (Par ls) -> Par ls : f xs
 
         g [] = []
         g (x:xs) = case reduce x of
                      E        -> g xs
-                     l@L{}    -> l:(g xs)
-                     (Seq ls) -> (Seq ls):(g xs)
-                     (Par ls) -> (Set.toList ls) ++ (g xs)
+                     l@L{}    -> l : g xs
+                     (Seq ls) -> Seq ls : g xs
+                     (Par ls) -> Set.toList ls ++ g xs
 
 work :: Tree -> Int
 work E = 0
@@ -370,15 +368,15 @@ merge tr (Tree t1 f1) (Tree t2 f2) =
                 | isRecoverable h1 && (isNonRecoverable h2 || isRestartable h2) = h2
                 | otherwise = h1
         fixupAll [] t = t
-        fixupAll ((ReadWriteHazard fp c1 c2 Recoverable):hs) (Tree t fs) =
+        fixupAll (ReadWriteHazard fp c1 c2 Recoverable:hs) (Tree t fs) =
           fixupAll hs (Tree (setFailed c2 t) (removeFiles c2 fs))
 
         fixup (Hazard h@(ReadWriteHazard fp c1 c2 Recoverable) (Tree t hs)) =
-          (Hazard h (Tree (setFailed c2 t) (removeFiles c2 hs)))
+          Hazard h (Tree (setFailed c2 t) (removeFiles c2 hs))
         fixup (Hazard h@(WriteWriteHazard fp c1 c2 Restartable) (Tree t hs)) =
-          (Hazard h (Tree (setAllFailed t) Map.empty))
+          Hazard h (Tree (setAllFailed t) Map.empty)
         fixup (Hazard h@(ReadWriteHazard fp c1 c2 Restartable) (Tree t hs)) =
-          (Hazard h (Tree (setAllFailed t) Map.empty))
+          Hazard h (Tree (setAllFailed t) Map.empty)
         fixup x = x -- don't fixup non-recoverable hazards
         removeFiles c@Cmd{..} fs =
           Set.foldl' (\m fp -> case Map.lookup fp m of
@@ -388,8 +386,8 @@ merge tr (Tree t1 f1) (Tree t2 f2) =
                                    then  Map.delete fp m
                                    else m
                                  Just xs ->
-                                   Map.insert fp (filter (\(_,_,c1) -> not $ c == c1) xs) m)
-          fs $ (fst (head traces)) `Set.union` (snd (head traces))
+                                   Map.insert fp (filter (\(_,_,c1) -> c /= c1) xs) m)
+          fs $ (uncurry Set.union (head traces))
 
 -- adopted from rattle
 unionWithKeyEithers :: (Eq k, Hashable k) => (k -> [v] -> v -> [a]) -> Map.HashMap k [v] -> Map.HashMap k [v] -> ([a], Map.HashMap k [v])
@@ -406,7 +404,7 @@ collectHazards :: [Cmd] -> FilePath -> [(ReadOrWrite, T, Cmd)] -> (ReadOrWrite, 
 collectHazards r x vs v = mapMaybe (`collectHazard` v) vs
   where collectHazard (Read, t1, cmd1) (Read, t2, cmd2) = Nothing
         collectHazard (Write, t1, cmd1) w@(Write, t2, cmd2)
-          | (elem cmd1 r) && (elem cmd2 r) = Just $ WriteWriteHazard x cmd1 cmd2 NonRecoverable
+          | cmd1 `elem` r && cmd2 `elem` r = Just $ WriteWriteHazard x cmd1 cmd2 NonRecoverable
           | otherwise = Just $ WriteWriteHazard x cmd1 cmd2 Restartable
         collectHazard (Read, t1, cmd1) w@(Write, t2, cmd2)
           | isRequired cmd1 && isRequired cmd2 && listedBefore cmd1 cmd2
