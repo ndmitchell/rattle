@@ -62,7 +62,7 @@ arbitraryListNHCmds n = do
                then do let ls2 = Set.toList fs
                        i <- choose ((0,length ls2 - 1) :: (Int,Int))
                        return c{pos=(T p,Required)
-                               ,wfiles=(Set.insert (ls2 !! i) $ wfiles c)}
+                               ,wfiles=Set.insert (ls2 !! i) $ wfiles c}
                else return c{pos=(T p,Required)}
           f h (Set.union (Set.union fs (wfiles c)) (rfiles c)) (ls ++ [c]) $ m - 1          
 

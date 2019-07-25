@@ -387,7 +387,7 @@ merge tr (Tree t1 f1) (Tree t2 f2) =
                                    else m
                                  Just xs ->
                                    Map.insert fp (filter (\(_,_,c1) -> c /= c1) xs) m)
-          fs $ (uncurry Set.union (head traces))
+          fs $ uncurry Set.union (head traces)
 
 -- adopted from rattle
 unionWithKeyEithers :: (Eq k, Hashable k) => (k -> [v] -> v -> [a]) -> Map.HashMap k [v] -> Map.HashMap k [v] -> ([a], Map.HashMap k [v])

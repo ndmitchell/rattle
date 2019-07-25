@@ -1,7 +1,7 @@
 
 module Properties(prop_eq, prop_origEq, prop_consEq, prop_aggrEq
                  ,prop_origEqWData, prop_consEqWData, prop_aggrEqWData
-                 ,prop_detectNRH, prop_detectNRHOrig
+                 ,prop_detectNRHSeq, prop_detectNRHOrig
                  ,prop_detectNRHCons, prop_detectNRHAggr) where
 
 import Types
@@ -56,54 +56,38 @@ prop_aggrEqWData (TState st) = prop_seqEq aggrSched st
     
 {- Sequential scheduler detects all non-recoverable hazards
 -}
-prop_detectNRH :: NRHState -> Bool
-prop_detectNRH (NRHState st) =
+prop_detectNRHSeq :: NRHState -> Bool
+prop_detectNRHSeq (NRHState st) =
   case st of
     (State [] _ _ _ _ _ _)  -> True
     (State [x] _ _ _ _ _ _) -> True
     st -> let Identity st1 = seqSched st in
             case done st1 of
-              (Hazard (ReadWriteHazard _ _ _ NonRecoverable) _) -> True
-              (Hazard (WriteWriteHazard _ _ _ NonRecoverable) _)               -> True
-              _                                                 -> False
+              (Hazard (ReadWriteHazard _ _ _ NonRecoverable) _)  -> True
+              (Hazard (WriteWriteHazard _ _ _ NonRecoverable) _) -> True
+              _                                                  -> False
 
-prop_detectNRHOrig :: NRHState -> Property
-prop_detectNRHOrig (NRHState st) = monadicIO $ do
+detectNRH :: (State -> IO State) -> State -> Property
+detectNRH f st = monadicIO $
   case st of
     (State [] _ _ _ _ _ _)  -> assert True
     (State [x] _ _ _ _ _ _) -> assert True
     st -> do
-      st <- run (originalSched st)
-      assert (case done st of
-                (Hazard (ReadWriteHazard _ _ _ NonRecoverable) _) -> True
-                (Hazard (WriteWriteHazard _ _ _ NonRecoverable) _)               -> True
-                _                                                 -> False)
-
-prop_detectNRHCons :: NRHState -> Property
-prop_detectNRHCons (NRHState st) = monadicIO $
-  case st of
-    (State [] _ _ _ _ _ _)  -> assert True
-    (State [x] _ _ _ _ _ _) -> assert True
-    st -> do
-      st <- run (consSched st)
-      assert (case done st of
-               (Hazard (ReadWriteHazard _ _ _ NonRecoverable) _)  -> True
-               (Hazard (WriteWriteHazard _ _ _ NonRecoverable) _) -> True
-               _                                                  -> False)
-
-prop_detectNRHAggr :: NRHState -> Property
-prop_detectNRHAggr (NRHState st) = monadicIO $ 
-  case st of
-    (State [] _ _ _ _ _ _) -> assert True
-    (State [x] _ _ _ _ _ _) -> assert True
-    st -> do
-      st <- run (aggrSched st)
+      st <- run (f st)
       assert (case done st of
                 (Hazard (ReadWriteHazard _ _ _ NonRecoverable) _)  -> True
                 (Hazard (WriteWriteHazard _ _ _ NonRecoverable) _) -> True
                 _                                                  -> False)
 
+prop_detectNRHOrig :: NRHState -> Property
+prop_detectNRHOrig (NRHState st) = detectNRH originalSched st
 
+prop_detectNRHCons :: NRHState -> Property
+prop_detectNRHCons (NRHState st) = detectNRH consSched st
+
+prop_detectNRHAggr :: NRHState -> Property
+prop_detectNRHAggr (NRHState st) = detectNRH aggrSched st
+  
 {-  Properties:
 
  x   1. W/ previous data (both accurate and inaccurate) orig sched produces equiv to seq sched
