@@ -332,19 +332,11 @@ mergeFileOps r s x (Write, t1, cmd1) (Write, t2, cmd2)
   | elem cmd1 r && elem cmd2 r = Left $ WriteWriteHazard x cmd1 cmd2 NonRecoverable
   | otherwise = Left $ WriteWriteHazard x cmd1 cmd2 Restartable -- one write may be an error
 mergeFileOps r s x (Read, t1, cmd1) (Write, t2, cmd2)
-  | elem cmd1 r && elem cmd2 r = if listedBefore cmd1 cmd2
-                                 then Left $ ReadWriteHazard x cmd2 cmd1 NonRecoverable
-                                 else Right (Write, t2, cmd2)
-  | elem cmd1 r = Left $ ReadWriteHazard x cmd2 cmd1 Restartable -- order in time doesn't matter
-  | elem cmd2 r = if t1 <= t2
-                  then Left $ ReadWriteHazard x cmd2 cmd1 Recoverable -- read too early
-                  else Right (Write, t2, cmd2)
-  | t1 <= t2 = if listedBefore cmd2 cmd1
-               then Left $ ReadWriteHazard x cmd2 cmd1 Recoverable -- can re-execute read. not sure of implementation details, but currently recovering and restarting are the same.
-               else Left $ ReadWriteHazard x cmd2 cmd1 Restartable
-  | otherwise = if listedBefore cmd2 cmd1
-                then Right (Write, t2, cmd2)
-                else Left $ ReadWriteHazard x cmd2 cmd1 Restartable
+  | elem cmd1 r && elem cmd2 r && listedBefore cmd1 cmd2
+  = Left $ ReadWriteHazard x cmd2 cmd1 NonRecoverable
+  | notElem cmd2 r && listedBefore cmd1 cmd2 = Left $ ReadWriteHazard x cmd2 cmd1 Restartable 
+  | t1 <= t2 = Left $ ReadWriteHazard x cmd2 cmd1 Recoverable
+  | otherwise = Right (Write, t2, cmd2)
   where -- FIXME: listedBefore is O(n) so want to make that partly cached
         listedBefore c1 c2 = let i1 = elemIndex c1 r
                                  i2 = elemIndex c2 r in
