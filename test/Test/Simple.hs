@@ -53,7 +53,7 @@ main = unless isMac $ do
     withCurrentDirectory "inner" $
         rattleRun rattleOptions $ withCmdOptions [Cwd ".."]  build
     putStrLn "Build 7: Cause Restartable hazard"
-    rattleRun rattleOptions $ do
+    rattleRun rattleOptions $
       forM_ cs $ \c -> cmd "touch" c -- count as a write
     putStrLn "Should cause restartable hazard"
     rattleRun rattleOptions build
