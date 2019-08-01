@@ -113,7 +113,7 @@ withRattle options@RattleOptions{..} act = withUI rattleFancyUI (return "Running
     speculate <- maybe (return []) (getSpeculate shared) rattleSpeculate
     speculate <- fmap (takeWhile (not . null . snd)) $ -- don't speculate on things we have no traces for
         forM speculate $ \x ->
-            (x,) . map (fmap fst) <$> (unsafeInterleaveIO $ map (fmap $ first $ expand rattleNamedDirs) <$> (getCmdTraces shared x))
+            (x,) . map (fmap fst) <$> unsafeInterleaveIO (map (fmap $ first $ expand rattleNamedDirs) <$> getCmdTraces shared x)
     speculated <- newIORef False
 
     runNum <- nextRun shared rattleMachine
