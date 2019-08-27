@@ -122,15 +122,13 @@ generateDotString (Graph ns xs) = return $ "digraph " ++ "{\n" ++
                                   "\n}"
 
 showEdges :: [Edge] -> String
-showEdges [] = ""
-showEdges (x:xs) = show x ++ "\n" ++ showEdges xs
+showEdges = intercalate "\n" . map show
 
 showCmd :: Cmd -> String
 showCmd (Cmd _ args) = show $ showCmdHelper args
 
 showCmdHelper :: [String] -> String
-showCmdHelper [] = ""
-showCmdHelper (x:xs) = x ++ " " ++ showCmdHelper xs
+showCmdHelper = unwords
 
 dotStringOfGraph :: RattleOptions -> IO String
 dotStringOfGraph options = do
