@@ -84,7 +84,7 @@ createGraph xs = Graph xs $ g xs
 createEdge :: (Cmd,[Trace (FilePath, Hash)]) -> (Cmd,[Trace (FilePath, Hash)]) -> Maybe Edge
 createEdge p1@(cmd1,ts) p2@(cmd2,ls) = -- first look for write write hazard then look for both read/write and write/read hazards
   case writeWriteHazard ts ls of
-    Just fp -> Just $ Edge p1 p2 $ Just $ WriteWriteHazard fp cmd1 cmd2
+    Just fp -> Just $ Edge p1 p2 $ Just $ WriteWriteHazard fp cmd1 cmd2 NonRecoverable
     Nothing -> case readWriteHazard ts ls of
                  Just fp -> Just $ Edge p1 p2 $ Just $ ReadWriteHazard fp cmd1 cmd2 NonRecoverable
                  Nothing -> -- check for a non hazard edge
