@@ -21,7 +21,7 @@ main = testGit "https://github.com/jacereda/fsatrace" $ do
     let sosrcs = ["src/unix/fsatraceso.c","src/emit.c","src/unix/shm.c","src/unix/proc.c"]
     let dllsrcs = map ("src/win/" ++) (words "fsatracedll.c inject.c patch.c hooks.c shm.c handle.c utf8.c dbg.c") ++ ["src/emit.c"]
 
-    let cflags = "-g -std=c99 -Wall -O2 -fomit-frame-pointer -fno-stack-protector -MMD"
+    let cflags = "-g -std=c99 -Wall -O2 -fomit-frame-pointer -fno-stack-protector -MMD -DIS32=0"
     let cppflags | isWindows = "-D_WIN32_WINNT=0x600 -isysteminclude/ddk"
                  | otherwise = "-D_GNU_SOURCE -D_DEFAULT_SOURCE=1"
 
