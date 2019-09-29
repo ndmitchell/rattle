@@ -37,7 +37,8 @@ haskell name act v = do
             ,"import System.IO"
             ,"import System.Directory"
             ,"import Development.Shake.Command"
-            ,"import System.FilePath"
+            ,"import System.FilePath.Windows"
+            ,"import System.FilePath.Posix"
             ,"import Data.List as Data.OldList"
             ,"import System.IO.Extra"
             ,"import Data.Foldable"
@@ -137,7 +138,7 @@ stack resolver packages = do
 readResolver :: FilePath -> IO (Map.HashMap PackageName (Maybe PackageVersion))
 readResolver file = do
     src <- words <$> readFileUTF8' file
-    return $ Map.fromList $ ("integer-simple",Nothing) : f src
+    return $ Map.fromList $ ("integer-simple",Nothing) : ("base",Nothing) : ("bytestring",Nothing) : f src
     where
         f (x:('=':'=':y):zs) = (x,Just $ dropWhileEnd (== ',') y) : f zs
         f (x:"installed,":zs) = (x,Nothing) : f zs
