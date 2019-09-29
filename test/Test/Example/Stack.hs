@@ -37,7 +37,7 @@ haskell name act v = do
             ,"import System.IO"
             ,"import System.Directory"
             ,"import Development.Shake.Command"
-            ,"import System.FilePath.Windows"
+            ,"import System.FilePath"
             ,"import Data.List as Data.OldList"
             ,"import System.IO.Extra"
             ,"import Data.Foldable"
