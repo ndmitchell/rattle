@@ -46,6 +46,7 @@ haskell name act v = do
             ,"import System.Directory.Extra"
             ,"import GHC.List"
             ,"import Development.Shake.Command as Development.Shake.Internal.CmdOption"
+            ,"import System.Directory.Extra as System.Directory.Internal.Common"
             ,"import Data.List.Extra"
             ,"import GHC.Base"
             ,"main :: IO ()"
@@ -76,7 +77,7 @@ cabal_unpack = haskell "unpack" [|| \dir -> do
 
 cabal_build = haskell "build" [|| \(dir, name) -> do
     C.cmd_ (Cwd dir) "cabal v1-build" ("lib:" ++ name)
-    xs <- filter (".conf" `isExtensionOf`) <$> listFiles (dir </> "dist/package.conf.inplace")
+    xs <- filter (\x -> takeExtension x == ".conf") <$> listFiles (dir </> "dist/package.conf.inplace")
     pwd <- getCurrentDirectory
     forM_ xs $ \x -> do
         src <- readFileUTF8' x
