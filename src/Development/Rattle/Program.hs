@@ -48,6 +48,7 @@ generate expr =
     ,"import Development.Shake.Command as Development.Shake.Internal.CmdOption"
     ,"import Data.List.Extra"
     ,"import GHC.Base"
+    ,"import GHC.Classes"
     ,"main :: IO ()"
     ,"main = do [x] <- System.Environment.getArgs; body (read x)"
     ,"body = " ++ pprint (unType expr)

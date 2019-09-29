@@ -49,6 +49,7 @@ haskell name act v = do
             ,"import System.Directory.Extra as System.Directory.Internal.Common"
             ,"import Data.List.Extra"
             ,"import GHC.Base"
+            ,"import GHC.Classes"
             ,"main :: IO ()"
             ,"main = do [x] <- System.Environment.getArgs; body (read x)"
             ,"body = " ++ pprint (unType e)
