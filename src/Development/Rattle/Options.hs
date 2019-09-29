@@ -9,6 +9,7 @@ import Control.Monad.Extra
 import General.Extra
 import Data.Ord
 import System.FilePath
+import System.FilePattern
 import System.Directory
 import qualified Development.Shake.Command as C
 import Data.Maybe
@@ -24,13 +25,14 @@ data RattleOptions = RattleOptions
     ,rattleProcesses :: Int -- ^ Number of simulateous processes
     ,rattleCmdOptions :: [C.CmdOption] -- ^ Extra options added to every command line
     ,rattleNamedDirs :: [(String, FilePath)] -- ^ Named directories
+    ,rattleIgnore :: [FilePattern]
     ,rattleFancyUI :: Maybe Bool -- ^ True for Yes, Nothing for auto detect, False for no
     } deriving Show
 
 
 -- | Default 'RattleOptions' value.
 rattleOptions :: RattleOptions
-rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 0 [] [("PWD",".")] Nothing
+rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 0 [] [("PWD",".")] [] Nothing
 
 
 rattleOptionsExplicit :: RattleOptions -> IO RattleOptions

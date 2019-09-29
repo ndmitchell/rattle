@@ -1,0 +1,10 @@
+cradle:
+  direct:
+    arguments:
+      - -fwarn-unused-binds
+      - -fwarn-unused-imports
+      - -fwarn-orphans
+      - -isrc
+      - -itest
+      - -ignore-package=ghc-lib-parser
+      - -idist/build/autogen
