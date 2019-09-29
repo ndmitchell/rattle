@@ -1,5 +1,6 @@
 /dist/
 /dist-newstyle/
 /output/
+/.stack-work/
 /.vscode/
 report.html
