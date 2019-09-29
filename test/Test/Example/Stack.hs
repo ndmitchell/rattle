@@ -63,7 +63,7 @@ main = do
     unsetEnv "GHC_PACKAGE_PATH"
     tdir <- canonicalizePath =<< getTemporaryDirectory
     let ignore = ["**/hackage-security-lock", "**/package.cache.lock", tdir ++ "/**"]
-    rattleRun rattleOptions{rattleIgnore=ignore} $
+    rattleRun rattleOptions{rattleCmdOptions=[toCmdOption $ Ignored ignore]} $
         stack "nightly-2019-09-29" $ args ++ ["cereal" | null args]
 
 {-
