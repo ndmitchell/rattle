@@ -334,7 +334,7 @@ mergeFileOps r s x (Write, t1, cmd1) (Write, t2, cmd2)
 mergeFileOps r s x (Read, t1, cmd1) (Write, t2, cmd2)
   | elem cmd1 r && elem cmd2 r && listedBefore cmd1 cmd2
   = Left $ ReadWriteHazard x cmd2 cmd1 NonRecoverable
-  | notElem cmd2 r && listedBefore cmd1 cmd2 = Left $ ReadWriteHazard x cmd2 cmd1 Restartable 
+  | notElem cmd2 r && listedBefore cmd1 cmd2 = Left $ ReadWriteHazard x cmd2 cmd1 Restartable
   | t1 <= t2 = Left $ ReadWriteHazard x cmd2 cmd1 Recoverable
   | otherwise = Right (Write, t2, cmd2)
   where -- FIXME: listedBefore is O(n) so want to make that partly cached
