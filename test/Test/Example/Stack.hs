@@ -61,7 +61,7 @@ main = do
     tdir <- canonicalizePath =<< getTemporaryDirectory
     let ignore = ["**/hackage-security-lock", "**/package.cache.lock", tdir ++ "/**"]
     rattleRun rattleOptions{rattleIgnore=ignore} $
-        stack "nightly-2019-05-15" $ args ++ ["cereal" | null args]
+        stack "nightly-2019-09-29" $ args ++ ["cereal" | null args]
 
 {-
 haskell :: a -> Q (TExp (a -> IO ())) -> Run ()
