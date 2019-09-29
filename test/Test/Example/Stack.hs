@@ -138,6 +138,7 @@ stack resolver packages = do
 readResolver :: FilePath -> IO (Map.HashMap PackageName (Maybe PackageVersion))
 readResolver file = do
     src <- words <$> readFileUTF8' file
+    -- base and bytestring are here because of https://github.com/commercialhaskell/stackage/issues/4862
     return $ Map.fromList $ ("integer-simple",Nothing) : ("base",Nothing) : ("bytestring",Nothing) : f src
     where
         f (x:('=':'=':y):zs) = (x,Just $ dropWhileEnd (== ',') y) : f zs
