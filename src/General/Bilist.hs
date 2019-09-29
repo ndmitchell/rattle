@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -Wunused-imports #-} -- Semigroup moved for GHC 8.8
+{-# OPTIONS_GHC -Wno-unused-imports #-} -- Semigroup moved for GHC 8.8
 
 -- | List type that supports O(1) amortized 'cons', 'snoc', 'uncons' and 'isEmpty'.
 module General.Bilist(
