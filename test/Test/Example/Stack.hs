@@ -71,12 +71,12 @@ haskell :: a -> Q (TExp (a -> IO ())) -> Run ()
 haskell arg act = do
 -}
 
-cabal_unpack = haskell "unpack" [|| \dir -> do
+cabalUnpack = haskell "unpack" [|| \dir -> do
     removePathForcibly dir
     C.cmd "cabal unpack" dir
     ||]
 
-cabal_build = haskell "build" [|| \(dir, name) -> do
+cabalBuild = haskell "build" [|| \(dir, name) -> do
     C.cmd_ (Cwd dir) "cabal v1-build" ("lib:" ++ name)
     xs <- filter (\x -> takeExtension x == ".conf") <$> listFiles (dir </> "dist/package.conf.inplace")
     pwd <- getCurrentDirectory
@@ -91,7 +91,7 @@ installPackage :: (PackageName -> Run (Maybe PackageVersion)) -> FilePath -> [St
 installPackage dep config flags name version = do
     let dir = name ++ "-" ++ version
 
-    cabal_unpack dir
+    cabalUnpack dir
 
     -- cmd "pipeline rm -rf" dir "&& cabal unpack" dir
 
@@ -102,7 +102,7 @@ installPackage dep config flags name version = do
         "--disable-library-profiling --disable-optimisation"
         ["--package-db=../" ++ n ++ "-" ++ v ++ "/dist/package.conf.inplace" | (n, Just v) <- zip depends dependsVer]
 
-    cabal_build (dir, name)
+    cabalBuild (dir, name)
     -- cmd (Cwd dir) "cabal v1-build" ("lib:" ++ name)
 
 
