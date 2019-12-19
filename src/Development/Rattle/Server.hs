@@ -95,6 +95,7 @@ data Rattle = Rattle
     ,speculate :: [(Cmd, [Trace FilePath])] -- ^ Things that were used in the last speculation with this name
     ,runNum :: !RunIndex -- ^ Run# we are on
     ,state :: Var (Either Problem S)
+    ,timer :: IO Seconds
     ,speculated :: IORef Bool
     ,pool :: Pool
     ,ui :: UI
@@ -117,6 +118,7 @@ withRattle options@RattleOptions{..} act = withUI rattleFancyUI (return "Running
     speculated <- newIORef False
 
     runNum <- nextRun shared rattleMachine
+    timer <- offsetTime
     let s0 = Right $ S timestamp0 Map.empty [] Map.empty [] []
     state <- newVar s0
 
@@ -215,7 +217,7 @@ cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
 
 -- either fetch it from the cache or run it)
 cmdRattleRun :: Rattle -> Cmd -> Timestamp -> [Trace (FilePath, Hash)] -> [String] -> IO ()
-cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) start hist msgs = do
+cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
     hasher <- memoIO hashFileForward
     let match (fp, h) = (== Just h) <$> hasher fp
     histRead <- filterM (allM match . tRead . tTouch) hist
@@ -225,7 +227,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) start hist msgs = do
             -- we have something consistent at this point, no work to do
             -- technically we aren't writing to the tWrite part of the trace, but if we don't include that
             -- skipping can turn write/write hazards into read/write hazards
-            cmdRattleFinished rattle start cmd t False
+            cmdRattleFinished rattle startTimestamp cmd t False
         [] -> do
             -- lets see if any histRead's are also available in the cache
             fetcher <- memoIO $ getFile shared
@@ -236,20 +238,22 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) start hist msgs = do
             case download of
                 Just (t, download) -> do
                     display ["copying"] $ sequence_ download
-                    cmdRattleFinished rattle start cmd t False
+                    cmdRattleFinished rattle startTimestamp cmd t False
                 Nothing -> do
-                    (time, (opts2, c)) <- duration $ display [] $ cmdRattleRaw ui opts args
+                    start <- timer
+                    (opts2, c) <- display [] $ cmdRattleRaw ui opts args
+                    stop <- timer
                     t <- fsaTrace c
                     checkHashForwardConsistency t
                     let pats = matchMany [((), x) | Ignored xs <- opts2, x <- xs]
                     let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x || pats [((),x)] /= []
                     let f hasher xs = mapMaybeM (\x -> fmap (x,) <$> hasher x) $ filter (not . skip) xs
-                    t <- Trace runNum time <$> (Touch <$> f hashFileForward (tRead t) <*> f hashFile (tWrite t))
+                    t <- Trace runNum start stop <$> (Touch <$> f hashFileForward (tRead t) <*> f hashFile (tWrite t))
                     x <- generateHashForwards cmd [x | HashNonDeterministic xs <- opts2, x <- xs] t
                     when (rattleShare options) $
                         forM_ (tWrite $ tTouch t) $ \(fp, h) ->
                             setFile shared fp h ((== Just h) <$> hashFile fp)
-                    cmdRattleFinished rattle start cmd t True
+                    cmdRattleFinished rattle startTimestamp cmd t True
     where
         display :: [String] -> IO a -> IO a
         display msgs2 = addUI ui (head $ overrides ++ [cmdline]) (unwords $ msgs ++ msgs2)

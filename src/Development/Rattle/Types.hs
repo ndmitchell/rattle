@@ -29,7 +29,8 @@ deriving instance Hashable CmdOption
 
 data Trace a = Trace
     {tRun :: !RunIndex
-    ,tTime :: Seconds
+    ,tStart :: Seconds
+    ,tStop :: Seconds
     ,tTouch :: Touch a
     } deriving (Show, Read, Functor, Foldable, Traversable, Eq)
 
@@ -46,7 +47,7 @@ instance Monoid (Touch a) where
     mappend = (<>)
 
 instance Hashable a => Hashable (Trace a) where
-    hashWithSalt s (Trace tt rr tr) = hashWithSalt s (tt,rr,tr)
+    hashWithSalt s (Trace a b c d) = hashWithSalt s (a,b,c,d)
 
 instance Hashable a => Hashable (Touch a) where
     hashWithSalt s (Touch r w) = hashWithSalt s (r,w)

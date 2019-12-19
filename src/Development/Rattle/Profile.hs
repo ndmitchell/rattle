@@ -143,7 +143,7 @@ graphLeaves = foldr (delete . end1)
 
 firstTTime :: [Trace (FilePath, Hash)] -> Seconds
 firstTTime [] = 0
-firstTTime xs = tTime $ head xs
+firstTTime (x:_) = tStop x - tStart x
 
 work :: Graph -> Seconds
 work (Graph ns es) = sum $ map (firstTTime . snd) ns
