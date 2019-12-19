@@ -78,7 +78,7 @@ throwProblem (Hazard h) = throwIO h
 
 data Rattle = Rattle
     {options :: RattleOptions
-    ,speculate :: [(Cmd, [Trace FilePath])] -- ^ Things that were used in the last speculation with this name
+    ,speculate :: [(Cmd, Touch FilePath)] -- ^ Things that were used in the last speculation with this name
     ,runIndex :: !RunIndex -- ^ Run# we are on
     ,state :: Var (Either Problem S)
     ,timer :: IO Seconds
@@ -100,7 +100,7 @@ withRattle options@RattleOptions{..} act = withUI rattleFancyUI (return "Running
     speculate <- maybe (return []) (getSpeculate shared) rattleSpeculate
     speculate <- fmap (takeWhile (not . null . snd)) $ -- don't speculate on things we have no traces for
         forM speculate $ \x ->
-            (x,) . map (fmap fst) <$> unsafeInterleaveIO (map (fmap $ first $ expand rattleNamedDirs) <$> getCmdTraces shared x)
+            (x,) . foldMap (fmap fst . tTouch) <$> unsafeInterleaveIO (map (fmap $ first $ expand rattleNamedDirs) <$> getCmdTraces shared x)
     speculated <- newIORef False
 
     runIndex <- nextRun shared rattleMachine
@@ -155,7 +155,7 @@ nextSpeculate Rattle{..} S{..}
         step _ [] = Nothing
         step rw ((x,_):xs)
             | x `Map.member` started = step rw xs -- do not update the rw, since its already covered
-        step rw@(r, w) ((x, foldMap tTouch -> t@Touch{..}):xs)
+        step rw@(r, w) ((x, t@Touch{..}):xs)
             | not $ any (\v -> v `Set.member` r || v `Set.member` w || seenHazardSet v hazard) tWrite
                 -- if anyone I write has ever been read or written, or might be by an ongoing thing, that would be bad
             , not $ any (`Set.member` w) tRead
