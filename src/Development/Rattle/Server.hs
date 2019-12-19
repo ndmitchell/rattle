@@ -220,17 +220,17 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
                     start <- timer
                     (opts2, c) <- display [] $ cmdRattleRaw ui opts args
                     stop <- timer
-                    t <- fsaTrace c
-                    checkHashForwardConsistency t
+                    touch <- fsaTrace c
+                    checkHashForwardConsistency touch
                     let pats = matchMany [((), x) | Ignored xs <- opts2, x <- xs]
                     let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x || pats [((),x)] /= []
                     let f hasher xs = mapMaybeM (\x -> fmap (x,) <$> hasher x) $ filter (not . skip) xs
-                    t <- Trace runNum start stop <$> (Touch <$> f hashFileForward (tRead t) <*> f hashFile (tWrite t))
-                    t <- generateHashForwards cmd [x | HashNonDeterministic xs <- opts2, x <- xs] t
+                    touch <- Touch <$> f hashFileForward (tRead touch) <*> f hashFile (tWrite touch)
+                    touch <- generateHashForwards cmd [x | HashNonDeterministic xs <- opts2, x <- xs] touch
                     when (rattleShare options) $
-                        forM_ (tWrite $ tTouch t) $ \(fp, h) ->
+                        forM_ (tWrite touch) $ \(fp, h) ->
                             setFile shared fp h ((== Just h) <$> hashFile fp)
-                    cmdRattleFinished rattle startTimestamp cmd t True
+                    cmdRattleFinished rattle startTimestamp cmd (Trace runNum start stop touch) True
     where
         display :: [String] -> IO a -> IO a
         display msgs2 = addUI ui (head $ overrides ++ [cmdline]) (unwords $ msgs ++ msgs2)
@@ -267,19 +267,18 @@ checkHashForwardConsistency Touch{..} = do
         fail $ "Wrote to the source file which has a forwarding hash, but didn't touch the hash: " ++ show bad
 
 
--- | If you hae been asked to generate a forwarding hash for writes
-generateHashForwards :: Cmd -> [FilePattern] -> Trace (FilePath, Hash) -> IO (Trace (FilePath, Hash))
+-- | If you have been asked to generate a forwarding hash for writes
+generateHashForwards :: Cmd -> [FilePattern] -> Touch (FilePath, Hash) -> IO (Touch (FilePath, Hash))
 generateHashForwards cmd ms t = do
     let match = matchMany $ map ((),) ms
-    let (normal, forward) = partition (\(x, _) -> isJust (toHashForward x) && null (match [((), x)])) $ tWrite $ tTouch t
-    let Hash hash = hashString $ show (cmd, tRead $ tTouch t, normal)
+    let (normal, forward) = partition (\(x, _) -> isJust (toHashForward x) && null (match [((), x)])) $ tWrite t
+    let Hash hash = hashString $ show (cmd, tRead t, normal)
     let hhash = hashHash $ Hash hash
     forward <- forM forward $ \(x,_) -> do
         let Just x2 = toHashForward x -- checked this is OK earlier
         writeFile x2 hash
         return (x2, hhash)
-    let addFwd t = t{tWrite = tWrite t ++ forward}
-    return $ t{tTouch = addFwd $ tTouch t}
+    return t{tWrite = tWrite t ++ forward}
 
 -- | I finished running a command
 cmdRattleFinished :: Rattle -> Seconds -> Cmd -> Trace (FilePath, Hash) -> Bool -> IO ()
