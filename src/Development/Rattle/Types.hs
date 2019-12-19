@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Development.Rattle.Types(
-    Trace(..), fsaTrace,
+    Trace(..), Touch(..), fsaTrace,
     Cmd(..),
     T, t0,
     RunIndex, runIndex0, nextRunIndex,
@@ -30,41 +30,53 @@ deriving instance Hashable CmdOption
 data Trace a = Trace
     {tRun :: !RunIndex
     ,tTime :: Seconds
-    ,tRead :: [a]
+    ,tTouch :: Touch a
+    } deriving (Show, Read, Functor, Foldable, Traversable, Eq)
+
+data Touch a = Touch
+    {tRead :: [a]
     ,tWrite :: [a]
     } deriving (Show, Read, Functor, Foldable, Traversable, Eq)
 
 instance Semigroup (Trace a) where
-    Trace t1 tr1 r1 w1 <> Trace t2 tr2 r2 w2 = Trace (max t1 t2) (max tr1 tr2) (r1++r2) (w1++w2)
+    Trace t1 tr1 rw1 <> Trace t2 tr2 rw2 = Trace (max t1 t2) (max tr1 tr2) (rw1 <> rw2)
+
+instance Semigroup (Touch a) where
+    Touch r1 w1 <> Touch r2 w2 = Touch (r1++r2) (w1++w2)
 
 instance Monoid (Trace a) where
-    mempty = Trace runIndex0 0.0 [] []
+    mempty = Trace runIndex0 0.0 mempty
+    mappend = (<>)
+
+instance Monoid (Touch a) where
+    mempty = Touch [] []
     mappend = (<>)
 
 instance Hashable a => Hashable (Trace a) where
-  hashWithSalt s (Trace tt rr tr tw) = hashWithSalt s (tt,rr,tr,tw)
+    hashWithSalt s (Trace tt rr tr) = hashWithSalt s (tt,rr,tr)
+
+instance Hashable a => Hashable (Touch a) where
+    hashWithSalt s (Touch r w) = hashWithSalt s (r,w)
 
 fsaTrace :: RunIndex -> Seconds -> [FSATrace] -> IO (Trace FilePath)
-fsaTrace rr t [] = return $ Trace rr t[] []
 -- normalize twice because normalisation is cheap, but canonicalisation might be expensive
-fsaTrace rr t fs = fmap normTrace $ canonicalizeTrace $ normTrace $ mconcat $ map f fs
+fsaTrace rr t fs = fmap (Trace rr t . normalizeTouch) $ canonicalizeTouch $ normalizeTouch $ mconcat $ map f fs
     where
-        g = Trace rr t
-        f (FSAWrite x) = g [] [x]
-        f (FSARead x) = g [x] []
-        f (FSADelete x) = g [] [x]
-        f (FSAMove x y) = g [] [x,y]
-        f (FSAQuery x) = g [x] []
-        f (FSATouch x) = g [] [x]
+        f (FSAWrite x) = Touch [] [x]
+        f (FSARead x) = Touch [x] []
+        f (FSADelete x) = Touch [] [x]
+        f (FSAMove x y) = Touch [] [x,y]
+        f (FSAQuery x) = Touch [x] []
+        f (FSATouch x) = Touch [] [x]
 
-normTrace :: (Ord a, Hashable a) => Trace a -> Trace a
+normalizeTouch :: (Ord a, Hashable a) => Touch a -> Touch a
 -- added 'sort' because HashSet uses the ordering of the hashes, which is confusing
-normTrace (Trace t r a b) = Trace t r (sort $ Set.toList $ a2 `Set.difference` b2) (sort $ Set.toList b2)
+normalizeTouch (Touch a b) = Touch (sort $ Set.toList $ a2 `Set.difference` b2) (sort $ Set.toList b2)
     where a2 = Set.fromList a
           b2 = Set.fromList b
 
-canonicalizeTrace :: Trace FilePath -> IO (Trace FilePath)
-canonicalizeTrace (Trace t rr r w) = Trace t rr <$> mapM canonicalizePath r <*> mapM canonicalizePath w
+canonicalizeTouch :: Touch FilePath -> IO (Touch FilePath)
+canonicalizeTouch (Touch a b) = Touch <$> mapM canonicalizePath a <*> mapM canonicalizePath b
 
 
 -- Which run we are in, monotonically increasing

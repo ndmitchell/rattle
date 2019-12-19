@@ -94,11 +94,11 @@ createEdge p1@(cmd1,ts) p2@(cmd2,ls) = -- first look for write write hazard then
 
 -- Is there a writewrite edge?
 writeWriteHazard :: [Trace (FilePath, Hash)] -> [Trace (FilePath, Hash)] -> Maybe FilePath
-writeWriteHazard = maybeHazard tWrite
+writeWriteHazard = maybeHazard (tWrite . tTouch)
 
 -- Is there a readwrite edge?
 readWriteHazard :: [Trace (FilePath, Hash)] -> [Trace (FilePath, Hash)] -> Maybe FilePath
-readWriteHazard = maybeHazard tRead
+readWriteHazard = maybeHazard (tRead . tTouch)
 
 maybeHazard :: (Trace (FilePath, Hash) -> [(FilePath, Hash)]) -> [Trace (FilePath, Hash)] -> [Trace (FilePath, Hash)] -> Maybe FilePath
 maybeHazard _ [] ls = Nothing
@@ -111,7 +111,7 @@ maybeHazard f (t:ts) ls =
 memberWrites :: (FilePath, Hash) -> [Trace (FilePath, Hash)] -> Maybe FilePath
 memberWrites x [] = Nothing
 memberWrites x@(fp,_) (y:ys) =
-  case fmap (fp,) $ lookup fp $ tWrite y of
+  case fmap (fp,) $ lookup fp $ tWrite $ tTouch y of
     Just (fp,_) -> Just fp
     Nothing -> memberWrites x ys
 
@@ -174,11 +174,11 @@ generateHTML xs t = do
 
 allWrites :: [Trace (FilePath, Hash)] -> [FilePath]
 allWrites [] = []
-allWrites (x:xs) = Set.toList $ foldl' (\s (fp,_) -> Set.insert fp s) (Set.fromList $ allWrites xs) $ tWrite x
+allWrites (x:xs) = Set.toList $ foldl' (\s (fp,_) -> Set.insert fp s) (Set.fromList $ allWrites xs) $ tWrite $ tTouch x
 
 allReads :: [Trace (FilePath, Hash)] -> [FilePath]
 allReads [] = []
-allReads (x:xs) = Set.toList $ foldl' (\s (fp,_) -> Set.insert fp s) (Set.fromList $ allReads xs) $ tRead x
+allReads (x:xs) = Set.toList $ foldl' (\s (fp,_) -> Set.insert fp s) (Set.fromList $ allReads xs) $ tRead $ tTouch x
 
 changedFiles :: (Trace (FilePath, Hash) -> [(FilePath,Hash)]) -> [Trace (FilePath, Hash)] -> Maybe RunIndex -> Set.HashSet FilePath
 changedFiles _ _ Nothing = Set.empty
@@ -190,10 +190,10 @@ changedFiles f (x:xs) (Just t) = if t == tRun x
         g x (y:ys) = Set.map fst $ Set.difference (Set.fromList $ f x) (Set.fromList $ f y)
 
 changedWrites :: [Trace (FilePath, Hash)] -> Maybe RunIndex -> Set.HashSet FilePath
-changedWrites = changedFiles tWrite
+changedWrites = changedFiles (tWrite . tTouch)
 
 changedReads :: [Trace (FilePath, Hash)] -> Maybe RunIndex -> Set.HashSet FilePath
-changedReads = changedFiles tRead
+changedReads = changedFiles (tWrite . tTouch)
 
 cmdIndex :: (Cmd,[Trace (FilePath, Hash)]) -> [(Cmd,[Trace (FilePath, Hash)])] -> Int
 cmdIndex x cmds = fromMaybe (-1) $ elemIndex x cmds

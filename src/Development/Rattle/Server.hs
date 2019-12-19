@@ -170,16 +170,16 @@ nextSpeculate Rattle{..} S{..}
     | any (null . thd3) running = Nothing
     | otherwise = step (addTrace (Set.empty, Set.empty) $ mconcat $ concatMap thd3 running) speculate
     where
-        addTrace (r,w) Trace{..} = (f r tRead, f w tWrite)
+        addTrace (r,w) Trace{..} = (f r (tRead tTouch), f w (tWrite tTouch))
             where f set xs = Set.union set $ Set.fromList xs
 
         step _ [] = Nothing
         step rw ((x,_):xs)
             | x `Map.member` started = step rw xs -- do not update the rw, since its already covered
         step rw@(r, w) ((x, mconcat -> t@Trace{..}):xs)
-            | not $ any (\v -> v `Set.member` r || v `Set.member` w || v `Map.member` hazard) tWrite
+            | not $ any (\v -> v `Set.member` r || v `Set.member` w || v `Map.member` hazard) (tWrite tTouch)
                 -- if anyone I write has ever been read or written, or might be by an ongoing thing, that would be bad
-            , not $ any (`Set.member` w) tRead
+            , not $ any (`Set.member` w) (tRead tTouch)
                 -- if anyone I read might be being written right now, that would be bad
                 = Just x
             | otherwise
@@ -218,8 +218,8 @@ cmdRattleRun :: Rattle -> Cmd -> T -> [Trace (FilePath, Hash)] -> [String] -> IO
 cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) start hist msgs = do
     hasher <- memoIO hashFileForward
     let match (fp, h) = (== Just h) <$> hasher fp
-    histRead <- filterM (allM match . tRead) hist
-    histBoth <- filterM (allM match . tWrite) histRead
+    histRead <- filterM (allM match . tRead . tTouch) hist
+    histBoth <- filterM (allM match . tWrite . tTouch) histRead
     case histBoth of
         t:_ ->
             -- we have something consistent at this point, no work to do
@@ -232,7 +232,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) start hist msgs = do
             let fetch (fp, h) = do v <- fetcher h; case v of Nothing -> return Nothing; Just op -> return $ Just $ op fp
             download <- if not (rattleShare options)
                 then return Nothing
-                else firstJustM (\t -> fmap (t,) <$> allMaybeM fetch (tWrite t)) histRead
+                else firstJustM (\t -> fmap (t,) <$> allMaybeM fetch (tWrite $ tTouch t)) histRead
             case download of
                 Just (t, download) -> do
                     display ["copying"] $ sequence_ download
@@ -244,10 +244,10 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) start hist msgs = do
                     let pats = matchMany [((), x) | Ignored xs <- opts2, x <- xs]
                     let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x || pats [((),x)] /= []
                     let f hasher xs = mapMaybeM (\x -> fmap (x,) <$> hasher x) $ filter (not . skip) xs
-                    t <- Trace (tRun t) (tTime t) <$> f hashFileForward (tRead t) <*> f hashFile (tWrite t)
+                    t <- Trace (tRun t) (tTime t) <$> (Touch <$> f hashFileForward (tRead $ tTouch t) <*> f hashFile (tWrite $ tTouch t))
                     x <- generateHashForwards cmd [x | HashNonDeterministic xs <- opts2, x <- xs] t
                     when (rattleShare options) $
-                        forM_ (tWrite t) $ \(fp, h) ->
+                        forM_ (tWrite $ tTouch t) $ \(fp, h) ->
                             setFile shared fp h ((== Just h) <$> hashFile fp)
                     cmdRattleFinished rattle start cmd t True
     where
@@ -272,7 +272,7 @@ cmdRattleRaw ui opts args = do
             return (opts2, map C.FSAWrite files)
 
 checkHashForwardConsistency :: Trace FilePath -> IO ()
-checkHashForwardConsistency Trace{..} = do
+checkHashForwardConsistency Trace{tTouch=Touch{..}} = do
     -- check that anyone who is writing forwarding hashes is writing the actual file
     let sources = mapMaybe fromHashForward tWrite
     let bad = sources \\ tWrite
@@ -290,18 +290,19 @@ checkHashForwardConsistency Trace{..} = do
 generateHashForwards :: Cmd -> [FilePattern] -> Trace (FilePath, Hash) -> IO (Trace (FilePath, Hash))
 generateHashForwards cmd ms t = do
     let match = matchMany $ map ((),) ms
-    let (normal, forward) = partition (\(x, _) -> isJust (toHashForward x) && null (match [((), x)])) $ tWrite t
-    let Hash hash = hashString $ show (cmd, tRead t, normal)
+    let (normal, forward) = partition (\(x, _) -> isJust (toHashForward x) && null (match [((), x)])) $ tWrite $ tTouch t
+    let Hash hash = hashString $ show (cmd, tRead $ tTouch t, normal)
     let hhash = hashHash $ Hash hash
     forward <- forM forward $ \(x,_) -> do
         let Just x2 = toHashForward x -- checked this is OK earlier
         writeFile x2 hash
         return (x2, hhash)
-    return t{tWrite = tWrite t ++ forward}
+    let addFwd t = t{tWrite = tWrite t ++ forward}
+    return $ t{tTouch = addFwd $ tTouch t}
 
 -- | I finished running a command
 cmdRattleFinished :: Rattle -> T -> Cmd -> Trace (FilePath, Hash) -> Bool -> IO ()
-cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{..} save = join $ modifyVar state $ \case
+cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{tTouch=Touch{..},..} save = join $ modifyVar state $ \case
     Left e -> throwProblem e
     Right s -> do
         -- update all the invariants
