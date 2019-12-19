@@ -84,8 +84,9 @@ mergeFileOps r x (Read, tR, cmdR) (Write, tW, cmdW)
         -- if the write was speculated, we can restart and hopefully it won't recur
         else if notElem cmdW r then hazard Restartable
         -- neither was speculated, but did we use speculation to reorder them?
+        -- note the order seems backwards, because r is a snoc-list
         -- FIXME: We might have had them race because of parallelism, so this is optimistically restartable
-        else if elemIndex cmdW r < elemIndex cmdR r then hazard Restartable
+        else if elemIndex cmdR r < elemIndex cmdW r then hazard Restartable
         -- the user wrote the read before the write
         else hazard NonRecoverable
     where
