@@ -286,7 +286,7 @@ generateHashForwards cmd ms t = do
 
 -- | I finished running a command
 cmdRattleFinished :: Rattle -> Timestamp -> Cmd -> Trace (FilePath, Hash) -> Bool -> IO ()
-cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{tTouch=Touch{..},..} save = join $ modifyVar state $ \case
+cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{..} save = join $ modifyVar state $ \case
     Left e -> throwProblem e
     Right s -> do
         -- update all the invariants
@@ -297,8 +297,7 @@ cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{tTouch=Touch{..},..} s
 
         -- look for hazards
         -- push writes to the end, and reads to the start, because reads before writes is the problem
-        let newHazards = Map.fromList $ map ((,(Write,stop ,cmd)) . fst) tWrite ++
-                                        map ((,(Read ,start,cmd)) . fst) tRead
+        let newHazards = newHazardSet start stop cmd $ fmap fst tTouch
         case mergeHazardSet (required s) (map fst speculate) (hazard s) newHazards of
             (ps@(p:_), _) -> return (Left $ Hazard p, print ps >> throwIO p)
             ([], hazard2) -> do

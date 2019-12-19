@@ -1,8 +1,10 @@
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Development.Rattle.Hazards(
     Hazard(..), Recoverable(..),
     ReadOrWrite(..),
-    HazardSet, mergeHazardSet,
+    HazardSet, mergeHazardSet, newHazardSet,
     recoverableHazard, restartableHazard,
     ) where
 
@@ -36,6 +38,10 @@ restartableHazard (WriteWriteHazard _ _ _ r) = r == Restartable
 restartableHazard (ReadWriteHazard _ _ _ r) = r == Restartable
 
 
+newHazardSet :: Timestamp -> Timestamp -> Cmd -> Touch FilePath -> HazardSet
+newHazardSet start stop cmd Touch{..} = Map.fromList $
+    map (,(Write,stop ,cmd)) tWrite ++
+    map (,(Read ,start,cmd)) tRead
 
 mergeHazardSet :: [Cmd] -> [Cmd] -> HazardSet -> HazardSet -> ([Hazard], HazardSet)
 mergeHazardSet required speculate = unionWithKeyEithers (mergeFileOps required speculate)
