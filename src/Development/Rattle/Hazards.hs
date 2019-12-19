@@ -3,7 +3,6 @@
 
 module Development.Rattle.Hazards(
     Hazard(..), Recoverable(..),
-    ReadOrWrite(..),
     HazardSet, mergeHazardSet, newHazardSet, emptyHazardSet, seenHazardSet,
     recoverableHazard, restartableHazard,
     ) where

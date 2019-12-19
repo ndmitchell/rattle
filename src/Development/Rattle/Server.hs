@@ -4,7 +4,7 @@
 module Development.Rattle.Server(
     Rattle, withRattle, Run(..),
     Hazard(..), Recoverable(..),
-    addCmdOptions, cmdRattle
+    addCmdOptions
     ) where
 
 import Control.Monad.Extra

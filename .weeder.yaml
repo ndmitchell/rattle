@@ -15,3 +15,8 @@
 - message:
   - name: Weeds exported
   - module: Development.Rattle.Profile
+
+# Enum where we only use some of the values externally
+- message:
+  - name: Weeds exported
+  - identifier: Restartable
