@@ -168,18 +168,18 @@ runSpeculate rattle@Rattle{..} = void $ forkIO $ void $ runPoolMaybe pool $
 nextSpeculate :: Rattle -> S -> Maybe Cmd
 nextSpeculate Rattle{..} S{..}
     | any (null . thd3) running = Nothing
-    | otherwise = step (addTrace (Set.empty, Set.empty) $ mconcat $ concatMap thd3 running) speculate
+    | otherwise = step (addTrace (Set.empty, Set.empty) $ foldMap tTouch $ concatMap thd3 running) speculate
     where
-        addTrace (r,w) Trace{..} = (f r (tRead tTouch), f w (tWrite tTouch))
+        addTrace (r,w) Touch{..} = (f r tRead, f w tWrite)
             where f set xs = Set.union set $ Set.fromList xs
 
         step _ [] = Nothing
         step rw ((x,_):xs)
             | x `Map.member` started = step rw xs -- do not update the rw, since its already covered
-        step rw@(r, w) ((x, mconcat -> t@Trace{..}):xs)
-            | not $ any (\v -> v `Set.member` r || v `Set.member` w || v `Map.member` hazard) (tWrite tTouch)
+        step rw@(r, w) ((x, foldMap tTouch -> t@Touch{..}):xs)
+            | not $ any (\v -> v `Set.member` r || v `Set.member` w || v `Map.member` hazard) tWrite
                 -- if anyone I write has ever been read or written, or might be by an ongoing thing, that would be bad
-            , not $ any (`Set.member` w) (tRead tTouch)
+            , not $ any (`Set.member` w) tRead
                 -- if anyone I read might be being written right now, that would be bad
                 = Just x
             | otherwise
