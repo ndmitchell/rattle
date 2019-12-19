@@ -53,21 +53,21 @@ newHazardSet start stop cmd Touch{..} = HazardSet $ Map.fromList $
     map (,(Write,stop ,cmd)) tWrite ++
     map (,(Read ,start,cmd)) tRead
 
-mergeHazardSet :: [Cmd] -> [Cmd] -> HazardSet -> HazardSet -> ([Hazard], HazardSet)
-mergeHazardSet required speculate (HazardSet h1) (HazardSet h2) =
-    second HazardSet $ unionWithKeyEithers (mergeFileOps required speculate) h1 h2
+mergeHazardSet :: [Cmd] -> HazardSet -> HazardSet -> ([Hazard], HazardSet)
+mergeHazardSet required (HazardSet h1) (HazardSet h2) =
+    second HazardSet $ unionWithKeyEithers (mergeFileOps required) h1 h2
 
 
 -- r is required list; s is speculate list
-mergeFileOps :: [Cmd] -> [Cmd] -> FilePath -> (ReadOrWrite, Seconds, Cmd) -> (ReadOrWrite, Seconds, Cmd) -> Either Hazard (ReadOrWrite, Seconds, Cmd)
-mergeFileOps r s x (Read, t1, cmd1) (Read, t2, cmd2) = Right (Read, min t1 t2, if t1 < t2 then cmd1 else cmd2)
-mergeFileOps r s x (Write, t1, cmd1) (Write, t2, cmd2) = Left $ WriteWriteHazard x cmd1 cmd2 $
+mergeFileOps :: [Cmd] -> FilePath -> (ReadOrWrite, Seconds, Cmd) -> (ReadOrWrite, Seconds, Cmd) -> Either Hazard (ReadOrWrite, Seconds, Cmd)
+mergeFileOps r x (Read, t1, cmd1) (Read, t2, cmd2) = Right (Read, min t1 t2, if t1 < t2 then cmd1 else cmd2)
+mergeFileOps r x (Write, t1, cmd1) (Write, t2, cmd2) = Left $ WriteWriteHazard x cmd1 cmd2 $
     -- if they both were required, we've got a problem
     if elem cmd1 r && elem cmd2 r then NonRecoverable
     -- if one (or both) were speculated, we might be able to restart and get over it
     else Restartable
 
-mergeFileOps r s x (Read, tR, cmdR) (Write, tW, cmdW)
+mergeFileOps r x (Read, tR, cmdR) (Write, tW, cmdW)
     | tW < tR = -- write happened first
         -- if the write hasn't been demanded but the read has we've
         -- managed to read something that was speculated, which is bad
@@ -87,4 +87,4 @@ mergeFileOps r s x (Read, tR, cmdR) (Write, tW, cmdW)
         else hazard NonRecoverable
     where
         hazard = Left . ReadWriteHazard x cmdW cmdR
-mergeFileOps r s x v1 v2 = mergeFileOps r s x v2 v1 -- must be Write/Read, so match the other way around
+mergeFileOps r x v1 v2 = mergeFileOps r x v2 v1 -- must be Write/Read, so match the other way around
