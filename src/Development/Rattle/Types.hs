@@ -51,9 +51,9 @@ instance Hashable a => Hashable (Trace a) where
 instance Hashable a => Hashable (Touch a) where
     hashWithSalt s (Touch r w) = hashWithSalt s (r,w)
 
-fsaTrace :: RunIndex -> Seconds -> [FSATrace] -> IO (Trace FilePath)
+fsaTrace :: [FSATrace] -> IO (Touch FilePath)
 -- normalize twice because normalisation is cheap, but canonicalisation might be expensive
-fsaTrace rr t fs = fmap (Trace rr t . normalizeTouch) $ canonicalizeTouch $ normalizeTouch $ mconcat $ map f fs
+fsaTrace fs = fmap normalizeTouch $ canonicalizeTouch $ normalizeTouch $ mconcat $ map f fs
     where
         f (FSAWrite x) = Touch [] [x]
         f (FSARead x) = Touch [x] []

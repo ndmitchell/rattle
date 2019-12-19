@@ -239,12 +239,12 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) start hist msgs = do
                     cmdRattleFinished rattle start cmd t False
                 Nothing -> do
                     (time, (opts2, c)) <- duration $ display [] $ cmdRattleRaw ui opts args
-                    t <- fsaTrace runNum time c
+                    t <- fsaTrace c
                     checkHashForwardConsistency t
                     let pats = matchMany [((), x) | Ignored xs <- opts2, x <- xs]
                     let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x || pats [((),x)] /= []
                     let f hasher xs = mapMaybeM (\x -> fmap (x,) <$> hasher x) $ filter (not . skip) xs
-                    t <- Trace (tRun t) (tTime t) <$> (Touch <$> f hashFileForward (tRead $ tTouch t) <*> f hashFile (tWrite $ tTouch t))
+                    t <- Trace runNum time <$> (Touch <$> f hashFileForward (tRead t) <*> f hashFile (tWrite t))
                     x <- generateHashForwards cmd [x | HashNonDeterministic xs <- opts2, x <- xs] t
                     when (rattleShare options) $
                         forM_ (tWrite $ tTouch t) $ \(fp, h) ->
@@ -271,8 +271,8 @@ cmdRattleRaw ui opts args = do
                 writeFileUTF8 file $ concat args
             return (opts2, map C.FSAWrite files)
 
-checkHashForwardConsistency :: Trace FilePath -> IO ()
-checkHashForwardConsistency Trace{tTouch=Touch{..}} = do
+checkHashForwardConsistency :: Touch FilePath -> IO ()
+checkHashForwardConsistency Touch{..} = do
     -- check that anyone who is writing forwarding hashes is writing the actual file
     let sources = mapMaybe fromHashForward tWrite
     let bad = sources \\ tWrite
