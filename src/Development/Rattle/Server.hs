@@ -108,7 +108,7 @@ withRattle options@RattleOptions{..} act = withUI rattleFancyUI (return "Running
 
     runNum <- nextRun shared rattleMachine
     timer <- offsetTime
-    let s0 = Right $ S timestamp0 Map.empty [] Map.empty [] []
+    let s0 = Right $ S timestamp0 Map.empty [] emptyHazardSet [] []
     state <- newVar s0
 
     let saveSpeculate state =
@@ -159,7 +159,7 @@ nextSpeculate Rattle{..} S{..}
         step rw ((x,_):xs)
             | x `Map.member` started = step rw xs -- do not update the rw, since its already covered
         step rw@(r, w) ((x, foldMap tTouch -> t@Touch{..}):xs)
-            | not $ any (\v -> v `Set.member` r || v `Set.member` w || v `Map.member` hazard) tWrite
+            | not $ any (\v -> v `Set.member` r || v `Set.member` w || seenHazardSet v hazard) tWrite
                 -- if anyone I write has ever been read or written, or might be by an ongoing thing, that would be bad
             , not $ any (`Set.member` w) tRead
                 -- if anyone I read might be being written right now, that would be bad

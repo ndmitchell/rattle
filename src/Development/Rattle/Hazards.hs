@@ -4,7 +4,7 @@
 module Development.Rattle.Hazards(
     Hazard(..), Recoverable(..),
     ReadOrWrite(..),
-    HazardSet, mergeHazardSet, newHazardSet,
+    HazardSet, mergeHazardSet, newHazardSet, emptyHazardSet, seenHazardSet,
     recoverableHazard, restartableHazard,
     ) where
 
@@ -12,12 +12,14 @@ import Development.Rattle.Types
 import Control.Exception.Extra
 import General.Extra
 import Data.List
+import Data.Tuple.Extra
 import qualified Data.HashMap.Strict as Map
 
 
 data ReadOrWrite = Read | Write deriving (Show,Eq)
 
-type HazardSet = Map.HashMap FilePath (ReadOrWrite, Timestamp, Cmd)
+newtype HazardSet = HazardSet (Map.HashMap FilePath (ReadOrWrite, Timestamp, Cmd))
+    deriving Show
 
 
 -- | Type of exception thrown if there is a hazard when running the build system.
@@ -37,14 +39,20 @@ restartableHazard :: Hazard -> Bool
 restartableHazard (WriteWriteHazard _ _ _ r) = r == Restartable
 restartableHazard (ReadWriteHazard _ _ _ r) = r == Restartable
 
+emptyHazardSet :: HazardSet
+emptyHazardSet = HazardSet Map.empty
+
+seenHazardSet :: FilePath -> HazardSet -> Bool
+seenHazardSet x (HazardSet mp) = x `Map.member` mp
 
 newHazardSet :: Timestamp -> Timestamp -> Cmd -> Touch FilePath -> HazardSet
-newHazardSet start stop cmd Touch{..} = Map.fromList $
+newHazardSet start stop cmd Touch{..} = HazardSet $ Map.fromList $
     map (,(Write,stop ,cmd)) tWrite ++
     map (,(Read ,start,cmd)) tRead
 
 mergeHazardSet :: [Cmd] -> [Cmd] -> HazardSet -> HazardSet -> ([Hazard], HazardSet)
-mergeHazardSet required speculate = unionWithKeyEithers (mergeFileOps required speculate)
+mergeHazardSet required speculate (HazardSet h1) (HazardSet h2) =
+    second HazardSet $ unionWithKeyEithers (mergeFileOps required speculate) h1 h2
 
 
 -- r is required list; s is speculate list
