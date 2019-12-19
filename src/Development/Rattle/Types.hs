@@ -28,8 +28,8 @@ deriving instance Generic CmdOption
 deriving instance Hashable CmdOption
 
 data Trace a = Trace
-    {tTime :: Seconds
-    ,tRun :: !RunIndex
+    {tRun :: !RunIndex
+    ,tTime :: Seconds
     ,tRead :: [a]
     ,tWrite :: [a]
     } deriving (Show, Read, Functor, Foldable, Traversable, Eq)
@@ -38,18 +38,18 @@ instance Semigroup (Trace a) where
     Trace t1 tr1 r1 w1 <> Trace t2 tr2 r2 w2 = Trace (max t1 t2) (max tr1 tr2) (r1++r2) (w1++w2)
 
 instance Monoid (Trace a) where
-    mempty = Trace 0.0 runIndex0 [] []
+    mempty = Trace runIndex0 0.0 [] []
     mappend = (<>)
 
 instance Hashable a => Hashable (Trace a) where
   hashWithSalt s (Trace tt rr tr tw) = hashWithSalt s (tt,rr,tr,tw)
 
-fsaTrace :: Seconds -> RunIndex -> [FSATrace] -> IO (Trace FilePath)
-fsaTrace t rr [] = return $ Trace t rr [] []
+fsaTrace :: RunIndex -> Seconds -> [FSATrace] -> IO (Trace FilePath)
+fsaTrace rr t [] = return $ Trace rr t[] []
 -- normalize twice because normalisation is cheap, but canonicalisation might be expensive
-fsaTrace t rr fs = fmap normTrace $ canonicalizeTrace $ normTrace $ mconcat $ map f fs
+fsaTrace rr t fs = fmap normTrace $ canonicalizeTrace $ normTrace $ mconcat $ map f fs
     where
-        g = Trace t rr
+        g = Trace rr t
         f (FSAWrite x) = g [] [x]
         f (FSARead x) = g [x] []
         f (FSADelete x) = g [] [x]

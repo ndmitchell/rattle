@@ -239,12 +239,12 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) start hist msgs = do
                     cmdRattleFinished rattle start cmd t False
                 Nothing -> do
                     (time, (opts2, c)) <- duration $ display [] $ cmdRattleRaw ui opts args
-                    t <- fsaTrace time runNum c
+                    t <- fsaTrace runNum time c
                     checkHashForwardConsistency t
                     let pats = matchMany [((), x) | Ignored xs <- opts2, x <- xs]
                     let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x || pats [((),x)] /= []
                     let f hasher xs = mapMaybeM (\x -> fmap (x,) <$> hasher x) $ filter (not . skip) xs
-                    t <- Trace (tTime t) (tRun t) <$> f hashFileForward (tRead t) <*> f hashFile (tWrite t)
+                    t <- Trace (tRun t) (tTime t) <$> f hashFileForward (tRead t) <*> f hashFile (tWrite t)
                     x <- generateHashForwards cmd [x | HashNonDeterministic xs <- opts2, x <- xs] t
                     when (rattleShare options) $
                         forM_ (tWrite t) $ \(fp, h) ->
