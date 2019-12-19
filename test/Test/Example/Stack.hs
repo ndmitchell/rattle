@@ -54,7 +54,7 @@ haskell name act v = do
             ,"main = do [x] <- System.Environment.getArgs; body (read x)"
             ,"body = " ++ pprint (unType e)
             ]
-    cmd "runhaskell" file (show v)
+    cmd "runhaskell -package=base -package=ghc-prim" file (show v)
 
 
 main :: IO ()
