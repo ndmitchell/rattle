@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, RecordWildCards, TupleSections, ViewPatterns, LambdaCase #-}
+{-# LANGUAGE ScopedTypeVariables, RecordWildCards, TupleSections, LambdaCase #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving, GADTs #-}
 
 module Development.Rattle.Server(
