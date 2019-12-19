@@ -53,7 +53,7 @@ data S = S
     {started :: Map.HashMap Cmd (NoShow (IO ()))
         -- ^ Things that have got to running - if you find a duplicate just run the IO
         --   to wait for it.
-    ,running :: [(Seconds, Cmd, [Trace FilePath])]
+    ,running :: [(Seconds, Cmd, [Touch FilePath])]
         -- ^ Things currently running, with the time they started,
         --    and an amalgamation of their previous Trace (if we have any)
     ,hazard :: HazardSet
@@ -148,7 +148,7 @@ runSpeculate rattle@Rattle{..} = void $ forkIO $ void $ runPoolMaybe pool $
 nextSpeculate :: Rattle -> S -> Maybe Cmd
 nextSpeculate Rattle{..} S{..}
     | any (null . thd3) running = Nothing
-    | otherwise = step (addTrace (Set.empty, Set.empty) $ foldMap tTouch $ concatMap thd3 running) speculate
+    | otherwise = step (addTrace (Set.empty, Set.empty) $ mconcat $ concatMap thd3 running) speculate
     where
         addTrace (r,w) Touch{..} = (f r tRead, f w tWrite)
             where f set xs = Set.union set $ Set.fromList xs
@@ -187,7 +187,7 @@ cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
         Nothing -> do
             hist <- unsafeInterleaveIO $ map (fmap $ first $ expand $ rattleNamedDirs options) <$> getCmdTraces shared cmd
             go <- once $ cmdRattleRun rattle cmd start hist msgs
-            s <- return s{running = (start, cmd, map (fmap fst) hist) : running s}
+            s <- return s{running = (start, cmd, map (fmap fst) $ map tTouch hist) : running s}
             s <- return s{started = Map.insert cmd (NoShow go) $ started s}
             return (Right s, runSpeculate rattle >> go >> runSpeculate rattle)
 
