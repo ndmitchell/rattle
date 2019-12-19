@@ -6,7 +6,6 @@ module Development.Rattle.Profile(
   graphData, writeProfile
   ) where
 
-import Development.Rattle.Server
 import Development.Rattle.Options
 import Development.Rattle.Types
 import Development.Rattle.Hash
