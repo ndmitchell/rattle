@@ -226,7 +226,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
                     let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x || pats [((),x)] /= []
                     let f hasher xs = mapMaybeM (\x -> fmap (x,) <$> hasher x) $ filter (not . skip) xs
                     t <- Trace runNum start stop <$> (Touch <$> f hashFileForward (tRead t) <*> f hashFile (tWrite t))
-                    x <- generateHashForwards cmd [x | HashNonDeterministic xs <- opts2, x <- xs] t
+                    t <- generateHashForwards cmd [x | HashNonDeterministic xs <- opts2, x <- xs] t
                     when (rattleShare options) $
                         forM_ (tWrite $ tTouch t) $ \(fp, h) ->
                             setFile shared fp h ((== Just h) <$> hashFile fp)
