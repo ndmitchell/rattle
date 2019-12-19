@@ -61,6 +61,7 @@ library
         Development.Rattle.CmdOption
         Development.Rattle.Derived
         Development.Rattle.Hash
+        Development.Rattle.Hazards
         Development.Rattle.Options
         Development.Rattle.Profile
         Development.Rattle.Program

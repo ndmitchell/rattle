@@ -16,6 +16,7 @@ import Development.Rattle.UI
 import Development.Rattle.Shared
 import Development.Rattle.Options
 import Development.Rattle.Hash
+import Development.Rattle.Hazards
 import Development.Rattle.CmdOption
 import Control.Exception.Extra
 import Control.Concurrent.Extra
@@ -80,15 +81,6 @@ throwProblem :: Problem -> IO a
 throwProblem Finished = fail "Finished, but still trying to do stuff"
 throwProblem (Hazard h) = throwIO h
 
--- | Type of exception thrown if there is a hazard when running the build system.
-data Hazard
-    = ReadWriteHazard FilePath Cmd Cmd Recoverable
-    | WriteWriteHazard FilePath Cmd Cmd Recoverable
-      deriving Show
-instance Exception Hazard
-
-data Recoverable = Recoverable | NonRecoverable | Restartable deriving (Show,Eq)
-
 data Rattle = Rattle
     {options :: RattleOptions
     ,speculate :: [(Cmd, [Trace FilePath])] -- ^ Things that were used in the last speculation with this name
@@ -141,15 +133,6 @@ withRattle options@RattleOptions{..} act = withUI rattleFancyUI (return "Running
             withPool rattleProcesses $ \pool -> do
                 let r = Rattle{speculate=[], ..}
                 (act r <* saveSpeculate state) `finally` writeVar state (Left Finished)
-
-
-recoverableHazard :: Hazard -> Bool
-recoverableHazard WriteWriteHazard{} = False
-recoverableHazard (ReadWriteHazard _ _ _ r) = r == Recoverable
-
-restartableHazard :: Hazard -> Bool
-restartableHazard (WriteWriteHazard _ _ _ r) = r == Restartable
-restartableHazard (ReadWriteHazard _ _ _ r) = r == Restartable
 
 runSpeculate :: Rattle -> IO ()
 runSpeculate rattle@Rattle{..} = void $ forkIO $ void $ runPoolMaybe pool $
