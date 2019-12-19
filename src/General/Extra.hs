@@ -1,10 +1,11 @@
 
 module General.Extra(
-    whenRightM,
+    whenRightM, allMaybeM,
     createDirectoryRecursive, doesFileExist_,
     NoShow(..),
     memoIO, catchIO,
-    getProcessorCount
+    getProcessorCount,
+    unionWithKeyEithers
     ) where
 
 import Control.Exception.Extra
@@ -34,6 +35,14 @@ instance Show (NoShow a) where show _ = "NoShow"
 
 whenRightM :: Monad m => m (Either l r) -> (r -> m ()) -> m ()
 whenRightM x act =  either (const $ return ()) act =<< x
+
+allMaybeM :: Monad m => (a -> m (Maybe b)) -> [a] -> m (Maybe [b])
+allMaybeM f [] = return $ Just []
+allMaybeM f (x:xs) = do
+    y <- f x
+    case y of
+        Nothing -> return Nothing
+        Just y -> fmap (y:) <$> allMaybeM f xs
 
 
 ---------------------------------------------------------------------
@@ -94,3 +103,16 @@ getProcessorCount = let res = unsafePerformIO act in return res
                     _ -> do
                         src <- readFile' "/proc/cpuinfo" `catchIO` \_ -> return ""
                         return $! max 1 $ length [() | x <- lines src, "processor" `isPrefixOf` x]
+
+
+---------------------------------------------------------------------
+-- Data.HashMap
+
+unionWithKeyEithers :: (Eq k, Hashable k) => (k -> v -> v -> Either e v) -> Map.HashMap k v -> Map.HashMap k v -> ([e], Map.HashMap k v)
+unionWithKeyEithers op lhs rhs = foldl' f ([], lhs) $ Map.toList rhs
+    where
+        f (es, mp) (k, v2) = case Map.lookup k mp of
+            Nothing -> (es, Map.insert k v2 mp)
+            Just v1 -> case op k v1 v2 of
+                Left e -> (e:es, mp)
+                Right v -> (es, Map.insert k v mp)

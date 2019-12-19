@@ -31,7 +31,6 @@ import qualified Development.Shake.Command as C
 import qualified Data.HashMap.Strict as Map
 import qualified Data.HashSet as Set
 import Data.IORef
-import Data.Hashable
 import Data.List.Extra
 import Data.Tuple.Extra
 import System.Time.Extra
@@ -353,22 +352,3 @@ mergeFileOps r s x (Read, t1, cmd1) (Write, t2, cmd2)
         f (Just i1) Nothing _ _ = True -- 2nd one isn't in required list so it must be listed after i1
         f Nothing (Just i2) _ _ = False -- first one isn't in required list so it must be listed after i2
 mergeFileOps r s x v1 v2 = mergeFileOps r s x v2 v1 -- must be Write/Read, so match the other way around
-
-
-allMaybeM :: Monad m => (a -> m (Maybe b)) -> [a] -> m (Maybe [b])
-allMaybeM f [] = return $ Just []
-allMaybeM f (x:xs) = do
-    y <- f x
-    case y of
-        Nothing -> return Nothing
-        Just y -> fmap (y:) <$> allMaybeM f xs
-
-
-unionWithKeyEithers :: (Eq k, Hashable k) => (k -> v -> v -> Either e v) -> Map.HashMap k v -> Map.HashMap k v -> ([e], Map.HashMap k v)
-unionWithKeyEithers op lhs rhs = foldl' f ([], lhs) $ Map.toList rhs
-    where
-        f (es, mp) (k, v2) = case Map.lookup k mp of
-            Nothing -> (es, Map.insert k v2 mp)
-            Just v1 -> case op k v1 v2 of
-                Left e -> (e:es, mp)
-                Right v -> (es, Map.insert k v mp)
