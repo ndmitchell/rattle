@@ -1,0 +1,4 @@
+# Can't use GHC 8.8.1 because of https://gitlab.haskell.org/ghc/ghc/issues/17575
+resolver: lts-14.17
+packages:
+- .
