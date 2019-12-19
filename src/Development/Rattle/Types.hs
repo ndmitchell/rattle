@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Development.Rattle.Types(
-    Trace(..), Touch(..), fsaTrace,
+    Trace(..), Touch(..), fsaTrace, normalizeTouch,
     Cmd(..),
     RunIndex, runIndex0, nextRunIndex,
     ) where

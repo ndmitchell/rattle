@@ -99,8 +99,9 @@ withRattle options@RattleOptions{..} act = withUI rattleFancyUI (return "Running
 
     speculate <- maybe (return []) (getSpeculate shared) rattleSpeculate
     speculate <- fmap (takeWhile (not . null . snd)) $ -- don't speculate on things we have no traces for
-        forM speculate $ \x ->
-            (x,) . fmap nubOrd . foldMap (fmap (expand rattleNamedDirs . fst) . tTouch) <$> unsafeInterleaveIO (getCmdTraces shared x)
+        forM speculate $ \x -> do
+            traces <- unsafeInterleaveIO (getCmdTraces shared x)
+            return (x, normalizeTouch $ foldMap (fmap (expand rattleNamedDirs . fst) . tTouch) traces)
     speculated <- newIORef False
 
     runIndex <- nextRun shared rattleMachine
