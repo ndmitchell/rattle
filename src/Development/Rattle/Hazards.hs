@@ -57,6 +57,9 @@ mergeHazardSet :: [Cmd] -> HazardSet -> HazardSet -> ([Hazard], HazardSet)
 mergeHazardSet required (HazardSet h1) (HazardSet h2) =
     second HazardSet $ unionWithKeyEithers (mergeFileOps required) h1 h2
 
+-- Very carefully written to include the commands
+{- HLINT ignore mergeFileOps "Redundant if" -}
+{- HLINT ignore mergeFileOps "Use infix" -}
 
 -- r is required list; s is speculate list
 mergeFileOps :: [Cmd] -> FilePath -> (ReadOrWrite, Seconds, Cmd) -> (ReadOrWrite, Seconds, Cmd) -> Either Hazard (ReadOrWrite, Seconds, Cmd)
