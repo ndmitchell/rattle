@@ -6,6 +6,7 @@ module Development.Rattle.Types(
     Trace(..), fsaTrace,
     Cmd(..),
     T, t0,
+    RunIndex, runIndex0, nextRunIndex,
     ) where
 
 import Data.Hashable
@@ -28,7 +29,7 @@ deriving instance Hashable CmdOption
 
 data Trace a = Trace
     {tTime :: Seconds
-    ,tRun :: !T
+    ,tRun :: !RunIndex
     ,tRead :: [a]
     ,tWrite :: [a]
     } deriving (Show, Read, Functor, Foldable, Traversable, Eq)
@@ -37,13 +38,13 @@ instance Semigroup (Trace a) where
     Trace t1 tr1 r1 w1 <> Trace t2 tr2 r2 w2 = Trace (max t1 t2) (max tr1 tr2) (r1++r2) (w1++w2)
 
 instance Monoid (Trace a) where
-    mempty = Trace 0.0 (T (-1)) [] []
+    mempty = Trace 0.0 runIndex0 [] []
     mappend = (<>)
 
 instance Hashable a => Hashable (Trace a) where
   hashWithSalt s (Trace tt rr tr tw) = hashWithSalt s (tt,rr,tr,tw)
 
-fsaTrace :: Seconds -> T -> [FSATrace] -> IO (Trace FilePath)
+fsaTrace :: Seconds -> RunIndex -> [FSATrace] -> IO (Trace FilePath)
 fsaTrace t rr [] = return $ Trace t rr [] []
 -- normalize twice because normalisation is cheap, but canonicalisation might be expensive
 fsaTrace t rr fs = fmap normTrace $ canonicalizeTrace $ normTrace $ mconcat $ map f fs
@@ -64,6 +65,20 @@ normTrace (Trace t r a b) = Trace t r (sort $ Set.toList $ a2 `Set.difference` b
 
 canonicalizeTrace :: Trace FilePath -> IO (Trace FilePath)
 canonicalizeTrace (Trace t rr r w) = Trace t rr <$> mapM canonicalizePath r <*> mapM canonicalizePath w
+
+
+-- Which run we are in, monotonically increasing
+newtype RunIndex = RunIndex Int
+    deriving (Eq,Ord,Show,Read)
+
+instance Hashable RunIndex where
+  hashWithSalt s (RunIndex i) = hashWithSalt s i
+
+runIndex0 :: RunIndex
+runIndex0 = RunIndex 0
+
+nextRunIndex :: RunIndex -> RunIndex
+nextRunIndex (RunIndex i) = RunIndex $ i + 1
 
 
 newtype T = T Int -- timestamps

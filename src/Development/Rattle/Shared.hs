@@ -80,13 +80,13 @@ setFile (Shared lock dir) source hash check = do
 ---------------------------------------------------------------------
 -- TYPE SAFE WRAPPERS
 
-nextRun :: Shared -> String -> IO T
+nextRun :: Shared -> String -> IO RunIndex
 nextRun share name = do
-    t <- maybe t0 succ . listToMaybe <$> getList "run" share name
+    t <- maybe runIndex0 nextRunIndex . listToMaybe <$> getList "run" share name
     setList "run" WriteMode share name [t]
     return t
 
-lastRun :: Shared -> String -> IO (Maybe T)
+lastRun :: Shared -> String -> IO (Maybe RunIndex)
 lastRun share name = listToMaybe <$> getList "run" share name
 
 getSpeculate :: Shared -> String -> IO [Cmd]

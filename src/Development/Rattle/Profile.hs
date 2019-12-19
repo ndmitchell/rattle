@@ -42,7 +42,7 @@ getCmdsTraces options@RattleOptions{..} = withShared rattleFiles$ \shared -> do
   cmds <- maybe (return []) (getSpeculate shared) rattleSpeculate
   fmap (takeWhile (not . null . snd)) $ forM cmds $ \x -> (x,) <$> getCmdTraces shared x
 
-getLastRun :: RattleOptions -> IO (Maybe T)
+getLastRun :: RattleOptions -> IO (Maybe RunIndex)
 getLastRun options@RattleOptions{..} = withShared rattleFiles $ \shared ->
   lastRun shared rattleMachine
 
@@ -67,7 +67,7 @@ writeProfile options out = do
   runNum <- getLastRun options
   writeProfileInternal out graph runNum
 
-writeProfileInternal :: FilePath -> Graph -> Maybe T -> IO ()
+writeProfileInternal :: FilePath -> Graph -> Maybe RunIndex -> IO ()
 writeProfileInternal out g t = LBS.writeFile out =<< generateHTML g t
 
 {- build graph using trace info
@@ -166,7 +166,7 @@ spanCmd cmd@(c,ts) cmds =
 parallelism :: Graph -> Seconds
 parallelism g = work g / spanGraph g
 
-generateHTML :: Graph -> Maybe T -> IO LBS.ByteString
+generateHTML :: Graph -> Maybe RunIndex -> IO LBS.ByteString
 generateHTML xs t = do
   report <- readDataFileHTML "profile.html"
   let f "data/profile-data.js" = return $ LBS.pack $ "var profile =\n" ++ generateJSON xs t
@@ -180,7 +180,7 @@ allReads :: [Trace (FilePath, Hash)] -> [FilePath]
 allReads [] = []
 allReads (x:xs) = Set.toList $ foldl' (\s (fp,_) -> Set.insert fp s) (Set.fromList $ allReads xs) $ tRead x
 
-changedFiles :: (Trace (FilePath, Hash) -> [(FilePath,Hash)]) -> [Trace (FilePath, Hash)] -> Maybe T -> Set.HashSet FilePath
+changedFiles :: (Trace (FilePath, Hash) -> [(FilePath,Hash)]) -> [Trace (FilePath, Hash)] -> Maybe RunIndex -> Set.HashSet FilePath
 changedFiles _ _ Nothing = Set.empty
 changedFiles _ [] _ = Set.empty
 changedFiles f (x:xs) (Just t) = if t == tRun x
@@ -189,10 +189,10 @@ changedFiles f (x:xs) (Just t) = if t == tRun x
   where g x [] = Set.fromList $ map fst $ f x
         g x (y:ys) = Set.map fst $ Set.difference (Set.fromList $ f x) (Set.fromList $ f y)
 
-changedWrites :: [Trace (FilePath, Hash)] -> Maybe T -> Set.HashSet FilePath
+changedWrites :: [Trace (FilePath, Hash)] -> Maybe RunIndex -> Set.HashSet FilePath
 changedWrites = changedFiles tWrite
 
-changedReads :: [Trace (FilePath, Hash)] -> Maybe T -> Set.HashSet FilePath
+changedReads :: [Trace (FilePath, Hash)] -> Maybe RunIndex -> Set.HashSet FilePath
 changedReads = changedFiles tRead
 
 cmdIndex :: (Cmd,[Trace (FilePath, Hash)]) -> [(Cmd,[Trace (FilePath, Hash)])] -> Int
@@ -218,7 +218,7 @@ readersWritersHazards c cmds =
                       else (ls1,ls2,ls3)) -- does not belong to this edge
   ([],[],[])
 
-generateJSON :: Graph -> Maybe T -> String
+generateJSON :: Graph -> Maybe RunIndex -> String
 generateJSON g@Graph{..} t = jsonListLines $ map (showCmdTrace nodes) nodes ++ [showRoot]
   where showCmdTrace cmds cmd@(cmdName,ts) =
           let (readers,writers,hazards) = readersWritersHazards cmd cmds edges

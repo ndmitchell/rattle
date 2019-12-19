@@ -93,7 +93,7 @@ data Recoverable = Recoverable | NonRecoverable | Restartable deriving (Show,Eq)
 data Rattle = Rattle
     {options :: RattleOptions
     ,speculate :: [(Cmd, [Trace FilePath])] -- ^ Things that were used in the last speculation with this name
-    ,runNum :: !T -- ^ Run# we are on
+    ,runNum :: !RunIndex -- ^ Run# we are on
     ,state :: Var (Either Problem S)
     ,speculated :: IORef Bool
     ,pool :: Pool
