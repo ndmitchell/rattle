@@ -4,5 +4,5 @@
 :load test/Test.hs src/Paths.hs
 :def test \x -> return $ ":main " ++ x
 
-:def docs_ const $ return $ unlines [":!cabal haddock"]
-:def docs const $ return $ unlines [":docs_",":!start dist\\doc\\html\\rattle\\Development-Rattle.html"]
+:def docs_ \x -> return $ unlines [":!cabal haddock " ++ x]
+:def docs \x -> return $ unlines [":docs_ " ++ x,":!start dist\\doc\\html\\rattle\\Development-Rattle.html"]
