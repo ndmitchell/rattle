@@ -18,6 +18,9 @@ import qualified Data.HashMap.Strict as Map
 
 data ReadOrWrite = Read | Write deriving (Show,Eq)
 
+-- For Write, Seconds is the last possible time at which it was written
+-- For Read, Seconds is the earliest possible time at which it was read
+-- In both cases, Cmd is the thing that caused the read/write
 newtype HazardSet = HazardSet (Map.HashMap FilePath (ReadOrWrite, Seconds, Cmd))
     deriving Show
 
