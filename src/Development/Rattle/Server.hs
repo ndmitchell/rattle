@@ -80,7 +80,7 @@ throwProblem (Hazard h) = throwIO h
 data Rattle = Rattle
     {options :: RattleOptions
     ,speculate :: [(Cmd, [Trace FilePath])] -- ^ Things that were used in the last speculation with this name
-    ,runNum :: !RunIndex -- ^ Run# we are on
+    ,runIndex :: !RunIndex -- ^ Run# we are on
     ,state :: Var (Either Problem S)
     ,timer :: IO Seconds
     ,speculated :: IORef Bool
@@ -104,7 +104,7 @@ withRattle options@RattleOptions{..} act = withUI rattleFancyUI (return "Running
             (x,) . map (fmap fst) <$> unsafeInterleaveIO (map (fmap $ first $ expand rattleNamedDirs) <$> getCmdTraces shared x)
     speculated <- newIORef False
 
-    runNum <- nextRun shared rattleMachine
+    runIndex <- nextRun shared rattleMachine
     timer <- offsetTime
     let s0 = Right $ S Map.empty [] emptyHazardSet [] []
     state <- newVar s0
@@ -230,7 +230,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
                     when (rattleShare options) $
                         forM_ (tWrite touch) $ \(fp, h) ->
                             setFile shared fp h ((== Just h) <$> hashFile fp)
-                    cmdRattleFinished rattle startTimestamp cmd (Trace runNum start stop touch) True
+                    cmdRattleFinished rattle startTimestamp cmd (Trace runIndex start stop touch) True
     where
         display :: [String] -> IO a -> IO a
         display msgs2 = addUI ui (head $ overrides ++ [cmdline]) (unwords $ msgs ++ msgs2)
