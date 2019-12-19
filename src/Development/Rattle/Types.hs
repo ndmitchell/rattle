@@ -38,15 +38,8 @@ data Touch a = Touch
     ,tWrite :: [a]
     } deriving (Show, Read, Functor, Foldable, Traversable, Eq)
 
-instance Semigroup (Trace a) where
-    Trace t1 tr1 rw1 <> Trace t2 tr2 rw2 = Trace (max t1 t2) (max tr1 tr2) (rw1 <> rw2)
-
 instance Semigroup (Touch a) where
     Touch r1 w1 <> Touch r2 w2 = Touch (r1++r2) (w1++w2)
-
-instance Monoid (Trace a) where
-    mempty = Trace runIndex0 0.0 mempty
-    mappend = (<>)
 
 instance Monoid (Touch a) where
     mempty = Touch [] []
