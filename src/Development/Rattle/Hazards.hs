@@ -61,23 +61,30 @@ mergeHazardSet required speculate (HazardSet h1) (HazardSet h2) =
 -- r is required list; s is speculate list
 mergeFileOps :: [Cmd] -> [Cmd] -> FilePath -> (ReadOrWrite, Seconds, Cmd) -> (ReadOrWrite, Seconds, Cmd) -> Either Hazard (ReadOrWrite, Seconds, Cmd)
 mergeFileOps r s x (Read, t1, cmd1) (Read, t2, cmd2) = Right (Read, min t1 t2, if t1 < t2 then cmd1 else cmd2)
-mergeFileOps r s x (Write, t1, cmd1) (Write, t2, cmd2)
-  | elem cmd1 r && elem cmd2 r = Left $ WriteWriteHazard x cmd1 cmd2 NonRecoverable
-  | otherwise = Left $ WriteWriteHazard x cmd1 cmd2 Restartable -- one write may be an error
-mergeFileOps r s x (Read, t1, cmd1) (Write, t2, cmd2)
-  | elem cmd1 r && elem cmd2 r && listedBefore cmd1 cmd2
-  = Left $ ReadWriteHazard x cmd2 cmd1 NonRecoverable
-  | notElem cmd2 r && listedBefore cmd1 cmd2 = Left $ ReadWriteHazard x cmd2 cmd1 Restartable
-  | t1 <= t2 = Left $ ReadWriteHazard x cmd2 cmd1 Recoverable
-  | otherwise = Right (Write, t2, cmd2)
-  where -- FIXME: listedBefore is O(n) so want to make that partly cached
-        listedBefore c1 c2 = let i1 = elemIndex c1 r
-                                 i2 = elemIndex c2 r in
-                               f i1 i2 c1 c2
-        f Nothing Nothing c1 c2 = let Just i1 = elemIndex c1 s -- both should be in speculate list
-                                      Just i2 = elemIndex c2 s
-                                  in i1 < i2 -- speculate list is reverse of required
-        f (Just i1) (Just i2) _ _ = i1 > i2
-        f (Just i1) Nothing _ _ = True -- 2nd one isn't in required list so it must be listed after i1
-        f Nothing (Just i2) _ _ = False -- first one isn't in required list so it must be listed after i2
+mergeFileOps r s x (Write, t1, cmd1) (Write, t2, cmd2) = Left $ WriteWriteHazard x cmd1 cmd2 $
+    -- if they both were required, we've got a problem
+    if elem cmd1 r && elem cmd2 r then NonRecoverable
+    -- if one (or both) were speculated, we might be able to restart and get over it
+    else Restartable
+
+mergeFileOps r s x (Read, tR, cmdR) (Write, tW, cmdW)
+    | tW < tR = -- write happened first
+        -- if the write hasn't been demanded but the read has we've
+        -- managed to read something that was speculated, which is bad
+        if elem cmdR r && notElem cmdW r then hazard Restartable
+        -- otherwise, everything is good
+        else Right (Write, tW, cmdW)
+
+    | otherwise = -- read happened first
+        -- if the read was speculated, we can ignore it
+        if notElem cmdR r then hazard Recoverable
+        -- if the write was speculated, we can restart and hopefully it won't recur
+        else if notElem cmdW r then hazard Restartable
+        -- neither was speculated, but did we use speculation to reorder them?
+        -- FIXME: We might have had them race because of parallelism, so this is optimistically restartable
+        else if elemIndex cmdW r < elemIndex cmdR r then hazard Restartable
+        -- the user wrote the read before the write
+        else hazard NonRecoverable
+    where
+        hazard = Left . ReadWriteHazard x cmdW cmdR
 mergeFileOps r s x v1 v2 = mergeFileOps r s x v2 v1 -- must be Write/Read, so match the other way around
