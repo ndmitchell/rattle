@@ -51,6 +51,8 @@ instance a ~ () => C.CmdArguments (Run a) where
 
 data ReadOrWrite = Read | Write deriving (Show,Eq)
 
+type HazardSet = Map.HashMap FilePath (ReadOrWrite, Timestamp, Cmd)
+
 data S = S
     {timestamp :: !Timestamp
         -- ^ The current timestamp we are on
@@ -60,7 +62,7 @@ data S = S
     ,running :: [(Timestamp, Cmd, [Trace FilePath])]
         -- ^ Things currently running, with the time they started,
         --    and an amalgamation of their previous Trace (if we have any)
-    ,hazard :: Map.HashMap FilePath (ReadOrWrite, Timestamp, Cmd)
+    ,hazard :: HazardSet
         -- ^ Things that have been read or written, at what time, and by which command
         --   Used to detect hazards.
         --   Read is recorded as soon as it can, Write as late as it can, as that increases hazards.
@@ -301,7 +303,7 @@ cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{tTouch=Touch{..},..} s
         -- push writes to the end, and reads to the start, because reads before writes is the problem
         let newHazards = Map.fromList $ map ((,(Write,stop ,cmd)) . fst) tWrite ++
                                         map ((,(Read ,start,cmd)) . fst) tRead
-        case unionWithKeyEithers (mergeFileOps (required s) (map fst speculate)) (hazard s) newHazards of
+        case mergeHazardSet (required s) (map fst speculate) (hazard s) newHazards of
             (ps@(p:_), _) -> return (Left $ Hazard p, print ps >> throwIO p)
             ([], hazard2) -> do
                 s <- return s{hazard = hazard2}
@@ -311,6 +313,11 @@ cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{tTouch=Touch{..},..} s
                 (safe, pending) <- return $ partition (\x -> fst3 x < earliest) $ pending s
                 s <- return s{pending = pending}
                 return (Right s, forM_ safe $ \(_,c,t) -> addCmdTrace shared c $ fmap (first $ shorten (rattleNamedDirs options)) t)
+
+
+mergeHazardSet :: [Cmd] -> [Cmd] -> HazardSet -> HazardSet -> ([Hazard], HazardSet)
+mergeHazardSet required speculate = unionWithKeyEithers (mergeFileOps required speculate)
+
 
 -- r is required list; s is speculate list
 mergeFileOps :: [Cmd] -> [Cmd] -> FilePath -> (ReadOrWrite, Timestamp, Cmd) -> (ReadOrWrite, Timestamp, Cmd) -> Either Hazard (ReadOrWrite, Timestamp, Cmd)
