@@ -5,7 +5,7 @@
 module Development.Rattle.Types(
     Trace(..), Touch(..), fsaTrace,
     Cmd(..),
-    T, t0,
+    Timestamp, timestamp0, nextTimestamp,
     RunIndex, runIndex0, nextRunIndex,
     ) where
 
@@ -72,12 +72,12 @@ canonicalizeTouch :: Touch FilePath -> IO (Touch FilePath)
 canonicalizeTouch (Touch a b) = Touch <$> mapM canonicalizePath a <*> mapM canonicalizePath b
 
 
--- Which run we are in, monotonically increasing
+-- | Which run we are in, monotonically increasing
 newtype RunIndex = RunIndex Int
     deriving (Eq,Ord,Show,Read)
 
 instance Hashable RunIndex where
-  hashWithSalt s (RunIndex i) = hashWithSalt s i
+    hashWithSalt s (RunIndex i) = hashWithSalt s i
 
 runIndex0 :: RunIndex
 runIndex0 = RunIndex 0
@@ -85,12 +85,15 @@ runIndex0 = RunIndex 0
 nextRunIndex :: RunIndex -> RunIndex
 nextRunIndex (RunIndex i) = RunIndex $ i + 1
 
+-- | Which timestamp are we in, monotonically increasing during a run
+newtype Timestamp = Timestamp Int
+    deriving (Eq,Ord,Show,Read)
 
-newtype T = T Int -- timestamps
-    deriving (Enum,Eq,Ord,Show,Read)
+nextTimestamp :: Timestamp -> Timestamp
+nextTimestamp (Timestamp i) = Timestamp $ i + 1
 
-instance Hashable T where
-  hashWithSalt s (T i) = hashWithSalt s i
+instance Hashable Timestamp where
+    hashWithSalt s (Timestamp i) = hashWithSalt s i
 
-t0 :: T
-t0 = T 0
+timestamp0 :: Timestamp
+timestamp0 = Timestamp 0

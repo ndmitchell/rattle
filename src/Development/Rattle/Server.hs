@@ -52,19 +52,19 @@ instance a ~ () => C.CmdArguments (Run a) where
 data ReadOrWrite = Read | Write deriving (Show,Eq)
 
 data S = S
-    {timestamp :: !T
+    {timestamp :: !Timestamp
         -- ^ The current timestamp we are on
     ,started :: Map.HashMap Cmd (NoShow (IO ()))
         -- ^ Things that have got to running - if you find a duplicate just run the IO
         --   to wait for it.
-    ,running :: [(T, Cmd, [Trace FilePath])]
+    ,running :: [(Timestamp, Cmd, [Trace FilePath])]
         -- ^ Things currently running, with the time they started,
         --    and an amalgamation of their previous Trace (if we have any)
-    ,hazard :: Map.HashMap FilePath (ReadOrWrite, T, Cmd)
+    ,hazard :: Map.HashMap FilePath (ReadOrWrite, Timestamp, Cmd)
         -- ^ Things that have been read or written, at what time, and by which command
         --   Used to detect hazards.
         --   Read is recorded as soon as it can, Write as late as it can, as that increases hazards.
-    ,pending :: [(T, Cmd, Trace (FilePath, Hash))]
+    ,pending :: [(Timestamp, Cmd, Trace (FilePath, Hash))]
         -- ^ Things that have completed, and would like to get recorded, but have to wait
         --   to confirm they didn't cause hazards
     ,required :: [Cmd]
@@ -117,7 +117,7 @@ withRattle options@RattleOptions{..} act = withUI rattleFancyUI (return "Running
     speculated <- newIORef False
 
     runNum <- nextRun shared rattleMachine
-    let s0 = Right $ S t0 Map.empty [] Map.empty [] []
+    let s0 = Right $ S timestamp0 Map.empty [] Map.empty [] []
     state <- newVar s0
 
     let saveSpeculate state =
@@ -202,7 +202,7 @@ cmdRattleStart rattle@Rattle{..} cmd = join $ modifyVar state $ \case
 cmdRattleStarted :: Rattle -> Cmd -> S -> [String] -> IO (Either Problem S, IO ())
 cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
     let start = timestamp s
-    s <- return s{timestamp = succ $ timestamp s}
+    s <- return s{timestamp = nextTimestamp $ timestamp s}
     case Map.lookup cmd (started s) of
         Just (NoShow wait) -> return (Right s, wait)
         Nothing -> do
@@ -214,7 +214,7 @@ cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
 
 
 -- either fetch it from the cache or run it)
-cmdRattleRun :: Rattle -> Cmd -> T -> [Trace (FilePath, Hash)] -> [String] -> IO ()
+cmdRattleRun :: Rattle -> Cmd -> Timestamp -> [Trace (FilePath, Hash)] -> [String] -> IO ()
 cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) start hist msgs = do
     hasher <- memoIO hashFileForward
     let match (fp, h) = (== Just h) <$> hasher fp
@@ -301,13 +301,13 @@ generateHashForwards cmd ms t = do
     return $ t{tTouch = addFwd $ tTouch t}
 
 -- | I finished running a command
-cmdRattleFinished :: Rattle -> T -> Cmd -> Trace (FilePath, Hash) -> Bool -> IO ()
+cmdRattleFinished :: Rattle -> Timestamp -> Cmd -> Trace (FilePath, Hash) -> Bool -> IO ()
 cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{tTouch=Touch{..},..} save = join $ modifyVar state $ \case
     Left e -> throwProblem e
     Right s -> do
         -- update all the invariants
         let stop = timestamp s
-        s <- return s{timestamp = succ $ timestamp s}
+        s <- return s{timestamp = nextTimestamp $ timestamp s}
         s <- return s{running = filter ((/= start) . fst3) $ running s}
         s <- return s{pending = [(stop, cmd, trace) | save] ++ pending s}
 
@@ -321,13 +321,13 @@ cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{tTouch=Touch{..},..} s
                 s <- return s{hazard = hazard2}
 
                 -- move people out of pending if they have survived long enough
-                let earliest = minimum $ succ stop : map fst3 (running s)
+                let earliest = minimum $ nextTimestamp stop : map fst3 (running s)
                 (safe, pending) <- return $ partition (\x -> fst3 x < earliest) $ pending s
                 s <- return s{pending = pending}
                 return (Right s, forM_ safe $ \(_,c,t) -> addCmdTrace shared c $ fmap (first $ shorten (rattleNamedDirs options)) t)
 
 -- r is required list; s is speculate list
-mergeFileOps :: [Cmd] -> [Cmd] -> FilePath -> (ReadOrWrite, T, Cmd) -> (ReadOrWrite, T, Cmd) -> Either Hazard (ReadOrWrite, T, Cmd)
+mergeFileOps :: [Cmd] -> [Cmd] -> FilePath -> (ReadOrWrite, Timestamp, Cmd) -> (ReadOrWrite, Timestamp, Cmd) -> Either Hazard (ReadOrWrite, Timestamp, Cmd)
 mergeFileOps r s x (Read, t1, cmd1) (Read, t2, cmd2) = Right (Read, min t1 t2, if t1 < t2 then cmd1 else cmd2)
 mergeFileOps r s x (Write, t1, cmd1) (Write, t2, cmd2)
   | elem cmd1 r && elem cmd2 r = Left $ WriteWriteHazard x cmd1 cmd2 NonRecoverable
