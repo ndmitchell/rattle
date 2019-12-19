@@ -24,6 +24,7 @@ import Development.Rattle.Derived
 import Development.Rattle.Options
 import Development.Rattle.CmdOption
 import Development.Rattle.Shared
+import Development.Rattle.Hazards
 import Development.Rattle.Profile
 import Development.Rattle.Program
 

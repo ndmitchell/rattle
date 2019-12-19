@@ -3,7 +3,6 @@
 
 module Development.Rattle.Server(
     Rattle, withRattle, Run(..),
-    Hazard(..), Recoverable(..),
     addCmdOptions
     ) where
 
