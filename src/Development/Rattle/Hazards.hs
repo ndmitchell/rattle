@@ -10,6 +10,7 @@ module Development.Rattle.Hazards(
 
 import Development.Rattle.Types
 import Control.Exception.Extra
+import System.Time.Extra
 import General.Extra
 import Data.List
 import Data.Tuple.Extra
@@ -18,7 +19,7 @@ import qualified Data.HashMap.Strict as Map
 
 data ReadOrWrite = Read | Write deriving (Show,Eq)
 
-newtype HazardSet = HazardSet (Map.HashMap FilePath (ReadOrWrite, Timestamp, Cmd))
+newtype HazardSet = HazardSet (Map.HashMap FilePath (ReadOrWrite, Seconds, Cmd))
     deriving Show
 
 
@@ -45,7 +46,7 @@ emptyHazardSet = HazardSet Map.empty
 seenHazardSet :: FilePath -> HazardSet -> Bool
 seenHazardSet x (HazardSet mp) = x `Map.member` mp
 
-newHazardSet :: Timestamp -> Timestamp -> Cmd -> Touch FilePath -> HazardSet
+newHazardSet :: Seconds -> Seconds -> Cmd -> Touch FilePath -> HazardSet
 newHazardSet start stop cmd Touch{..} = HazardSet $ Map.fromList $
     map (,(Write,stop ,cmd)) tWrite ++
     map (,(Read ,start,cmd)) tRead
@@ -56,7 +57,7 @@ mergeHazardSet required speculate (HazardSet h1) (HazardSet h2) =
 
 
 -- r is required list; s is speculate list
-mergeFileOps :: [Cmd] -> [Cmd] -> FilePath -> (ReadOrWrite, Timestamp, Cmd) -> (ReadOrWrite, Timestamp, Cmd) -> Either Hazard (ReadOrWrite, Timestamp, Cmd)
+mergeFileOps :: [Cmd] -> [Cmd] -> FilePath -> (ReadOrWrite, Seconds, Cmd) -> (ReadOrWrite, Seconds, Cmd) -> Either Hazard (ReadOrWrite, Seconds, Cmd)
 mergeFileOps r s x (Read, t1, cmd1) (Read, t2, cmd2) = Right (Read, min t1 t2, if t1 < t2 then cmd1 else cmd2)
 mergeFileOps r s x (Write, t1, cmd1) (Write, t2, cmd2)
   | elem cmd1 r && elem cmd2 r = Left $ WriteWriteHazard x cmd1 cmd2 NonRecoverable

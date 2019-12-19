@@ -5,7 +5,6 @@
 module Development.Rattle.Types(
     Trace(..), Touch(..), fsaTrace,
     Cmd(..),
-    Timestamp, timestamp0, nextTimestamp,
     RunIndex, runIndex0, nextRunIndex,
     ) where
 
@@ -85,16 +84,3 @@ runIndex0 = RunIndex 0
 
 nextRunIndex :: RunIndex -> RunIndex
 nextRunIndex (RunIndex i) = RunIndex $ i + 1
-
--- | Which timestamp are we in, monotonically increasing during a run
-newtype Timestamp = Timestamp Int
-    deriving (Eq,Ord,Show,Read)
-
-nextTimestamp :: Timestamp -> Timestamp
-nextTimestamp (Timestamp i) = Timestamp $ i + 1
-
-instance Hashable Timestamp where
-    hashWithSalt s (Timestamp i) = hashWithSalt s i
-
-timestamp0 :: Timestamp
-timestamp0 = Timestamp 0

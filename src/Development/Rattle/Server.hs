@@ -50,19 +50,17 @@ instance a ~ () => C.CmdArguments (Run a) where
 
 
 data S = S
-    {timestamp :: !Timestamp
-        -- ^ The current timestamp we are on
-    ,started :: Map.HashMap Cmd (NoShow (IO ()))
+    {started :: Map.HashMap Cmd (NoShow (IO ()))
         -- ^ Things that have got to running - if you find a duplicate just run the IO
         --   to wait for it.
-    ,running :: [(Timestamp, Cmd, [Trace FilePath])]
+    ,running :: [(Seconds, Cmd, [Trace FilePath])]
         -- ^ Things currently running, with the time they started,
         --    and an amalgamation of their previous Trace (if we have any)
     ,hazard :: HazardSet
         -- ^ Things that have been read or written, at what time, and by which command
         --   Used to detect hazards.
         --   Read is recorded as soon as it can, Write as late as it can, as that increases hazards.
-    ,pending :: [(Timestamp, Cmd, Trace (FilePath, Hash))]
+    ,pending :: [(Seconds, Cmd, Trace (FilePath, Hash))]
         -- ^ Things that have completed, and would like to get recorded, but have to wait
         --   to confirm they didn't cause hazards
     ,required :: [Cmd]
@@ -108,7 +106,7 @@ withRattle options@RattleOptions{..} act = withUI rattleFancyUI (return "Running
 
     runNum <- nextRun shared rattleMachine
     timer <- offsetTime
-    let s0 = Right $ S timestamp0 Map.empty [] emptyHazardSet [] []
+    let s0 = Right $ S Map.empty [] emptyHazardSet [] []
     state <- newVar s0
 
     let saveSpeculate state =
@@ -183,8 +181,7 @@ cmdRattleStart rattle@Rattle{..} cmd = join $ modifyVar state $ \case
 
 cmdRattleStarted :: Rattle -> Cmd -> S -> [String] -> IO (Either Problem S, IO ())
 cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
-    let start = timestamp s
-    s <- return s{timestamp = nextTimestamp $ timestamp s}
+    start <- timer
     case Map.lookup cmd (started s) of
         Just (NoShow wait) -> return (Right s, wait)
         Nothing -> do
@@ -196,7 +193,7 @@ cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
 
 
 -- either fetch it from the cache or run it)
-cmdRattleRun :: Rattle -> Cmd -> Timestamp -> [Trace (FilePath, Hash)] -> [String] -> IO ()
+cmdRattleRun :: Rattle -> Cmd -> Seconds -> [Trace (FilePath, Hash)] -> [String] -> IO ()
 cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
     hasher <- memoIO hashFileForward
     let match (fp, h) = (== Just h) <$> hasher fp
@@ -285,13 +282,12 @@ generateHashForwards cmd ms t = do
     return $ t{tTouch = addFwd $ tTouch t}
 
 -- | I finished running a command
-cmdRattleFinished :: Rattle -> Timestamp -> Cmd -> Trace (FilePath, Hash) -> Bool -> IO ()
+cmdRattleFinished :: Rattle -> Seconds -> Cmd -> Trace (FilePath, Hash) -> Bool -> IO ()
 cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{..} save = join $ modifyVar state $ \case
     Left e -> throwProblem e
     Right s -> do
         -- update all the invariants
-        let stop = timestamp s
-        s <- return s{timestamp = nextTimestamp $ timestamp s}
+        stop <- timer
         s <- return s{running = filter ((/= start) . fst3) $ running s}
         s <- return s{pending = [(stop, cmd, trace) | save] ++ pending s}
 
@@ -304,7 +300,8 @@ cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{..} save = join $ modi
                 s <- return s{hazard = hazard2}
 
                 -- move people out of pending if they have survived long enough
-                let earliest = minimum $ nextTimestamp stop : map fst3 (running s)
+                maxTimestamp <- timer
+                let earliest = minimum $ maxTimestamp : map fst3 (running s)
                 (safe, pending) <- return $ partition (\x -> fst3 x < earliest) $ pending s
                 s <- return s{pending = pending}
                 return (Right s, forM_ safe $ \(_,c,t) -> addCmdTrace shared c $ fmap (first $ shorten (rattleNamedDirs options)) t)
