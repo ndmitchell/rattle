@@ -34,6 +34,7 @@ import Data.IORef
 import Data.List.Extra
 import Data.Tuple.Extra
 import System.Time.Extra
+import General.FileName
 
 
 -- | Type of actions to run. Executed using 'rattle'.
@@ -59,7 +60,7 @@ data S = S
         -- ^ Things that have been read or written, at what time, and by which command
         --   Used to detect hazards.
         --   Read is recorded as soon as it can, Write as late as it can, as that increases hazards.
-    ,pending :: [(Seconds, Cmd, Trace (FilePath, Hash))]
+    ,pending :: [(Seconds, Cmd, Trace (FileName, Hash))]
         -- ^ Things that have completed, and would like to get recorded, but have to wait
         --   to confirm they didn't cause hazards
     ,required :: [Cmd]
@@ -78,7 +79,7 @@ throwProblem (Hazard h) = throwIO h
 
 data Rattle = Rattle
     {options :: RattleOptions
-    ,speculate :: [(Cmd, Touch FilePath)] -- ^ Things that were used in the last speculation with this name
+    ,speculate :: [(Cmd, Touch FileName)] -- ^ Things that were used in the last speculation with this name
     ,runIndex :: !RunIndex -- ^ Run# we are on
     ,state :: Var (Either Problem S)
     ,timer :: IO Seconds
@@ -193,7 +194,7 @@ cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
 
 
 -- either fetch it from the cache or run it)
-cmdRattleRun :: Rattle -> Cmd -> Seconds -> [Trace (FilePath, Hash)] -> [String] -> IO ()
+cmdRattleRun :: Rattle -> Cmd -> Seconds -> [Trace (FileName, Hash)] -> [String] -> IO ()
 cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
     hasher <- memoIO hashFileForward
     let match (fp, h) = (== Just h) <$> hasher fp
@@ -252,7 +253,7 @@ cmdRattleRaw ui opts args = do
                 writeFileUTF8 file $ concat args
             return (opts2, map C.FSAWrite files)
 
-checkHashForwardConsistency :: Touch FilePath -> IO ()
+checkHashForwardConsistency :: Touch FileName -> IO ()
 checkHashForwardConsistency Touch{..} = do
     -- check that anyone who is writing forwarding hashes is writing the actual file
     let sources = mapMaybe fromHashForward tWrite
@@ -268,7 +269,7 @@ checkHashForwardConsistency Touch{..} = do
 
 
 -- | If you have been asked to generate a forwarding hash for writes
-generateHashForwards :: Cmd -> [FilePattern] -> Touch (FilePath, Hash) -> IO (Touch (FilePath, Hash))
+generateHashForwards :: Cmd -> [FilePattern] -> Touch (FileName, Hash) -> IO (Touch (FileName, Hash))
 generateHashForwards cmd ms t = do
     let match = matchMany $ map ((),) ms
     let (normal, forward) = partition (\(x, _) -> isJust (toHashForward x) && null (match [((), x)])) $ tWrite t
@@ -281,7 +282,7 @@ generateHashForwards cmd ms t = do
     return t{tWrite = tWrite t ++ forward}
 
 -- | I finished running a command
-cmdRattleFinished :: Rattle -> Seconds -> Cmd -> Trace (FilePath, Hash) -> Bool -> IO ()
+cmdRattleFinished :: Rattle -> Seconds -> Cmd -> Trace (FileName, Hash) -> Bool -> IO ()
 cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{..} save = join $ modifyVar state $ \case
     Left e -> throwProblem e
     Right s -> do

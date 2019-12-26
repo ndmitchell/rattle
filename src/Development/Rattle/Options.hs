@@ -13,7 +13,8 @@ import System.Directory
 import qualified Development.Shake.Command as C
 import Data.Maybe
 import Data.List.Extra
-
+import General.FileName
+import qualified Data.ByteString.Char8 as BSC
 
 -- | Basic options for configuring rattle.
 data RattleOptions = RattleOptions
@@ -23,14 +24,14 @@ data RattleOptions = RattleOptions
     ,rattleShare :: Bool -- ^ Should I share files from the cache
     ,rattleProcesses :: Int -- ^ Number of simulateous processes
     ,rattleCmdOptions :: [C.CmdOption] -- ^ Extra options added to every command line
-    ,rattleNamedDirs :: [(String, FilePath)] -- ^ Named directories
+    ,rattleNamedDirs :: [(BSC.ByteString, FilePath)] -- ^ Named directories
     ,rattleFancyUI :: Maybe Bool -- ^ True for Yes, Nothing for auto detect, False for no
     } deriving Show
 
 
 -- | Default 'RattleOptions' value.
 rattleOptions :: RattleOptions
-rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 0 [] [("PWD",".")] Nothing
+rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 0 [] [(BSC.pack "PWD",".")] Nothing
 
 
 rattleOptionsExplicit :: RattleOptions -> IO RattleOptions
@@ -50,9 +51,13 @@ shorten :: [(String, FilePath)] -> FilePath -> FilePath
 shorten named x = fromMaybe x $ firstJust f named
     where f (name,dir) = do rest <- stripPrefix dir x; return $ "$" ++ name </> rest
 
-expand :: [(String, FilePath)] -> FilePath -> FilePath
-expand named ('$':x)
-    | (x1, _:x2) <- break isPathSeparator x
-    , Just y <- lookup x1 named
-    = y ++ x2
-expand _ x = x
+expand :: [(BSC.ByteString, FilePath)] -> FileName -> FileName
+expand named f = g $ fileNameToByteString f
+  where g bs
+          | ('$' == BSC.head bs) =
+            let (x1, x2) = BSC.break isPathSeparator $ BSC.tail bs in
+              if BSC.null x2 then f
+              else case lookup x1 named of
+                     (Just y) -> fileNameFromByteString $ BSC.append (BSC.pack y) x2
+                     Nothing  -> f
+          | otherwise = f

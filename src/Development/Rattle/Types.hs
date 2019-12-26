@@ -17,11 +17,13 @@ import qualified Data.HashSet as Set
 import GHC.Generics
 import Prelude
 import System.Time.Extra
-
+import Data.Serialize
 
 data Cmd = Cmd [CmdOption] [String]
     deriving (Show, Read, Eq, Generic, Hashable)
 
+instance Serialize Cmd
+deriving instance Serialize CmdOption
 deriving instance Read CmdOption
 deriving instance Generic CmdOption
 deriving instance Hashable CmdOption
@@ -31,12 +33,16 @@ data Trace a = Trace
     ,tStart :: Seconds
     ,tStop :: Seconds
     ,tTouch :: Touch a
-    } deriving (Show, Read, Functor, Foldable, Traversable, Eq)
+    } deriving (Show, Read, Functor, Foldable, Traversable, Eq, Generic)
+
+instance Serialize a => Serialize (Trace a)
 
 data Touch a = Touch
     {tRead :: [a]
     ,tWrite :: [a]
-    } deriving (Show, Read, Functor, Foldable, Traversable, Eq)
+    } deriving (Show, Read, Functor, Foldable, Traversable, Eq, Generic)
+
+instance Serialize a => Serialize (Touch a)
 
 instance Semigroup (Touch a) where
     Touch r1 w1 <> Touch r2 w2 = Touch (r1++r2) (w1++w2)
@@ -74,7 +80,9 @@ canonicalizeTouch (Touch a b) = Touch <$> mapM canonicalizePath a <*> mapM canon
 
 -- | Which run we are in, monotonically increasing
 newtype RunIndex = RunIndex Int
-    deriving (Eq,Ord,Show,Read)
+    deriving (Eq,Ord,Show,Read,Generic)
+
+instance Serialize RunIndex
 
 instance Hashable RunIndex where
     hashWithSalt s (RunIndex i) = hashWithSalt s i

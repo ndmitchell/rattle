@@ -26,14 +26,12 @@ import Control.Exception.Extra
 import Control.DeepSeq
 
 
-newtype Hash = Hash String
+newtype Hash = Hash BS.ByteString
     deriving (NFData, Show, Read, Eq, Hashable)
 
 
 mkHash :: BS.ByteString -> Hash
-mkHash = Hash . concatMap (f . ord) . BS.unpack
-    where f i = ['0' | i < 16] ++ showHex i ""
-
+mkHash = Hash
 
 -- Hashing lots of files is expensive, so we keep a cache
 {-# NOINLINE hashCache #-}
@@ -91,4 +89,4 @@ hashString = mkHash . SHA.hash . BS.pack . show
 
 
 hashHash :: Hash -> Hash
-hashHash (Hash x) = mkHash $ SHA.hash $ BS.pack x
+hashHash (Hash x) = mkHash $ SHA.hash x

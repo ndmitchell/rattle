@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 
 module Development.Rattle.Shared(
     Shared, withShared,
@@ -11,16 +12,19 @@ module Development.Rattle.Shared(
 import General.Extra
 import Development.Rattle.Types
 import Development.Rattle.Hash
-import System.FilePath
+import General.FileName
 import System.Directory.Extra
+import System.FilePath
 import System.IO.Extra
 import Data.Maybe
 import Data.List
 import Control.Monad.Extra
 import Text.Read
 import Control.Concurrent.Extra
-
-
+import qualified Data.ByteString as BS
+import Data.Serialize
+import GHC.Generics
+import Data.Either
 ---------------------------------------------------------------------
 -- PRIMITIVES
 
@@ -33,15 +37,16 @@ withShared dir act = do
     act $ Shared lock dir
 
 filename :: Hash -> String
-filename (Hash (a:b:cs)) = [a,b] </> cs
+filename (Hash str) = let (a:b:cs) = show str in
+                        [a,b] </> cs
 
-getList :: (Show a, Read b) => String -> Shared -> a -> IO [b]
+getList :: (Show a, Serialize b) => String -> Shared -> a -> IO [b]
 getList typ (Shared lock dir) name = withLock lock $ do
     let file = dir </> typ </> filename (hashString $ show name)
     b <- doesFileExist file
-    if not b then return [] else mapMaybe readMaybe . lines <$> readFileUTF8' file
+    if not b then return [] else fromRight [] . decode <$> BS.readFile file
 
-setList :: (Show a, Show b) => String -> IOMode -> Shared -> a -> [b] -> IO ()
+setList :: (Show a, Serialize b) => String -> IOMode -> Shared -> a -> [b] -> IO ()
 setList typ mode (Shared lock dir) name vals = withLock lock $ do
     let file = dir </> typ </> filename (hashString $ show name)
     createDirectoryRecursive $ takeDirectory file
@@ -49,8 +54,7 @@ setList typ mode (Shared lock dir) name vals = withLock lock $ do
         writeFile (file <.> "txt") $ show name
     withFile file mode $ \h -> do
         hSetEncoding h utf8
-        hPutStr h $ unlines $ map show vals
-
+        BS.hPutStr h $ encode vals
 
 ---------------------------------------------------------------------
 -- SPECIAL SUPPORT FOR FILES
@@ -97,14 +101,16 @@ setSpeculate = setList "speculate" WriteMode
 
 -- Intermediate data type which puts spaces in the right places to get better
 -- word orientated diffs when looking at the output in a text editor
-data File = File FilePath String
-    deriving (Show,Read)
+data File = File FileName BS.ByteString
+    deriving (Show,Read,Generic)
 
-getCmdTraces :: Shared -> Cmd -> IO [Trace (FilePath, Hash)]
+instance Serialize File
+
+getCmdTraces :: Shared -> Cmd -> IO [Trace (FileName, Hash)]
 getCmdTraces shared cmd = map (fmap fromFile) <$> getList "command" shared cmd
     where fromFile (File path x) = (path, Hash x)
 
-addCmdTrace :: Shared -> Cmd -> Trace (FilePath, Hash) -> IO ()
+addCmdTrace :: Shared -> Cmd -> Trace (FileName, Hash) -> IO ()
 addCmdTrace share cmd t = setList "command" AppendMode share cmd [fmap toFile t]
     where toFile (path, Hash x) = File path x
 
