@@ -25,6 +25,7 @@ import qualified Data.ByteString as BS
 import Data.Serialize
 import GHC.Generics
 import Data.Either
+import General.FileInfo
 ---------------------------------------------------------------------
 -- PRIMITIVES
 
@@ -59,21 +60,22 @@ setList typ mode (Shared lock dir) name vals = withLock lock $ do
 ---------------------------------------------------------------------
 -- SPECIAL SUPPORT FOR FILES
 
-getFile :: Shared -> Hash -> IO (Maybe (FilePath -> IO ()))
+getFile :: Shared -> Hash -> IO (Maybe (FileName -> IO ()))
 getFile (Shared lock dir) hash = do
     let file = dir </> "files" </> filename hash
     b <- doesFileExist file
     return $ if not b then Nothing else Just $ \out -> do
-        createDirectoryRecursive $ takeDirectory out
-        copyFile file out
+      let x = fileNameToString out 
+      createDirectoryRecursive $ takeDirectory x
+      copyFile file x
 
-setFile :: Shared -> FilePath -> Hash -> IO Bool -> IO ()
+setFile :: Shared -> FileName -> Hash -> IO Bool -> IO ()
 setFile (Shared lock dir) source hash check = do
     let file = dir </> "files" </> filename hash
     b <- doesFileExist file
     unlessM (doesFileExist file) $ withLock lock $ do
         createDirectoryRecursive $ takeDirectory file
-        copyFile source (file <.> "tmp")
+        copyFile (fileNameToString source) (file <.> "tmp")
         good <- check
         if not good then
             removeFile $ file <.> "tmp"
@@ -101,18 +103,18 @@ setSpeculate = setList "speculate" WriteMode
 
 -- Intermediate data type which puts spaces in the right places to get better
 -- word orientated diffs when looking at the output in a text editor
-data File = File FileName BS.ByteString
-    deriving (Show,Read,Generic)
+data File = File FileName Hash
+    deriving (Show,Generic)
 
 instance Serialize File
 
 getCmdTraces :: Shared -> Cmd -> IO [Trace (FileName, Hash)]
 getCmdTraces shared cmd = map (fmap fromFile) <$> getList "command" shared cmd
-    where fromFile (File path x) = (path, Hash x)
+    where fromFile (File path x) = (path, x)
 
 addCmdTrace :: Shared -> Cmd -> Trace (FileName, Hash) -> IO ()
 addCmdTrace share cmd t = setList "command" AppendMode share cmd [fmap toFile t]
-    where toFile (path, Hash x) = File path x
+    where toFile (path, x) = File path x
 
 
 ---------------------------------------------------------------------

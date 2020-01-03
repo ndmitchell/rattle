@@ -1,4 +1,4 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveGeneric #-}
 
 module Development.Rattle.Hash(
     Hash(..),
@@ -24,44 +24,51 @@ import System.FilePath
 import Numeric
 import Control.Exception.Extra
 import Control.DeepSeq
-
+import GHC.Generics
+import Data.Serialize
+import General.FileName
+import General.FileInfo
 
 newtype Hash = Hash BS.ByteString
-    deriving (NFData, Show, Read, Eq, Hashable)
+    deriving (NFData, Show, Read, Eq, Hashable, Generic)
 
+instance Serialize Hash
 
 mkHash :: BS.ByteString -> Hash
 mkHash = Hash
 
 -- Hashing lots of files is expensive, so we keep a cache
 {-# NOINLINE hashCache #-}
-hashCache :: IORef (Map.HashMap FilePath (UTCTime, Hash))
+hashCache :: IORef (Map.HashMap FileName (ModTime, Hash))
 hashCache = unsafePerformIO $ newIORef Map.empty
 
 
-getModTime :: FilePath -> IO (Maybe UTCTime)
-getModTime x = handleBool isDoesNotExistError (const $ return Nothing) (Just <$> getModificationTime x)
+getModTime :: FileName -> IO (Maybe ModTime)
+getModTime x = (fmap fst) <$> getFileInfo x
 
-toHashForward :: FilePath -> Maybe FilePath
-toHashForward x | ".rattle.hash" `isSuffixOf` x = Nothing
-                | otherwise = Just $ x <.> "rattle.hash"
-
-fromHashForward :: FilePath -> Maybe FilePath
-fromHashForward x | Just x <- stripSuffix ".rattle.hash" x = Just x
-                  | otherwise = Nothing
-
+toHashForward :: FileName -> Maybe FileName
+toHashForward x = let b = fileNameToByteString x
+                      s = BS.pack ".rattle.hash" in
+                    if BS.isSuffixOf s b then Nothing
+                    else Just $ fileNameFromByteString $ BS.append b s
+                    
+fromHashForward :: FileName -> Maybe FileName
+fromHashForward x = let b = fileNameToByteString x
+                        s = BS.pack ".rattle.hash" in
+                      fileNameFromByteString <$> BS.stripSuffix s b
+                      
 -- | If there is a forwarding hash, and this file exists, use the forwarding hash instead
-hashFileForward :: FilePath -> IO (Maybe Hash)
+hashFileForward :: FileName -> IO (Maybe Hash)
 hashFileForward file =
     case toHashForward file of
         Nothing -> hashFile file
         Just file2 -> do
-            b2 <- doesFileExist file2
+            b2 <- doesFileNameExist file2
             if not b2 then hashFile file else do
-                b <- doesFileExist file
+                b <- doesFileNameExist file
                 if not b then return Nothing else hashFile file2
 
-hashFile :: FilePath -> IO (Maybe Hash)
+hashFile :: FileName -> IO (Maybe Hash)
 hashFile file = do
     start <- getModTime file
     case start of
@@ -72,9 +79,9 @@ hashFile file = do
                 Just (time, hash) | time == start -> return $ Just hash
                 _ -> do
                     -- we can get a ModTime on a directory, but can't withFile it
-                    b <- doesFileExist file
+                    b <- doesFileNameExist file
                     if not b then return Nothing else do
-                        res <- withFile file ReadMode $ \h -> do
+                        res <- withFile (fileNameToString file) ReadMode $ \h -> do
                             chunks <- LBS.hGetContents h
                             evaluate $ force $ mkHash $ SHA.finalize $ SHA.updates SHA.init $ LBS.toChunks chunks
                         end <- getModTime file

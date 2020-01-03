@@ -35,7 +35,8 @@ import Data.List.Extra
 import Data.Tuple.Extra
 import System.Time.Extra
 import General.FileName
-
+import General.FileInfo
+import qualified Data.ByteString.Char8 as BS
 
 -- | Type of actions to run. Executed using 'rattle'.
 newtype Run a = Run {fromRun :: ReaderT Rattle IO a}
@@ -53,7 +54,7 @@ data S = S
     {started :: Map.HashMap Cmd (NoShow (IO ()))
         -- ^ Things that have got to running - if you find a duplicate just run the IO
         --   to wait for it.
-    ,running :: [(Seconds, Cmd, Touch FilePath)]
+    ,running :: [(Seconds, Cmd, Touch FileName)]
         -- ^ Things currently running, with the time they started,
         --    and an amalgamation of their previous Trace (if we have any)
     ,hazard :: HazardSet
@@ -154,6 +155,7 @@ nextSpeculate Rattle{..} S{..}
         addTrace (r,w) Touch{..} = (f r tRead, f w tWrite)
             where f set xs = Set.union set $ Set.fromList xs
 
+        step :: (Set.HashSet FileName, Set.HashSet FileName) -> [(Cmd, Touch FileName)] -> Maybe Cmd
         step _ [] = Nothing
         step rw ((x,_):xs)
             | x `Map.member` started = step rw xs -- do not update the rw, since its already covered
@@ -224,7 +226,9 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
                     touch <- fsaTrace c
                     checkHashForwardConsistency touch
                     let pats = matchMany [((), x) | Ignored xs <- opts2, x <- xs]
-                    let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x || pats [((),x)] /= []
+                    --let hasTrailingPathSeparator x = if BS.null x then False else isPathSeparator $ BS.last x
+                    let skip x = let y = fileNameToString x in
+                                   isPrefixOf "/dev/" y || hasTrailingPathSeparator y || pats [((),y)] /= []
                     let f hasher xs = mapMaybeM (\x -> fmap (x,) <$> hasher x) $ filter (not . skip) xs
                     touch <- Touch <$> f hashFileForward (tRead touch) <*> f hashFile (tWrite touch)
                     touch <- generateHashForwards cmd [x | HashNonDeterministic xs <- opts2, x <- xs] touch
@@ -262,7 +266,7 @@ checkHashForwardConsistency Touch{..} = do
         fail $ "Wrote to the forwarding file, but not the source: " ++ show bad
 
     -- and anyone writing to a file with a hash also updates it
-    forwards <- filterM doesFileExist $ mapMaybe toHashForward tWrite
+    forwards <- filterM doesFileNameExist $ mapMaybe toHashForward tWrite
     let bad = forwards \\ tWrite
     when (bad /= []) $
         fail $ "Wrote to the source file which has a forwarding hash, but didn't touch the hash: " ++ show bad
@@ -272,12 +276,12 @@ checkHashForwardConsistency Touch{..} = do
 generateHashForwards :: Cmd -> [FilePattern] -> Touch (FileName, Hash) -> IO (Touch (FileName, Hash))
 generateHashForwards cmd ms t = do
     let match = matchMany $ map ((),) ms
-    let (normal, forward) = partition (\(x, _) -> isJust (toHashForward x) && null (match [((), x)])) $ tWrite t
+    let (normal, forward) = partition (\(x, _) -> isJust (toHashForward x) && null (match [((), (fileNameToString x))])) $ tWrite t
     let Hash hash = hashString $ show (cmd, tRead t, normal)
     let hhash = hashHash $ Hash hash
     forward <- forM forward $ \(x,_) -> do
         let Just x2 = toHashForward x -- checked this is OK earlier
-        writeFile x2 hash
+        BS.writeFile (fileNameToString x2) hash
         return (x2, hhash)
     return t{tWrite = tWrite t ++ forward}
 

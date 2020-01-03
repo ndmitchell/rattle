@@ -47,9 +47,9 @@ rattleOptionsExplicit = fixProcessorCount >=> fixNamedDirs
             return o{rattleNamedDirs = sortOn (Down . snd) xs}
 
 
-shorten :: [(String, FilePath)] -> FilePath -> FilePath
+shorten :: [(BSC.ByteString, FilePath)] -> FileName -> FileName
 shorten named x = fromMaybe x $ firstJust f named
-    where f (name,dir) = do rest <- stripPrefix dir x; return $ "$" ++ name </> rest
+    where f (name,dir) = do rest <- stripPrefix dir $ fileNameToString x; return $ fileNameFromString $ "$" ++ (BSC.unpack name) </> rest
 
 expand :: [(BSC.ByteString, FilePath)] -> FileName -> FileName
 expand named f = g $ fileNameToByteString f

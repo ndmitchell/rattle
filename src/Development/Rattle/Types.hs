@@ -18,6 +18,7 @@ import GHC.Generics
 import Prelude
 import System.Time.Extra
 import Data.Serialize
+import General.FileName
 
 data Cmd = Cmd [CmdOption] [String]
     deriving (Show, Read, Eq, Generic, Hashable)
@@ -57,9 +58,9 @@ instance Hashable a => Hashable (Trace a) where
 instance Hashable a => Hashable (Touch a) where
     hashWithSalt s (Touch r w) = hashWithSalt s (r,w)
 
-fsaTrace :: [FSATrace] -> IO (Touch FilePath)
+fsaTrace :: [FSATrace] -> IO (Touch FileName)
 -- normalize twice because normalisation is cheap, but canonicalisation might be expensive
-fsaTrace fs = fmap normalizeTouch $ canonicalizeTouch $ normalizeTouch $ mconcat $ map f fs
+fsaTrace fs = fmap ((fmap fileNameFromString) . normalizeTouch) $ canonicalizeTouch $ normalizeTouch $ mconcat $ map f fs
     where
         f (FSAWrite x) = Touch [] [x]
         f (FSARead x) = Touch [x] []
@@ -67,6 +68,7 @@ fsaTrace fs = fmap normalizeTouch $ canonicalizeTouch $ normalizeTouch $ mconcat
         f (FSAMove x y) = Touch [] [x,y]
         f (FSAQuery x) = Touch [x] []
         f (FSATouch x) = Touch [] [x]
+        g = fileNameFromString
 
 normalizeTouch :: (Ord a, Hashable a) => Touch a -> Touch a
 -- added 'sort' because HashSet uses the ordering of the hashes, which is confusing
