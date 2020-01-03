@@ -42,10 +42,6 @@ mkHash = Hash
 hashCache :: IORef (Map.HashMap FileName (ModTime, Hash))
 hashCache = unsafePerformIO $ newIORef Map.empty
 
-
-getModTime :: FileName -> IO (Maybe ModTime)
-getModTime x = (fmap fst) <$> getFileInfo x
-
 toHashForward :: FileName -> Maybe FileName
 toHashForward x = let b = fileNameToByteString x
                       s = BS.pack ".rattle.hash" in
