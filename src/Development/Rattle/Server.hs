@@ -274,7 +274,7 @@ checkHashForwardConsistency Touch{..} = do
 generateHashForwards :: Cmd -> [FilePattern] -> Touch (FileName, ModTime, Hash) -> IO (Touch (FileName, ModTime, Hash))
 generateHashForwards cmd ms t = do
     let match = matchMany $ map ((),) ms
-    let (normal, forward) = partition (\(x, _, _) -> isJust (toHashForward x) && null (match [((), (fileNameToString x))])) $ tWrite t
+    let (normal, forward) = partition (\(x, _, _) -> isJust (toHashForward x) && null (match [((), fileNameToString x)])) $ tWrite t
     let Hash hash = hashString $ show (cmd, tRead t, normal)
     let hhash = hashHash $ Hash hash
     forward <- forM forward $ \(x,mt,_) -> do

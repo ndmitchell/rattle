@@ -60,7 +60,7 @@ instance Hashable a => Hashable (Touch a) where
 
 fsaTrace :: [FSATrace] -> IO (Touch FileName)
 -- normalize twice because normalisation is cheap, but canonicalisation might be expensive
-fsaTrace fs = fmap ((fmap fileNameFromString) . normalizeTouch) $ canonicalizeTouch $ normalizeTouch $ mconcat $ map f fs
+fsaTrace fs = fmap (fmap fileNameFromString . normalizeTouch) $ canonicalizeTouch $ normalizeTouch $ mconcat $ map f fs
     where
         f (FSAWrite x) = Touch [] [x]
         f (FSARead x) = Touch [x] []

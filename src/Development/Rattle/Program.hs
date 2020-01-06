@@ -29,7 +29,7 @@ newProgram display expr = Program display contents (hashString contents)
 runProgram :: Show a => Program a -> a -> Run ()
 runProgram Program{..} x = do
     let Hash unhash = programHash
-    let file = ".rattle/program/" </> (BS.unpack unhash) <.> "hs"
+    let file = ".rattle/program/" </> BS.unpack unhash <.> "hs"
     cmdWriteFile file programContents
     cmd "runhaskell" file [show x]
 

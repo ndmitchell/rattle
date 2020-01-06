@@ -1,4 +1,4 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveDataTypeable, CPP, ForeignFunctionInterface, DeriveGeneric #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveDataTypeable, CPP, DeriveGeneric #-}
 
 module General.FileInfo(
     noFileHash, isNoFileHash,
