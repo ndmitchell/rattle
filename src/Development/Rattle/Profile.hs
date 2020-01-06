@@ -22,15 +22,17 @@ import qualified Data.HashSet as Set
 import System.Time.Extra
 import Numeric.Extra
 import General.FileName
+import General.FileInfo
+import Data.Tuple.Extra
 
 -- edge is directed based on order cmd were listed in script
 -- end1 was listed before end2. helps determine read/write hazards
-data Edge = Edge {end1 :: (Cmd, [Trace (FileName, Hash)])
-                 ,end2 :: (Cmd, [Trace (FileName, Hash)])
+data Edge = Edge {end1 :: (Cmd, [Trace (FileName, ModTime, Hash)])
+                 ,end2 :: (Cmd, [Trace (FileName, ModTime, Hash)])
                  ,hazard :: Maybe Hazard
                  }
 
-data Graph = Graph {nodes :: [(Cmd, [Trace (FileName, Hash)])]
+data Graph = Graph {nodes :: [(Cmd, [Trace (FileName, ModTime, Hash)])]
                    ,edges :: [Edge]
                    }
 
@@ -38,7 +40,7 @@ instance Show Edge where
   show (Edge e1 e2 Nothing) = showCmd (fst e1) ++ " -> " ++ showCmd (fst e2)
   show (Edge e1 e2 (Just h)) = showCmd (fst e1) ++ " -> " ++ showCmd (fst e2) ++ " [ label=\"" ++ show h ++ "\" ];"
 
-getCmdsTraces :: RattleOptions -> IO [(Cmd,[Trace (FileName, Hash)])]
+getCmdsTraces :: RattleOptions -> IO [(Cmd,[Trace (FileName, ModTime, Hash)])]
 getCmdsTraces options@RattleOptions{..} = withShared rattleFiles$ \shared -> do
   cmds <- maybe (return []) (getSpeculate shared) rattleSpeculate
   fmap (takeWhile (not . null . snd)) $ forM cmds $ \x -> (x,) <$> getCmdTraces shared x
@@ -74,7 +76,7 @@ writeProfileInternal out g t = LBS.writeFile out =<< generateHTML g t
 {- build graph using trace info
    Add an edge between 2 nodes if they both write the same file
    Add an edge between 2 nodes if one reads a file and another writes it -}
-createGraph :: [(Cmd,[Trace (FileName, Hash)])] -> Graph
+createGraph :: [(Cmd,[Trace (FileName, ModTime, Hash)])] -> Graph
 createGraph xs = Graph xs $ g xs
   where g [] = []
         g (x:xs) = let edges = mapMaybe (createEdge x) xs in
@@ -82,7 +84,7 @@ createGraph xs = Graph xs $ g xs
 
 -- assume p1 occurred before p2.
 -- find the worst type of hazard if there is an edge
-createEdge :: (Cmd,[Trace (FileName, Hash)]) -> (Cmd,[Trace (FileName, Hash)]) -> Maybe Edge
+createEdge :: (Cmd,[Trace (FileName, ModTime, Hash)]) -> (Cmd,[Trace (FileName, ModTime, Hash)]) -> Maybe Edge
 createEdge p1@(cmd1,ts) p2@(cmd2,ls) = -- first look for write write hazard then look for both read/write and write/read hazards
   case writeWriteHazard ts ls of
     Just fp -> Just $ Edge p1 p2 $ Just $ WriteWriteHazard fp cmd1 cmd2 NonRecoverable
@@ -94,27 +96,33 @@ createEdge p1@(cmd1,ts) p2@(cmd2,ls) = -- first look for write write hazard then
                      Nothing -> Nothing -- no edge
 
 -- Is there a writewrite edge?
-writeWriteHazard :: [Trace (FileName, Hash)] -> [Trace (FileName, Hash)] -> Maybe FileName
+writeWriteHazard :: [Trace (FileName, ModTime, Hash)] -> [Trace (FileName, ModTime, Hash)] -> Maybe FileName
 writeWriteHazard = maybeHazard (tWrite . tTouch)
 
 -- Is there a readwrite edge?
-readWriteHazard :: [Trace (FileName, Hash)] -> [Trace (FileName, Hash)] -> Maybe FileName
+readWriteHazard :: [Trace (FileName, ModTime, Hash)] -> [Trace (FileName, ModTime, Hash)] -> Maybe FileName
 readWriteHazard = maybeHazard (tRead . tTouch)
 
-maybeHazard :: (Trace (FileName, Hash) -> [(FileName, Hash)]) -> [Trace (FileName, Hash)] -> [Trace (FileName, Hash)] -> Maybe FileName
+maybeHazard :: (Trace (FileName, ModTime, Hash) -> [(FileName, ModTime, Hash)]) -> [Trace (FileName, ModTime, Hash)] -> [Trace (FileName, ModTime, Hash)] -> Maybe FileName
 maybeHazard _ [] ls = Nothing
 maybeHazard _ ls [] = Nothing
 maybeHazard f (t:ts) ls =
   case find (\y -> isJust $ memberWrites y ls) $ f t of
-    Just (fp,_) -> Just fp
+    Just (fp,_,_) -> Just fp
     Nothing -> maybeHazard f ts ls
 
-memberWrites :: (FileName, Hash) -> [Trace (FileName, Hash)] -> Maybe FileName
+memberWrites :: (FileName, ModTime, Hash) -> [Trace (FileName, ModTime, Hash)] -> Maybe FileName
 memberWrites x [] = Nothing
-memberWrites x@(fp,_) (y:ys) =
-  case fmap (fp,) $ lookup fp $ tWrite $ tTouch y of
+memberWrites x@(fp,_,_) (y:ys) =
+  case fmap (fp,) $ lookup3 fp $ tWrite $ tTouch y of
     Just (fp,_) -> Just fp
     Nothing -> memberWrites x ys
+
+lookup3 :: (Eq a) => a -> [(a,b,c)] -> Maybe (b,c)
+lookup3 _ []  = Nothing
+lookup3 key ((x,y,z):xyzs)
+  | key == x = Just (y,z)
+  | otherwise = lookup3 key xyzs
 
 -- todo fix
 generateDotString :: Graph -> IO String
@@ -136,13 +144,13 @@ dotStringOfGraph options = do
   edges <- constructGraph options
   generateDotString edges
 
-graphRoots :: [(Cmd,[Trace (FileName, Hash)])] -> [Edge] -> [(Cmd,[Trace (FileName, Hash)])]
+graphRoots :: [(Cmd,[Trace (FileName, ModTime, Hash)])] -> [Edge] -> [(Cmd,[Trace (FileName, ModTime, Hash)])]
 graphRoots = foldr (delete . end2)
 
-graphLeaves :: [(Cmd,[Trace (FileName, Hash)])] -> [Edge] -> [(Cmd,[Trace (FileName, Hash)])]
+graphLeaves :: [(Cmd,[Trace (FileName, ModTime, Hash)])] -> [Edge] -> [(Cmd,[Trace (FileName, ModTime, Hash)])]
 graphLeaves = foldr (delete . end1)
 
-firstTTime :: [Trace (FileName, Hash)] -> Seconds
+firstTTime :: [Trace (FileName, ModTime, Hash)] -> Seconds
 firstTTime [] = 0
 firstTTime (x:_) = tStop x - tStart x
 
@@ -158,7 +166,7 @@ spanGraph (Graph ns es) =
       roots = graphRoots ns es in
     foldl' (\m c -> max m $ spanCmd c cmds) 0.0 roots
 
-spanCmd :: (Cmd, [Trace (FileName, Hash)]) -> Map.HashMap (Cmd, [Trace (FileName, Hash)]) [(Cmd,[Trace (FileName, Hash)])] -> Seconds
+spanCmd :: (Cmd, [Trace (FileName, ModTime, Hash)]) -> Map.HashMap (Cmd, [Trace (FileName, ModTime, Hash)]) [(Cmd,[Trace (FileName, ModTime, Hash)])] -> Seconds
 spanCmd cmd@(c,ts) cmds =
   case Map.lookup cmd cmds of
     Nothing -> firstTTime ts
@@ -173,37 +181,37 @@ generateHTML xs t = do
   let f "data/profile-data.js" = return $ LBS.pack $ "var profile =\n" ++ generateJSON xs t
   runTemplate f report
 
-allWrites :: [Trace (FileName, Hash)] -> [FileName]
+allWrites :: [Trace (FileName, ModTime, Hash)] -> [FileName]
 allWrites [] = []
-allWrites (x:xs) = Set.toList $ foldl' (\s (fp,_) -> Set.insert fp s) (Set.fromList $ allWrites xs) $ tWrite $ tTouch x
+allWrites (x:xs) = Set.toList $ foldl' (\s (fp,_,_) -> Set.insert fp s) (Set.fromList $ allWrites xs) $ tWrite $ tTouch x
 
-allReads :: [Trace (FileName, Hash)] -> [FileName]
+allReads :: [Trace (FileName, ModTime, Hash)] -> [FileName]
 allReads [] = []
-allReads (x:xs) = Set.toList $ foldl' (\s (fp,_) -> Set.insert fp s) (Set.fromList $ allReads xs) $ tRead $ tTouch x
+allReads (x:xs) = Set.toList $ foldl' (\s (fp,_,_) -> Set.insert fp s) (Set.fromList $ allReads xs) $ tRead $ tTouch x
 
-changedFiles :: (Trace (FileName, Hash) -> [(FileName,Hash)]) -> [Trace (FileName, Hash)] -> Maybe RunIndex -> Set.HashSet FileName
+changedFiles :: (Trace (FileName, ModTime, Hash) -> [(FileName, ModTime, Hash)]) -> [Trace (FileName, ModTime, Hash)] -> Maybe RunIndex -> Set.HashSet FileName
 changedFiles _ _ Nothing = Set.empty
 changedFiles _ [] _ = Set.empty
 changedFiles f (x:xs) (Just t) = if t == tRun x
                                  then g x xs
                                  else Set.empty
-  where g x [] = Set.fromList $ map fst $ f x
-        g x (y:ys) = Set.map fst $ Set.difference (Set.fromList $ f x) (Set.fromList $ f y)
+  where g x [] = Set.fromList $ map fst3 $ f x
+        g x (y:ys) = Set.map fst3 $ Set.difference (Set.fromList $ f x) (Set.fromList $ f y)
 
-changedWrites :: [Trace (FileName, Hash)] -> Maybe RunIndex -> Set.HashSet FileName
+changedWrites :: [Trace (FileName, ModTime, Hash)] -> Maybe RunIndex -> Set.HashSet FileName
 changedWrites = changedFiles (tWrite . tTouch)
 
-changedReads :: [Trace (FileName, Hash)] -> Maybe RunIndex -> Set.HashSet FileName
+changedReads :: [Trace (FileName, ModTime, Hash)] -> Maybe RunIndex -> Set.HashSet FileName
 changedReads = changedFiles (tWrite . tTouch)
 
-cmdIndex :: (Cmd,[Trace (FileName, Hash)]) -> [(Cmd,[Trace (FileName, Hash)])] -> Int
+cmdIndex :: (Cmd,[Trace (FileName, ModTime, Hash)]) -> [(Cmd,[Trace (FileName, ModTime, Hash)])] -> Int
 cmdIndex x cmds = fromMaybe (-1) $ elemIndex x cmds
 
 {- Readers are cmds that read something this command wrote // they depend on this command
    writers are cmds that wrote something this command read // i depend on them
    hazards are cmds that wrote after a read or a write
 -}
-readersWritersHazards :: (Cmd,[Trace (FileName, Hash)]) -> [(Cmd,[Trace (FileName, Hash)])] -> [Edge] -> ([Int],[Int],[Int])
+readersWritersHazards :: (Cmd,[Trace (FileName, ModTime, Hash)]) -> [(Cmd,[Trace (FileName, ModTime, Hash)])] -> [Edge] -> ([Int],[Int],[Int])
 readersWritersHazards c cmds =
   foldl' (\(ls1,ls2,ls3) (Edge e1 e2 h) ->
                  if c == e1

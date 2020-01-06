@@ -66,10 +66,11 @@ instance Eq (FileInfo a) where
         | otherwise = a == b
 
 data FileInfoHash deriving Generic; type FileHash = FileInfo FileInfoHash
-data FileInfoMod ; type ModTime  = FileInfo FileInfoMod
+data FileInfoMod deriving Generic; type ModTime  = FileInfo FileInfoMod
 data FileInfoSize; type FileSize = FileInfo FileInfoSize
 
 instance Serialize FileInfoHash
+instance Serialize FileInfoMod
 
 getFileHash :: FileName -> IO FileHash
 getFileHash x = withFile (fileNameToString x) ReadMode $ \h ->

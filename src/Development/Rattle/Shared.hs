@@ -103,18 +103,18 @@ setSpeculate = setList "speculate" WriteMode
 
 -- Intermediate data type which puts spaces in the right places to get better
 -- word orientated diffs when looking at the output in a text editor
-data File = File FileName Hash
+data File = File FileName ModTime Hash
     deriving (Show,Generic)
 
 instance Serialize File
 
-getCmdTraces :: Shared -> Cmd -> IO [Trace (FileName, Hash)]
+getCmdTraces :: Shared -> Cmd -> IO [Trace (FileName, ModTime, Hash)]
 getCmdTraces shared cmd = map (fmap fromFile) <$> getList "command" shared cmd
-    where fromFile (File path x) = (path, x)
+    where fromFile (File path mt x) = (path, mt, x)
 
-addCmdTrace :: Shared -> Cmd -> Trace (FileName, Hash) -> IO ()
+addCmdTrace :: Shared -> Cmd -> Trace (FileName, ModTime, Hash) -> IO ()
 addCmdTrace share cmd t = setList "command" AppendMode share cmd [fmap toFile t]
-    where toFile (path, x) = File path x
+    where toFile (path, mt, x) = File path mt x
 
 
 ---------------------------------------------------------------------
