@@ -26,13 +26,11 @@ import System.Directory
 import Data.Time
 
 #elif defined(mingw32_HOST_OS)
-import General.Errors
 import Control.Monad
 import qualified Data.ByteString.Char8 as BS
 import Foreign.C.String
 
 #else
-import General.Errors
 import GHC.IO.Exception
 import System.IO.Error
 import System.Posix.Files.ByteString
@@ -238,7 +236,7 @@ peekFileSizeLow p = peekByteOff p index_WIN32_FILE_ATTRIBUTE_DATA_nFileSizeLow
 getFileInfo x = handleBool isDoesNotExistError' (const $ return Nothing) $ do
     s <- getFileStatus $ fileNameToByteString x
     if isDirectory s then
-        throwM $ errorDirectoryNotFile $ fileNameToString x
+        error $ "Build system error - expected a file, got a directory " ++ fileNameToString x
      else
         result (extractFileTime s) (fromIntegral $ fileSize s)
     where

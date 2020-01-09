@@ -82,7 +82,6 @@ library
         Paths_rattle 
         General.FileName
         General.FileInfo
-        General.Errors
 
 executable pipeline
     default-language: Haskell2010
@@ -153,4 +152,3 @@ test-suite rattle-test
         Test.Type 
         General.FileName
         General.FileInfo
-        General.Errors
