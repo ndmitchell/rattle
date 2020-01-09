@@ -47,12 +47,12 @@ toHashForward :: FileName -> Maybe FileName
 toHashForward x = let b = fileNameToByteString x
                       s = BS.pack ".rattle.hash" in
                     if BS.isSuffixOf s b then Nothing
-                    else Just $ fileNameFromByteString $ BS.append b s
+                    else Just $ byteStringToFileName $ BS.append b s
                     
 fromHashForward :: FileName -> Maybe FileName
 fromHashForward x = let b = fileNameToByteString x
                         s = BS.pack ".rattle.hash" in
-                      fileNameFromByteString <$> BS.stripSuffix s b
+                      byteStringToFileName <$> BS.stripSuffix s b
 
 hashFileForwardIfStale :: FileName -> ModTime -> Hash -> IO (Maybe Hash)
 hashFileForwardIfStale file mt h =

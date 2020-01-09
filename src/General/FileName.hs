@@ -4,7 +4,7 @@ module General.FileName(
   FileName,
   fileNameFromString, fileNameFromByteString,
   fileNameToString, fileNameToByteString,
-  filepathNormalise
+  filepathNormalise, byteStringToFileName
   ) where
 
 import qualified Data.ByteString.Char8 as BS
@@ -45,6 +45,9 @@ fileNameFromString = fileNameFromByteString . UTF8.fromString
 fileNameFromByteString :: BS.ByteString -> FileName
 fileNameFromByteString = FileName . filepathNormalise
 
+-- don't  normalise
+byteStringToFileName :: BS.ByteString -> FileName
+byteStringToFileName = FileName
 
 ---------------------------------------------------------------------
 -- NORMALISATION
