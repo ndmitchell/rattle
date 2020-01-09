@@ -73,9 +73,8 @@ hashFileIfStale file mt h = do
       mp <- readIORef hashCache
       case Map.lookup file mp of
         Just (time,hash) | time == start -> return $ Just hash
-        _ -> if start == mt
-             then do f start h; return $ Just h
-             else do
+        _ | start == mt -> do f start h; return $ Just h
+        _ -> do
           b <- doesFileNameExist file
           if not b then return Nothing else do
             res <- withFile (fileNameToString file) ReadMode $ \h -> do
