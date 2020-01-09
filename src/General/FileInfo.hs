@@ -149,7 +149,7 @@ getModTime x = BS.useAsCString (fileNameToByteString x) $ \file ->
         let peek = do
                 code <- peekFileAttributes fad
                 join $ liftM (\y -> do
-                                 x <- evaluate $ fileinfo y
+                                 x <- evaluate $ fileInfo y
                                  return $ Just x) $ peekLastWriteTimeLow fad
         if res then
             peek
@@ -193,7 +193,7 @@ getFileInfo x = BS.useAsCString (fileNameToByteString x) $ \file ->
         let peek = do
                 code <- peekFileAttributes fad
                 if testBit code 4 then
-                    throwIO $ errorDirectoryNotFile $ fileNameToString x
+                    error $ "Build system error - expected a file, got a directory " ++ fileNameToString x
                  else
                     join $ liftM2 result (peekLastWriteTimeLow fad) (peekFileSizeLow fad)
         if res then
