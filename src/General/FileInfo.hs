@@ -1,5 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, DeriveDataTypeable, CPP, DeriveGeneric #-}
 
+-- copied from ndmitchell/shake/src/Development/Shake/Interal/FileInfo.hs commit 645c99b
 module General.FileInfo(
     noFileHash, isNoFileHash,
     FileSize, ModTime, FileHash,
