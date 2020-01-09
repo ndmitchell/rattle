@@ -11,7 +11,6 @@ import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.UTF8 as UTF8
 import Development.Shake.Classes
 import qualified System.FilePath as Native
-import General.Binary
 import System.Info.Extra
 import Data.List
 import GHC.Generics
@@ -22,16 +21,12 @@ import Data.Serialize
 
 -- | UTF8 ByteString
 newtype FileName = FileName BS.ByteString
-    deriving (Hashable, Binary, BinaryEx, Eq, NFData, Generic, Read, Ord)
+    deriving (Hashable, Binary, Eq, NFData, Generic, Read, Ord)
 
 instance Serialize FileName
 
 instance Show FileName where
   show = fileNameToString
-
-instance BinaryEx [FileName] where
-  putEx = putEx . map (\(FileName x) -> x)
-  getEx = map FileName . getEx
 
 fileNameToString :: FileName -> FilePath
 fileNameToString = UTF8.toString . fileNameToByteString

@@ -55,7 +55,6 @@ library
         js-jquery,
         cereal >= 0.5.8.1,
         utf8-string >= 1.0.1.1,
-        binary >= 0.8.6.0,
         unix >= 2.7.2.2
 
     exposed-modules:
@@ -80,8 +79,7 @@ library
         General.Pool
         General.EscCodes
         General.Template
-        Paths_rattle
-        General.Binary 
+        Paths_rattle 
         General.FileName
         General.FileInfo
         General.Errors
@@ -124,7 +122,6 @@ test-suite rattle-test
         js-jquery,
         cereal >= 0.5.8.1,
         utf8-string >= 1.0.1.1,
-        binary >= 0.8.6.0,
         unix >= 2.7.2.2 
 
     other-modules:
@@ -153,8 +150,7 @@ test-suite rattle-test
         Test.Simple
         Test.Trace
         Test.Limit
-        Test.Type
-        General.Binary 
+        Test.Type 
         General.FileName
         General.FileInfo
         General.Errors
