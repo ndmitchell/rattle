@@ -54,8 +54,10 @@ library
         js-flot,
         js-jquery,
         cereal >= 0.5.8.1,
-        utf8-string >= 1.0.1.1,
-        unix >= 2.7.2.2
+        utf8-string >= 1.0.1.1
+
+    if !os(windows)
+        build-depends: unix >= 2.7.2.2
 
     exposed-modules:
         Development.Rattle
@@ -120,8 +122,10 @@ test-suite rattle-test
         js-flot,
         js-jquery,
         cereal >= 0.5.8.1,
-        utf8-string >= 1.0.1.1,
-        unix >= 2.7.2.2 
+        utf8-string >= 1.0.1.1
+
+    if !os(windows)
+        build-depends: unix >= 2.7.2.2 
 
     other-modules:
         Development.Rattle
