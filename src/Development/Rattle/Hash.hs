@@ -13,16 +13,9 @@ import qualified Crypto.Hash.SHA256 as SHA
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import qualified Data.HashMap.Strict as Map
-import Data.Time
-import System.Directory
-import Data.Char
 import System.IO.Unsafe
-import System.IO.Error
 import Control.Monad.Extra
 import Data.IORef
-import Data.List.Extra
-import System.FilePath
-import Numeric
 import Control.Exception.Extra
 import Control.DeepSeq
 import GHC.Generics

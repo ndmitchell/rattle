@@ -68,7 +68,6 @@ fsaTrace fs = fmap (fmap fileNameFromString . normalizeTouch) $ canonicalizeTouc
         f (FSAMove x y) = Touch [] [x,y]
         f (FSAQuery x) = Touch [x] []
         f (FSATouch x) = Touch [] [x]
-        g = fileNameFromString
 
 normalizeTouch :: (Ord a, Hashable a) => Touch a -> Touch a
 -- added 'sort' because HashSet uses the ordering of the hashes, which is confusing

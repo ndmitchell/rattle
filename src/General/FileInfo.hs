@@ -10,7 +10,6 @@ module General.FileInfo(
 import Data.Hashable
 import Control.Exception.Extra
 import Development.Shake.Classes
-import Development.Shake.FilePath
 import General.FileName
 import qualified Data.ByteString.Lazy.Internal as LBS (defaultChunkSize)
 import Data.Char
