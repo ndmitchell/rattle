@@ -19,7 +19,6 @@ import System.IO.Extra
 import Data.Maybe
 import Data.List
 import Control.Monad.Extra
-import Text.Read
 import Control.Concurrent.Extra
 import qualified Data.ByteString as BS
 import Data.Serialize
