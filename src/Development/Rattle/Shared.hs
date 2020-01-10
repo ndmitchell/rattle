@@ -65,7 +65,7 @@ getFile (Shared lock dir) hash = do
     let file = dir </> "files" </> filename hash
     b <- doesFileExist file
     return $ if not b then Nothing else Just $ \out -> do
-      let x = fileNameToString out 
+      let x = fileNameToString out
       createDirectoryRecursive $ takeDirectory x
       copyFile file x
 

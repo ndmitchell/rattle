@@ -48,7 +48,7 @@ toHashForward x = let b = fileNameToByteString x
                       s = BS.pack ".rattle.hash" in
                     if BS.isSuffixOf s b then Nothing
                     else Just $ byteStringToFileName $ BS.append b s
-                    
+
 fromHashForward :: FileName -> Maybe FileName
 fromHashForward x = let b = fileNameToByteString x
                         s = BS.pack ".rattle.hash" in
@@ -84,8 +84,8 @@ hashFileIfStale file mt h = do
             when (Just start == end) $
               f start res
             return $ Just res
-    where f start res = atomicModifyIORef' hashCache $ \mp -> (Map.insert file (start, res) mp, ()) 
-                      
+    where f start res = atomicModifyIORef' hashCache $ \mp -> (Map.insert file (start, res) mp, ())
+
 -- | If there is a forwarding hash, and this file exists, use the forwarding hash instead
 hashFileForward :: FileName -> IO (Maybe (ModTime, Hash))
 hashFileForward file =

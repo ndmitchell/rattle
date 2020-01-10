@@ -56,7 +56,7 @@ filepathNormalise xs
   where
     sep = Native.isPathSeparator
     f o = deslash o $ BS.concat $ (slash:) $ intersperse slash $ reverse $ (BS.empty:) $ g 0 $ reverse $ split o
-      
+
     deslash o x
       | x == slash = case (pre,pos) of
                        (True,True) -> slash

@@ -108,7 +108,7 @@ doesFileNameExist x = BS.useAsCString (fileNameToByteString x) $ \file ->
         res <- c_GetFileAttributesExA file 0 fad
         let peek = do
                 code <- peekFileAttributes fad
-                return $ not $ testBit code 4 
+                return $ not $ testBit code 4
         if res then
             peek
          else if BS.any (>= chr 0x80) (fileNameToByteString x) then withCWString (fileNameToString x) $ \file -> do
