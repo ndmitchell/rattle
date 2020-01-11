@@ -1,9 +1,10 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveGeneric #-}
 
 module Development.Rattle.Hash(
     Hash(..),
     hashFile, hashString, hashHash,
-    hashFileForward, toHashForward, fromHashForward
+    hashFileForward, toHashForward, fromHashForward,
+    hashFileForwardIfStale, hashFileIfStale
     ) where
 
 import System.IO
@@ -12,58 +13,84 @@ import qualified Crypto.Hash.SHA256 as SHA
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import qualified Data.HashMap.Strict as Map
-import Data.Time
-import System.Directory
-import Data.Char
 import System.IO.Unsafe
-import System.IO.Error
 import Control.Monad.Extra
 import Data.IORef
-import Data.List.Extra
-import System.FilePath
-import Numeric
 import Control.Exception.Extra
 import Control.DeepSeq
+import GHC.Generics
+import Data.Serialize
+import General.FileName
+import General.FileInfo
 
+newtype Hash = Hash BS.ByteString
+    deriving (NFData, Show, Read, Eq, Hashable, Generic)
 
-newtype Hash = Hash String
-    deriving (NFData, Show, Read, Eq, Hashable)
-
+instance Serialize Hash
 
 mkHash :: BS.ByteString -> Hash
-mkHash = Hash . concatMap (f . ord) . BS.unpack
-    where f i = ['0' | i < 16] ++ showHex i ""
-
+mkHash = Hash
 
 -- Hashing lots of files is expensive, so we keep a cache
 {-# NOINLINE hashCache #-}
-hashCache :: IORef (Map.HashMap FilePath (UTCTime, Hash))
+hashCache :: IORef (Map.HashMap FileName (ModTime, Hash))
 hashCache = unsafePerformIO $ newIORef Map.empty
 
+toHashForward :: FileName -> Maybe FileName
+toHashForward x = let b = fileNameToByteString x
+                      s = BS.pack ".rattle.hash" in
+                    if BS.isSuffixOf s b then Nothing
+                    else Just $ byteStringToFileName $ BS.append b s
 
-getModTime :: FilePath -> IO (Maybe UTCTime)
-getModTime x = handleBool isDoesNotExistError (const $ return Nothing) (Just <$> getModificationTime x)
+fromHashForward :: FileName -> Maybe FileName
+fromHashForward x = let b = fileNameToByteString x
+                        s = BS.pack ".rattle.hash" in
+                      byteStringToFileName <$> BS.stripSuffix s b
 
-toHashForward :: FilePath -> Maybe FilePath
-toHashForward x | ".rattle.hash" `isSuffixOf` x = Nothing
-                | otherwise = Just $ x <.> "rattle.hash"
+hashFileForwardIfStale :: FileName -> ModTime -> Hash -> IO (Maybe Hash)
+hashFileForwardIfStale file mt h =
+  case toHashForward file of
+    Nothing -> hashFileIfStale file mt h
+    Just file2 -> do
+      b2 <- doesFileNameExist file2
+      if not b2 then hashFileIfStale file mt h else do
+        b <- doesFileNameExist file
+        if not b then return Nothing else hashFileIfStale file2 mt h
 
-fromHashForward :: FilePath -> Maybe FilePath
-fromHashForward x | Just x <- stripSuffix ".rattle.hash" x = Just x
-                  | otherwise = Nothing
+hashFileIfStale :: FileName -> ModTime -> Hash -> IO (Maybe Hash)
+hashFileIfStale file mt h = do
+  start <- getModTime file
+  case start of
+    Nothing -> return Nothing
+    Just start -> do
+      mp <- readIORef hashCache
+      case Map.lookup file mp of
+        Just (time,hash) | time == start -> return $ Just hash
+        _ | start == mt -> do f start h; return $ Just h
+        _ -> do
+          b <- doesFileNameExist file
+          if not b then return Nothing else do
+            res <- withFile (fileNameToString file) ReadMode $ \h -> do
+              chunks <- LBS.hGetContents h
+              evaluate $ force $ mkHash $ SHA.finalize $ SHA.updates SHA.init $ LBS.toChunks chunks
+            end <- getModTime file
+            when (Just start == end) $
+              f start res
+            return $ Just res
+    where f start res = atomicModifyIORef' hashCache $ \mp -> (Map.insert file (start, res) mp, ())
 
 -- | If there is a forwarding hash, and this file exists, use the forwarding hash instead
-hashFileForward :: FilePath -> IO (Maybe Hash)
+hashFileForward :: FileName -> IO (Maybe (ModTime, Hash))
 hashFileForward file =
     case toHashForward file of
         Nothing -> hashFile file
         Just file2 -> do
-            b2 <- doesFileExist file2
+            b2 <- doesFileNameExist file2
             if not b2 then hashFile file else do
-                b <- doesFileExist file
+                b <- doesFileNameExist file
                 if not b then return Nothing else hashFile file2
 
-hashFile :: FilePath -> IO (Maybe Hash)
+hashFile :: FileName -> IO (Maybe (ModTime, Hash))
 hashFile file = do
     start <- getModTime file
     case start of
@@ -71,18 +98,18 @@ hashFile file = do
         Just start -> do
             mp <- readIORef hashCache
             case Map.lookup file mp of
-                Just (time, hash) | time == start -> return $ Just hash
+                Just (time, hash) | time == start -> return $ Just (time, hash)
                 _ -> do
                     -- we can get a ModTime on a directory, but can't withFile it
-                    b <- doesFileExist file
+                    b <- doesFileNameExist file
                     if not b then return Nothing else do
-                        res <- withFile file ReadMode $ \h -> do
+                        res <- withFile (fileNameToString file) ReadMode $ \h -> do
                             chunks <- LBS.hGetContents h
                             evaluate $ force $ mkHash $ SHA.finalize $ SHA.updates SHA.init $ LBS.toChunks chunks
                         end <- getModTime file
                         when (Just start == end) $
                             atomicModifyIORef' hashCache $ \mp -> (Map.insert file (start, res) mp, ())
-                        return $ Just res
+                        return $ Just (start, res)
 
 
 hashString :: String -> Hash
@@ -91,4 +118,4 @@ hashString = mkHash . SHA.hash . BS.pack . show
 
 
 hashHash :: Hash -> Hash
-hashHash (Hash x) = mkHash $ SHA.hash $ BS.pack x
+hashHash (Hash x) = mkHash $ SHA.hash x

@@ -14,21 +14,21 @@ import General.Extra
 import Data.List
 import Data.Tuple.Extra
 import qualified Data.HashMap.Strict as Map
-
+import General.FileName
 
 data ReadOrWrite = Read | Write deriving (Show,Eq)
 
 -- For Write, Seconds is the last possible time at which it was written
 -- For Read, Seconds is the earliest possible time at which it was read
 -- In both cases, Cmd is the thing that caused the read/write
-newtype HazardSet = HazardSet (Map.HashMap FilePath (ReadOrWrite, Seconds, Cmd))
+newtype HazardSet = HazardSet (Map.HashMap FileName (ReadOrWrite, Seconds, Cmd))
     deriving Show
 
 
 -- | Type of exception thrown if there is a hazard when running the build system.
 data Hazard
-    = ReadWriteHazard FilePath Cmd Cmd Recoverable
-    | WriteWriteHazard FilePath Cmd Cmd Recoverable
+    = ReadWriteHazard FileName Cmd Cmd Recoverable
+    | WriteWriteHazard FileName Cmd Cmd Recoverable
       deriving Show
 instance Exception Hazard
 
@@ -45,10 +45,10 @@ restartableHazard (ReadWriteHazard _ _ _ r) = r == Restartable
 emptyHazardSet :: HazardSet
 emptyHazardSet = HazardSet Map.empty
 
-seenHazardSet :: FilePath -> HazardSet -> Bool
+seenHazardSet :: FileName -> HazardSet -> Bool
 seenHazardSet x (HazardSet mp) = x `Map.member` mp
 
-newHazardSet :: Seconds -> Seconds -> Cmd -> Touch FilePath -> HazardSet
+newHazardSet :: Seconds -> Seconds -> Cmd -> Touch FileName -> HazardSet
 newHazardSet start stop cmd Touch{..} = HazardSet $ Map.fromList $
     map (,(Write,stop ,cmd)) tWrite ++
     map (,(Read ,start,cmd)) tRead
@@ -62,7 +62,7 @@ mergeHazardSet required (HazardSet h1) (HazardSet h2) =
 {- HLINT ignore mergeFileOps "Use infix" -}
 
 -- r is required list; s is speculate list
-mergeFileOps :: [Cmd] -> FilePath -> (ReadOrWrite, Seconds, Cmd) -> (ReadOrWrite, Seconds, Cmd) -> Either Hazard (ReadOrWrite, Seconds, Cmd)
+mergeFileOps :: [Cmd] -> FileName -> (ReadOrWrite, Seconds, Cmd) -> (ReadOrWrite, Seconds, Cmd) -> Either Hazard (ReadOrWrite, Seconds, Cmd)
 mergeFileOps r x (Read, t1, cmd1) (Read, t2, cmd2) = Right (Read, min t1 t2, if t1 < t2 then cmd1 else cmd2)
 mergeFileOps r x (Write, t1, cmd1) (Write, t2, cmd2) = Left $ WriteWriteHazard x cmd1 cmd2 $
     -- if they both were required, we've got a problem

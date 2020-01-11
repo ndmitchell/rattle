@@ -34,7 +34,9 @@ import Data.IORef
 import Data.List.Extra
 import Data.Tuple.Extra
 import System.Time.Extra
-
+import General.FileName
+import General.FileInfo
+import qualified Data.ByteString.Char8 as BS
 
 -- | Type of actions to run. Executed using 'rattle'.
 newtype Run a = Run {fromRun :: ReaderT Rattle IO a}
@@ -52,21 +54,20 @@ data S = S
     {started :: Map.HashMap Cmd (NoShow (IO ()))
         -- ^ Things that have got to running - if you find a duplicate just run the IO
         --   to wait for it.
-    ,running :: [(Seconds, Cmd, Touch FilePath)]
+    ,running :: [(Seconds, Cmd, Touch FileName)]
         -- ^ Things currently running, with the time they started,
         --    and an amalgamation of their previous Trace (if we have any)
     ,hazard :: HazardSet
         -- ^ Things that have been read or written, at what time, and by which command
         --   Used to detect hazards.
         --   Read is recorded as soon as it can, Write as late as it can, as that increases hazards.
-    ,pending :: [(Seconds, Cmd, Trace (FilePath, Hash))]
+    ,pending :: [(Seconds, Cmd, Trace (FileName, ModTime, Hash))]
         -- ^ Things that have completed, and would like to get recorded, but have to wait
         --   to confirm they didn't cause hazards
     ,required :: [Cmd]
         -- ^ Things what were required by the user calling cmdRattle, not added due to speculation.
         --   Will be the 'speculate' list next time around.
     } deriving Show
-
 
 data Problem
     = Finished
@@ -78,7 +79,7 @@ throwProblem (Hazard h) = throwIO h
 
 data Rattle = Rattle
     {options :: RattleOptions
-    ,speculate :: [(Cmd, Touch FilePath)] -- ^ Things that were used in the last speculation with this name
+    ,speculate :: [(Cmd, Touch FileName)] -- ^ Things that were used in the last speculation with this name
     ,runIndex :: !RunIndex -- ^ Run# we are on
     ,state :: Var (Either Problem S)
     ,timer :: IO Seconds
@@ -101,7 +102,7 @@ withRattle options@RattleOptions{..} act = withUI rattleFancyUI (return "Running
     speculate <- fmap (takeWhile (not . null . snd)) $ -- don't speculate on things we have no traces for
         forM speculate $ \x -> do
             traces <- unsafeInterleaveIO (getCmdTraces shared x)
-            return (x, normalizeTouch $ foldMap (fmap (expand rattleNamedDirs . fst) . tTouch) traces)
+            return (x, normalizeTouch $ foldMap (fmap (expand rattleNamedDirs . fst3) . tTouch) traces)
     speculated <- newIORef False
 
     runIndex <- nextRun shared rattleMachine
@@ -153,6 +154,7 @@ nextSpeculate Rattle{..} S{..}
         addTrace (r,w) Touch{..} = (f r tRead, f w tWrite)
             where f set xs = Set.union set $ Set.fromList xs
 
+        step :: (Set.HashSet FileName, Set.HashSet FileName) -> [(Cmd, Touch FileName)] -> Maybe Cmd
         step _ [] = Nothing
         step rw ((x,_):xs)
             | x `Map.member` started = step rw xs -- do not update the rw, since its already covered
@@ -185,18 +187,17 @@ cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
     case Map.lookup cmd (started s) of
         Just (NoShow wait) -> return (Right s, wait)
         Nothing -> do
-            hist <- unsafeInterleaveIO $ map (fmap $ first $ expand $ rattleNamedDirs options) <$> getCmdTraces shared cmd
+            hist <- unsafeInterleaveIO $ map (fmap (\(f,mt,h) -> (expand (rattleNamedDirs options) f, mt, h))) <$> getCmdTraces shared cmd
             go <- once $ cmdRattleRun rattle cmd start hist msgs
-            s <- return s{running = (start, cmd, foldMap (fmap fst . tTouch) hist) : running s}
+            s <- return s{running = (start, cmd, foldMap (fmap fst3 . tTouch) hist) : running s}
             s <- return s{started = Map.insert cmd (NoShow go) $ started s}
             return (Right s, runSpeculate rattle >> go >> runSpeculate rattle)
 
 
 -- either fetch it from the cache or run it)
-cmdRattleRun :: Rattle -> Cmd -> Seconds -> [Trace (FilePath, Hash)] -> [String] -> IO ()
+cmdRattleRun :: Rattle -> Cmd -> Seconds -> [Trace (FileName, ModTime, Hash)] -> [String] -> IO ()
 cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
-    hasher <- memoIO hashFileForward
-    let match (fp, h) = (== Just h) <$> hasher fp
+    let match (fp, mt, h) = (== Just h) <$> hashFileForwardIfStale fp mt h
     histRead <- filterM (allM match . tRead . tTouch) hist
     histBoth <- filterM (allM match . tWrite . tTouch) histRead
     case histBoth of
@@ -208,7 +209,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
         [] -> do
             -- lets see if any histRead's are also available in the cache
             fetcher <- memoIO $ getFile shared
-            let fetch (fp, h) = do v <- fetcher h; case v of Nothing -> return Nothing; Just op -> return $ Just $ op fp
+            let fetch (fp, mt, h) = do v <- fetcher h; case v of Nothing -> return Nothing; Just op -> return $ Just $ op fp
             download <- if not (rattleShare options)
                 then return Nothing
                 else firstJustM (\t -> fmap (t,) <$> allMaybeM fetch (tWrite $ tTouch t)) histRead
@@ -223,13 +224,15 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
                     touch <- fsaTrace c
                     checkHashForwardConsistency touch
                     let pats = matchMany [((), x) | Ignored xs <- opts2, x <- xs]
-                    let skip x = "/dev/" `isPrefixOf` x || hasTrailingPathSeparator x || pats [((),x)] /= []
-                    let f hasher xs = mapMaybeM (\x -> fmap (x,) <$> hasher x) $ filter (not . skip) xs
+                    --let hasTrailingPathSeparator x = if BS.null x then False else isPathSeparator $ BS.last x
+                    let skip x = let y = fileNameToString x in
+                                   isPrefixOf "/dev/" y || hasTrailingPathSeparator y || pats [((),y)] /= []
+                    let f hasher xs = mapMaybeM (\x -> fmap (\(mt,h) -> (x,mt,h)) <$> hasher x) $ filter (not . skip) xs
                     touch <- Touch <$> f hashFileForward (tRead touch) <*> f hashFile (tWrite touch)
                     touch <- generateHashForwards cmd [x | HashNonDeterministic xs <- opts2, x <- xs] touch
                     when (rattleShare options) $
-                        forM_ (tWrite touch) $ \(fp, h) ->
-                            setFile shared fp h ((== Just h) <$> hashFile fp)
+                        forM_ (tWrite touch) $ \(fp, mt, h) ->
+                            setFile shared fp h ((== Just h) <$> hashFileIfStale fp mt h)
                     cmdRattleFinished rattle startTimestamp cmd (Trace runIndex start stop touch) True
     where
         display :: [String] -> IO a -> IO a
@@ -252,7 +255,7 @@ cmdRattleRaw ui opts args = do
                 writeFileUTF8 file $ concat args
             return (opts2, map C.FSAWrite files)
 
-checkHashForwardConsistency :: Touch FilePath -> IO ()
+checkHashForwardConsistency :: Touch FileName -> IO ()
 checkHashForwardConsistency Touch{..} = do
     -- check that anyone who is writing forwarding hashes is writing the actual file
     let sources = mapMaybe fromHashForward tWrite
@@ -261,27 +264,27 @@ checkHashForwardConsistency Touch{..} = do
         fail $ "Wrote to the forwarding file, but not the source: " ++ show bad
 
     -- and anyone writing to a file with a hash also updates it
-    forwards <- filterM doesFileExist $ mapMaybe toHashForward tWrite
+    forwards <- filterM doesFileNameExist $ mapMaybe toHashForward tWrite
     let bad = forwards \\ tWrite
     when (bad /= []) $
         fail $ "Wrote to the source file which has a forwarding hash, but didn't touch the hash: " ++ show bad
 
 
 -- | If you have been asked to generate a forwarding hash for writes
-generateHashForwards :: Cmd -> [FilePattern] -> Touch (FilePath, Hash) -> IO (Touch (FilePath, Hash))
+generateHashForwards :: Cmd -> [FilePattern] -> Touch (FileName, ModTime, Hash) -> IO (Touch (FileName, ModTime, Hash))
 generateHashForwards cmd ms t = do
     let match = matchMany $ map ((),) ms
-    let (normal, forward) = partition (\(x, _) -> isJust (toHashForward x) && null (match [((), x)])) $ tWrite t
+    let (normal, forward) = partition (\(x, _, _) -> isJust (toHashForward x) && null (match [((), fileNameToString x)])) $ tWrite t
     let Hash hash = hashString $ show (cmd, tRead t, normal)
     let hhash = hashHash $ Hash hash
-    forward <- forM forward $ \(x,_) -> do
+    forward <- forM forward $ \(x,mt,_) -> do
         let Just x2 = toHashForward x -- checked this is OK earlier
-        writeFile x2 hash
-        return (x2, hhash)
+        BS.writeFile (fileNameToString x2) hash
+        return (x2, mt,hhash)
     return t{tWrite = tWrite t ++ forward}
 
 -- | I finished running a command
-cmdRattleFinished :: Rattle -> Seconds -> Cmd -> Trace (FilePath, Hash) -> Bool -> IO ()
+cmdRattleFinished :: Rattle -> Seconds -> Cmd -> Trace (FileName, ModTime, Hash) -> Bool -> IO ()
 cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{..} save = join $ modifyVar state $ \case
     Left e -> throwProblem e
     Right s -> do
@@ -292,7 +295,7 @@ cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{..} save = join $ modi
 
         -- look for hazards
         -- push writes to the end, and reads to the start, because reads before writes is the problem
-        let newHazards = newHazardSet start stop cmd $ fmap fst tTouch
+        let newHazards = newHazardSet start stop cmd $ fmap fst3 tTouch
         case mergeHazardSet (required s) (hazard s) newHazards of
             (ps@(p:_), _) -> return (Left $ Hazard p, print ps >> throwIO p)
             ([], hazard2) -> do
@@ -303,4 +306,4 @@ cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{..} save = join $ modi
                 let earliest = minimum $ maxTimestamp : map fst3 (running s)
                 (safe, pending) <- return $ partition (\x -> fst3 x < earliest) $ pending s
                 s <- return s{pending = pending}
-                return (Right s, forM_ safe $ \(_,c,t) -> addCmdTrace shared c $ fmap (first $ shorten (rattleNamedDirs options)) t)
+                return (Right s, forM_ safe $ \(_,c,t) -> addCmdTrace shared c $ fmap (\(f,mt,h) -> (shorten (rattleNamedDirs options) f, mt,h)) t)

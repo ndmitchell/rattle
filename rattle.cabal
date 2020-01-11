@@ -52,7 +52,12 @@ library
         unordered-containers >= 0.2.7,
         js-dgtable,
         js-flot,
-        js-jquery
+        js-jquery,
+        cereal >= 0.5.8.1,
+        utf8-string >= 1.0.1.1
+
+    if !os(windows)
+        build-depends: unix >= 2.7.2.2
 
     exposed-modules:
         Development.Rattle
@@ -77,6 +82,8 @@ library
         General.EscCodes
         General.Template
         Paths_rattle
+        General.FileName
+        General.FileInfo
 
 executable pipeline
     default-language: Haskell2010
@@ -113,7 +120,12 @@ test-suite rattle-test
         unordered-containers >= 0.2.7,
         js-dgtable,
         js-flot,
-        js-jquery
+        js-jquery,
+        cereal >= 0.5.8.1,
+        utf8-string >= 1.0.1.1
+
+    if !os(windows)
+        build-depends: unix >= 2.7.2.2
 
     other-modules:
         Development.Rattle
@@ -142,3 +154,5 @@ test-suite rattle-test
         Test.Trace
         Test.Limit
         Test.Type
+        General.FileName
+        General.FileInfo

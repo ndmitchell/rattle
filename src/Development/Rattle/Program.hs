@@ -11,6 +11,7 @@ import Development.Shake.Command
 import System.IO.Unsafe
 import System.FilePath
 import Language.Haskell.TH
+import qualified Data.ByteString.Char8 as BS
 
 -- | A program that can be run externally.
 data Program a = Program
@@ -28,7 +29,7 @@ newProgram display expr = Program display contents (hashString contents)
 runProgram :: Show a => Program a -> a -> Run ()
 runProgram Program{..} x = do
     let Hash unhash = programHash
-    let file = ".rattle/program/" </> unhash <.> "hs"
+    let file = ".rattle/program/" </> BS.unpack unhash <.> "hs"
     cmdWriteFile file programContents
     cmd "runhaskell" file [show x]
 
