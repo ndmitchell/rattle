@@ -21,11 +21,10 @@ import Data.Serialize
 import General.FileName
 
 data Cmd = Cmd [CmdOption] [String]
-    deriving (Show, Read, Eq, Generic, Hashable)
+    deriving (Show, Eq, Generic, Hashable)
 
 instance Serialize Cmd
 deriving instance Serialize CmdOption
-deriving instance Read CmdOption
 deriving instance Generic CmdOption
 deriving instance Hashable CmdOption
 
@@ -34,14 +33,14 @@ data Trace a = Trace
     ,tStart :: Seconds
     ,tStop :: Seconds
     ,tTouch :: Touch a
-    } deriving (Show, Read, Functor, Foldable, Traversable, Eq, Generic)
+    } deriving (Show, Functor, Foldable, Traversable, Eq, Generic)
 
 instance Serialize a => Serialize (Trace a)
 
 data Touch a = Touch
     {tRead :: [a]
     ,tWrite :: [a]
-    } deriving (Show, Read, Functor, Foldable, Traversable, Eq, Generic)
+    } deriving (Show, Functor, Foldable, Traversable, Eq, Generic)
 
 instance Serialize a => Serialize (Touch a)
 
@@ -81,7 +80,7 @@ canonicalizeTouch (Touch a b) = Touch <$> mapM canonicalizePath a <*> mapM canon
 
 -- | Which run we are in, monotonically increasing
 newtype RunIndex = RunIndex Int
-    deriving (Eq,Ord,Show,Read,Generic)
+    deriving (Eq,Ord,Show,Generic)
 
 instance Serialize RunIndex
 

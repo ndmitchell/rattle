@@ -22,7 +22,7 @@ import Data.Serialize
 
 -- | UTF8 ByteString
 newtype FileName = FileName BS.ByteString
-    deriving (Hashable, Binary, Eq, NFData, Generic, Read, Ord)
+    deriving (Hashable, Binary, Eq, NFData, Generic, Ord)
 
 instance Serialize FileName
 

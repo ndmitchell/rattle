@@ -24,7 +24,7 @@ import General.FileName
 import General.FileInfo
 
 newtype Hash = Hash BS.ByteString
-    deriving (NFData, Show, Read, Eq, Hashable, Generic)
+    deriving (NFData, Show, Eq, Hashable, Generic)
 
 instance Serialize Hash
 
