@@ -23,6 +23,7 @@ import Data.Serialize
 import General.FileName
 import General.FileInfo
 
+-- | A hash, encoded 32 bytes, may contain NUL or other funny characters
 newtype Hash = Hash BS.ByteString
     deriving (NFData, Show, Eq, Hashable, Generic)
 
