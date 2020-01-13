@@ -5,7 +5,7 @@ module General.FileName(
   FileName,
   fileNameFromString, fileNameFromByteString,
   fileNameToString, fileNameToByteString,
-  filepathNormalise, byteStringToFileName
+  byteStringToFileName
   ) where
 
 import qualified Data.ByteString.Char8 as BS
