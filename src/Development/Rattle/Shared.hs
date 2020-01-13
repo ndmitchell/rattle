@@ -37,8 +37,7 @@ withShared dir act = do
     act $ Shared lock dir
 
 filename :: Hash -> String
-filename (Hash str) = let (a:b:cs) = show str in
-                        [a,b] </> cs
+filename str = let (a:b:cs) = hashHex str in [a,b] </> cs
 
 getList :: (Show a, Serialize b) => String -> Shared -> a -> IO [b]
 getList typ (Shared lock dir) name = withLock lock $ do

@@ -2,7 +2,7 @@
 
 module Development.Rattle.Hash(
     Hash(..),
-    hashFile, hashString, hashHash,
+    hashFile, hashString, hashHash, hashHex,
     hashFileForward, toHashForward, fromHashForward,
     hashFileForwardIfStale, hashFileIfStale
     ) where
@@ -14,6 +14,8 @@ import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import qualified Data.HashMap.Strict as Map
 import System.IO.Unsafe
+import Data.Char
+import Numeric
 import Control.Monad.Extra
 import Data.IORef
 import Control.Exception.Extra
@@ -25,12 +27,20 @@ import General.FileInfo
 
 -- | A hash, encoded 32 bytes, may contain NUL or other funny characters
 newtype Hash = Hash BS.ByteString
-    deriving (NFData, Show, Eq, Hashable, Generic)
+    deriving (NFData, Eq, Hashable, Generic)
+
+instance Show Hash where
+    show = hashHex
 
 instance Serialize Hash
 
 mkHash :: BS.ByteString -> Hash
 mkHash = Hash
+
+-- | Show a hash as hex characters
+hashHex :: Hash -> String
+hashHex (Hash x) = concatMap (f . ord) $ BS.unpack x
+    where f i = ['0' | i < 16] ++ showHex i ""
 
 -- Hashing lots of files is expensive, so we keep a cache
 {-# NOINLINE hashCache #-}
