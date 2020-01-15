@@ -28,7 +28,7 @@ toCmds :: String -> [(String, FilePath)]
 toCmds = f . lines
   where f [] = []
         f xs = let (p,ys) = getCmd xs in
-                 p:(f ys)
+                 p : f ys
         h [] = ([],[])
         -- get cmd line
         h (x:xs)
@@ -41,7 +41,7 @@ toCmds = f . lines
           -- first get dir; then get cmd
           let (y, zs) = h xs in
             ((unlines y, getDir x), zs)
-        getDir str = case (stripPrefix "dir: " str) of
+        getDir str = case stripPrefix "dir: " str of
           Nothing -> error $ "Expected line beginning with 'dir: ' got: " ++ str
           Just d -> d
 
@@ -51,6 +51,5 @@ main = do
   [file,j] <- getArgs
   file <- readFile file
   let cmds = toCmds file
-  rattleRun (localOptions $ read j) $ do
-    forM_ cmds $ \(c,d) -> shcCmd c d
-
+  rattleRun (localOptions $ read j) $
+    forM_ cmds $ uncurry shcCmd
