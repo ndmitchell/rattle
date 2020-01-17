@@ -37,6 +37,7 @@ import System.Time.Extra
 import General.FileName
 import General.FileInfo
 import qualified Data.ByteString.Char8 as BS
+import Data.Hashable
 
 -- | Type of actions to run. Executed using 'rattle'.
 newtype Run a = Run {fromRun :: ReaderT Rattle IO a}
@@ -87,6 +88,7 @@ data Rattle = Rattle
     ,pool :: Pool
     ,ui :: UI
     ,shared :: Shared
+    ,debugFile :: Var (Maybe Handle)
     }
 
 addCmdOptions :: [C.CmdOption] -> Rattle -> Rattle
@@ -109,6 +111,9 @@ withRattle options@RattleOptions{..} act = withUI rattleFancyUI (return "Running
     timer <- offsetTime
     let s0 = Right $ S Map.empty [] emptyHazardSet [] []
     state <- newVar s0
+    debugFile <- join $ newVar <$> case rattleDebug of
+                                     Nothing -> return Nothing
+                                     Just f -> Just <$> openFile f WriteMode
 
     let saveSpeculate state =
             whenJust rattleSpeculate $ \name ->
@@ -119,7 +124,9 @@ withRattle options@RattleOptions{..} act = withUI rattleFancyUI (return "Running
     let attempt1 = withPool rattleProcesses $ \pool -> do
             let r = Rattle{..}
             runSpeculate r
-            (act r <* saveSpeculate state) `finally` writeVar state (Left Finished)
+            (act r <* saveSpeculate state) `finally` (writeVar state (Left Finished) >> withVar debugFile (\x -> case x of
+                                                                                                                  Nothing -> return ()
+                                                                                                                  Just h -> hClose h))
     attempt1 `catch` \(h :: Hazard) -> do
         b <- readIORef speculated
         if not (recoverableHazard h || restartableHazard h) then throwIO h else do
@@ -129,7 +136,9 @@ withRattle options@RattleOptions{..} act = withUI rattleFancyUI (return "Running
             state <- newVar s0
             withPool rattleProcesses $ \pool -> do
                 let r = Rattle{speculate=[], ..}
-                (act r <* saveSpeculate state) `finally` writeVar state (Left Finished)
+                (act r <* saveSpeculate state) `finally` (writeVar state (Left Finished) >> withVar debugFile (\x -> case x of
+                                                                                                                  Nothing -> return ()
+                                                                                                                  Just h -> hClose h))
 
 runSpeculate :: Rattle -> IO ()
 runSpeculate rattle@Rattle{..} = void $ forkIO $ void $ runPoolMaybe pool $
@@ -194,12 +203,28 @@ cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
             return (Right s, runSpeculate rattle >> go >> runSpeculate rattle)
 
 
+-- first is true; 2nd is false
+helper :: Monad m => (a -> m (Maybe b)) -> [a] -> m ([a], [b])
+helper _ [] = return ([], [])
+helper f (x:xs) = do
+  res <- f x
+  (as,bs) <- helper f xs 
+  case res of
+    Nothing -> return (x:as, bs)
+    Just y -> return (as, y:bs)
+
+g :: (Hashable a, Eq a, Monad m) => (a -> m Bool) -> [a] -> m (Maybe (Set.HashSet a))
+g _ [] = return Nothing -- SUOER dUMB PERSON
+g f (x:xs) = do
+  b <- f x
+  if b then g f xs else (return . Set.insert x . fromMaybe Set.empty) <$> g f xs
+
 -- either fetch it from the cache or run it)
 cmdRattleRun :: Rattle -> Cmd -> Seconds -> [Trace (FileName, ModTime, Hash)] -> [String] -> IO ()
 cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
     let match (fp, mt, h) = (== Just h) <$> hashFileForwardIfStale fp mt h
-    histRead <- filterM (allM match . tRead . tTouch) hist
-    histBoth <- filterM (allM match . tWrite . tTouch) histRead
+    (histRead, changedR) <- helper (g match . tRead . tTouch) hist
+    (histBoth, changedW) <- helper (g match . tWrite . tTouch) histRead
     case histBoth of
         t:_ ->
             -- we have something consistent at this point, no work to do
@@ -230,6 +255,29 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
                     let f hasher xs = mapMaybeM (\x -> fmap (\(mt,h) -> (x,mt,h)) <$> hasher x) $ filter (not . skip) xs
                     touch <- Touch <$> f hashFileForward (tRead touch) <*> f hashFile (tWrite touch)
                     touch <- generateHashForwards cmd [x | HashNonDeterministic xs <- opts2, x <- xs] touch
+                    when (isJust $ rattleDebug options) $
+                      -- hashtable of files -> hashes from first trace in hist
+                      let ht = foldl (\x (fp, _, h) -> Map.insert fp h x)
+                               Map.empty $ if null hist
+                                           then []
+                                           else tWrite $ tTouch $ head hist in
+                        when (not $ null hist) $ do
+                        -- construct the string we want to write
+                        let cstr = "Cmd: " ++ show cmd ++ "\n"
+                            rstr = if null changedR
+                                   then if null changedW
+                                        then "Nothing changed causing cmd to run.\n"
+                                        else "Changed WRITE files caused cmd to run: " ++ (show (map fst3 $ Set.toList $ head changedW)) ++ " \n"
+                                   else "Changed READ files caused cmd to run: " ++ show (map fst3 $ Set.toList $ head changedR) ++ " \n"
+
+                            (sw,cw) = partition (\(fp,_,h) -> case Map.lookup fp ht of
+                                                                (Just h2) -> h == h2
+                                                                Nothing -> False) (tWrite touch)
+                            wstr1 = "Written files UNCHANGED after run: " ++ (show $ map fst3 sw) ++ " \n"
+                            wstr2 = "Written files CHANGED after run: " ++ (show $ map fst3 cw) ++ " "
+                            str = cstr ++ rstr ++ wstr1 ++ wstr2
+                        withVar debugFile ((`hPutStrLn` str) . fromJust)
+                            
                     when (rattleShare options) $
                         forM_ (tWrite touch) $ \(fp, mt, h) ->
                             setFile shared fp h ((== Just h) <$> hashFileIfStale fp mt h)

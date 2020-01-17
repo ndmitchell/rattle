@@ -26,12 +26,13 @@ data RattleOptions = RattleOptions
     ,rattleCmdOptions :: [C.CmdOption] -- ^ Extra options added to every command line
     ,rattleNamedDirs :: [(BSC.ByteString, FilePath)] -- ^ Named directories
     ,rattleFancyUI :: Maybe Bool -- ^ True for Yes, Nothing for auto detect, False for no
+    ,rattleDebug :: Maybe FilePath -- ^ Print information about why commands ran and if outputs changed
     } deriving Show
 
 
 -- | Default 'RattleOptions' value.
 rattleOptions :: RattleOptions
-rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 0 [] [(BSC.pack "PWD",".")] Nothing
+rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 0 [] [(BSC.pack "PWD",".")] Nothing $ Just "cmds.debug"
 
 
 rattleOptionsExplicit :: RattleOptions -> IO RattleOptions
