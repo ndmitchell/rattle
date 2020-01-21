@@ -208,13 +208,13 @@ helper :: Monad m => (a -> m (Maybe b)) -> [a] -> m ([a], [b])
 helper _ [] = return ([], [])
 helper f (x:xs) = do
   res <- f x
-  (as,bs) <- helper f xs 
+  (as,bs) <- helper f xs
   case res of
     Nothing -> return (x:as, bs)
     Just y -> return (as, y:bs)
 
 g :: (Hashable a, Eq a, Monad m) => (a -> m Bool) -> [a] -> m (Maybe (Set.HashSet a))
-g _ [] = return Nothing -- SUOER dUMB PERSON
+g _ [] = return Nothing
 g f (x:xs) = do
   b <- f x
   if b then g f xs else return . Set.insert x . fromMaybe Set.empty <$> g f xs
