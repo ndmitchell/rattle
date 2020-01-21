@@ -277,7 +277,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
                             wstr2 = "Written files CHANGED after run: " ++ show (map fst3 cw) ++ " "
                             str = cstr ++ rstr ++ wstr1 ++ wstr2
                         withVar debugFile ((`hPutStrLn` str) . fromJust)
-                            
+
                     when (rattleShare options) $
                         forM_ (tWrite touch) $ \(fp, mt, h) ->
                             setFile shared fp h ((== Just h) <$> hashFileIfStale fp mt h)
