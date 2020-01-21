@@ -111,9 +111,9 @@ withRattle options@RattleOptions{..} act = withUI rattleFancyUI (return "Running
     timer <- offsetTime
     let s0 = Right $ S Map.empty [] emptyHazardSet [] []
     state <- newVar s0
-    debugFile <- join $ newVar <$> case rattleDebug of
-                                     Nothing -> return Nothing
-                                     Just f -> Just <$> openFile f WriteMode
+    debugFile <- newVar =<< case rattleDebug of
+                              Nothing -> return Nothing
+                              Just f -> Just <$> openFile f WriteMode
 
     let saveSpeculate state =
             whenJust rattleSpeculate $ \name ->
@@ -124,9 +124,9 @@ withRattle options@RattleOptions{..} act = withUI rattleFancyUI (return "Running
     let attempt1 = withPool rattleProcesses $ \pool -> do
             let r = Rattle{..}
             runSpeculate r
-            (act r <* saveSpeculate state) `finally` (writeVar state (Left Finished) >> withVar debugFile (\x -> case x of
-                                                                                                                  Nothing -> return ()
-                                                                                                                  Just h -> hClose h))
+            (act r <* saveSpeculate state) `finally` (writeVar state (Left Finished) >> withVar debugFile (\case
+                                                                                                              Nothing -> return ()
+                                                                                                              Just h -> hClose h))
     attempt1 `catch` \(h :: Hazard) -> do
         b <- readIORef speculated
         if not (recoverableHazard h || restartableHazard h) then throwIO h else do
@@ -136,7 +136,7 @@ withRattle options@RattleOptions{..} act = withUI rattleFancyUI (return "Running
             state <- newVar s0
             withPool rattleProcesses $ \pool -> do
                 let r = Rattle{speculate=[], ..}
-                (act r <* saveSpeculate state) `finally` (writeVar state (Left Finished) >> withVar debugFile (\x -> case x of
+                (act r <* saveSpeculate state) `finally` (writeVar state (Left Finished) >> withVar debugFile (\case
                                                                                                                   Nothing -> return ()
                                                                                                                   Just h -> hClose h))
 
@@ -217,7 +217,7 @@ g :: (Hashable a, Eq a, Monad m) => (a -> m Bool) -> [a] -> m (Maybe (Set.HashSe
 g _ [] = return Nothing -- SUOER dUMB PERSON
 g f (x:xs) = do
   b <- f x
-  if b then g f xs else (return . Set.insert x . fromMaybe Set.empty) <$> g f xs
+  if b then g f xs else return . Set.insert x . fromMaybe Set.empty <$> g f xs
 
 -- either fetch it from the cache or run it)
 cmdRattleRun :: Rattle -> Cmd -> Seconds -> [Trace (FileName, ModTime, Hash)] -> [String] -> IO ()
@@ -261,20 +261,20 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
                                Map.empty $ if null hist
                                            then []
                                            else tWrite $ tTouch $ head hist in
-                        when (not $ null hist) $ do
+                        unless (null hist) $ do
                         -- construct the string we want to write
                         let cstr = "Cmd: " ++ show cmd ++ "\n"
                             rstr = if null changedR
                                    then if null changedW
                                         then "Nothing changed causing cmd to run.\n"
-                                        else "Changed WRITE files caused cmd to run: " ++ (show (map fst3 $ Set.toList $ head changedW)) ++ " \n"
+                                        else "Changed WRITE files caused cmd to run: " ++ show (map fst3 $ Set.toList $ head changedW) ++ " \n"
                                    else "Changed READ files caused cmd to run: " ++ show (map fst3 $ Set.toList $ head changedR) ++ " \n"
 
                             (sw,cw) = partition (\(fp,_,h) -> case Map.lookup fp ht of
                                                                 (Just h2) -> h == h2
                                                                 Nothing -> False) (tWrite touch)
-                            wstr1 = "Written files UNCHANGED after run: " ++ (show $ map fst3 sw) ++ " \n"
-                            wstr2 = "Written files CHANGED after run: " ++ (show $ map fst3 cw) ++ " "
+                            wstr1 = "Written files UNCHANGED after run: " ++ show (map fst3 sw) ++ " \n"
+                            wstr2 = "Written files CHANGED after run: " ++ show (map fst3 cw) ++ " "
                             str = cstr ++ rstr ++ wstr1 ++ wstr2
                         withVar debugFile ((`hPutStrLn` str) . fromJust)
                             
