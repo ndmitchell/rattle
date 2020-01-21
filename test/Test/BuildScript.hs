@@ -6,6 +6,7 @@ import Data.List.Extra
 import System.Environment
 import Control.Monad
 import qualified Data.ByteString.Char8 as BS
+import System.FilePath
 
 -- Takes as arguments a file and the number of threads to run with
 -- File is of the following format
@@ -16,8 +17,8 @@ import qualified Data.ByteString.Char8 as BS
 -- ( this might need to be changed for windows)
 
 
-localOptions :: Int -> RattleOptions
-localOptions j = RattleOptions ".rattle" (Just "") "m1" True j [] [(BS.pack "PWD", ".")] Nothing
+localOptions :: Int -> FilePath -> RattleOptions
+localOptions j f = RattleOptions ".rattle" (Just "") "m1" True j [] [(BS.pack "PWD", ".")] Nothing $ Just f
 
 shcCmd :: String -> FilePath -> Run ()
 shcCmd c d = cmd (Cwd d) ["sh", "-c", c]
@@ -50,5 +51,5 @@ main = do
   [file,j] <- getArgs
   file <- readFile file
   let cmds = toCmds file
-  rattleRun (localOptions $ read j) $
+  rattleRun (localOptions (read j) $ file <.> "debug") $
     forM_ cmds $ uncurry shcCmd
