@@ -103,7 +103,6 @@ executable buildScript
         async,
         base >= 4.10 && < 5,
         bytestring,
-        Cabal >= 2.2,
         cryptohash-sha256,
         deepseq >= 1.1,
         directory,
