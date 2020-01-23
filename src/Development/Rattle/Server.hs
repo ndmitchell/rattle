@@ -253,8 +253,8 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
                     let f hasher xs = mapMaybeM (\x -> fmap (\(mt,h) -> (x,mt,h)) <$> hasher x) $ filter (not . skip) xs
                     touch <- Touch <$> f hashFileForward (tRead touch) <*> f hashFile (tWrite touch)
                     touch <- generateHashForwards cmd [x | HashNonDeterministic xs <- opts2, x <- xs] touch
-                    --whenJust (rattleDebug options) $ \_ ->
-                      --printCmdInfo changedR changedW touch
+                    whenJust (rattleDebug options) $ \_ ->
+                      printCmdInfo changedR changedW touch
 
                     when (rattleShare options) $
                         forM_ (tWrite touch) $ \(fp, mt, h) ->
