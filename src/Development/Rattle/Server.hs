@@ -221,8 +221,8 @@ listToMaybeSet ls = Just $ Set.fromList ls
 cmdRattleRun :: Rattle -> Cmd -> Seconds -> [Trace (FileName, ModTime, Hash)] -> [String] -> IO ()
 cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
     let match (fp, mt, h) = (== Just h) <$> hashFileForwardIfStale fp mt h
-    (histRead, changedR) <- helper (fmap listToMaybeSet . filterM match . tWrite . tTouch) hist
-    (histBoth, changedW) <- helper (fmap listToMaybeSet . filterM match . tWrite . tTouch) histRead
+    (histRead, changedR) <- helper (fmap listToMaybeSet . filterM (notM . match) . tWrite . tTouch) hist
+    (histBoth, changedW) <- helper (fmap listToMaybeSet . filterM (notM . match) . tWrite . tTouch) histRead
     case histBoth of
         t:_ ->
             -- we have something consistent at this point, no work to do
