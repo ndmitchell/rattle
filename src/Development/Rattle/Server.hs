@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables, RecordWildCards, TupleSections, LambdaCase #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving, GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, GADTs, ViewPatterns #-}
 
 module Development.Rattle.Server(
     Rattle, withRattle, Run(..),
@@ -213,18 +213,16 @@ helper f (x:xs) = do
     Nothing -> return (x:as, bs)
     Just y -> return (as, y:bs)
 
-g :: (Hashable a, Eq a, Monad m) => (a -> m Bool) -> [a] -> m (Maybe (Set.HashSet a))
-g _ [] = return Nothing
-g f (x:xs) = do
-  b <- f x
-  if b then g f xs else return . Set.insert x . fromMaybe Set.empty <$> g f xs
+listToMaybeSet :: (Eq a, Hashable a) => [a] -> Maybe (Set.HashSet a)
+listToMaybeSet [] = Nothing
+listToMaybeSet ls = Just $ Set.fromList ls
 
 -- either fetch it from the cache or run it)
 cmdRattleRun :: Rattle -> Cmd -> Seconds -> [Trace (FileName, ModTime, Hash)] -> [String] -> IO ()
 cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
     let match (fp, mt, h) = (== Just h) <$> hashFileForwardIfStale fp mt h
-    (histRead, changedR) <- helper (g match . tRead . tTouch) hist
-    (histBoth, changedW) <- helper (g match . tWrite . tTouch) histRead
+    (histRead, changedR) <- helper (fmap listToMaybeSet . filterM match . tWrite . tTouch) hist
+    (histBoth, changedW) <- helper (fmap listToMaybeSet . filterM match . tWrite . tTouch) histRead
     case histBoth of
         t:_ ->
             -- we have something consistent at this point, no work to do
@@ -255,28 +253,8 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
                     let f hasher xs = mapMaybeM (\x -> fmap (\(mt,h) -> (x,mt,h)) <$> hasher x) $ filter (not . skip) xs
                     touch <- Touch <$> f hashFileForward (tRead touch) <*> f hashFile (tWrite touch)
                     touch <- generateHashForwards cmd [x | HashNonDeterministic xs <- opts2, x <- xs] touch
-                    when (isJust $ rattleDebug options) $
-                      -- hashtable of files -> hashes from first trace in hist
-                      let ht = foldl (\x (fp, _, h) -> Map.insert fp h x)
-                               Map.empty $ if null hist
-                                           then []
-                                           else tWrite $ tTouch $ head hist in
-                        unless (null hist) $ do
-                        -- construct the string we want to write
-                        let cstr = "Cmd: " ++ show cmd ++ "\n"
-                            rstr = if null changedR
-                                   then if null changedW
-                                        then "Nothing changed causing cmd to run.\n"
-                                        else "Changed WRITE files caused cmd to run: " ++ show (map fst3 $ Set.toList $ head changedW) ++ " \n"
-                                   else "Changed READ files caused cmd to run: " ++ show (map fst3 $ Set.toList $ head changedR) ++ " \n"
-
-                            (sw,cw) = partition (\(fp,_,h) -> case Map.lookup fp ht of
-                                                                (Just h2) -> h == h2
-                                                                Nothing -> False) (tWrite touch)
-                            wstr1 = "Written files UNCHANGED after run: " ++ show (map fst3 sw) ++ " \n"
-                            wstr2 = "Written files CHANGED after run: " ++ show (map fst3 cw) ++ " "
-                            str = cstr ++ rstr ++ wstr1 ++ wstr2
-                        withVar debugFile ((`hPutStrLn` str) . fromJust)
+                    --whenJust (rattleDebug options) $ \_ ->
+                      --printCmdInfo changedR changedW touch
 
                     when (rattleShare options) $
                         forM_ (tWrite touch) $ \(fp, mt, h) ->
@@ -287,7 +265,27 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
         display msgs2 = addUI ui (head $ overrides ++ [cmdline]) (unwords $ msgs ++ msgs2)
         overrides = [x | C.Traced x <- opts] ++ [x | C.UserCommand x <- opts]
         cmdline = unwords $ ["cd " ++ x ++ " &&" | C.Cwd x <- opts] ++ args
+        printCmdInfo :: [Set.HashSet (FileName, ModTime, Hash)] -> [Set.HashSet (FileName, ModTime, Hash)] -> Touch (FileName, ModTime, Hash) -> IO ()
+        printCmdInfo changedR changedW touch =
+          let ht = case hist of
+                     [] -> Map.empty
+                     (tWrite . tTouch . head -> x) -> Map.fromList [(fp,h) | (fp,_,h) <- x] in
+            unless (null hist) $ do
+            -- construct the string we want to write
+            let cstr = "Cmd: " ++ show cmd ++ "\n"
+                rstr = if null changedR
+                       then if null changedW
+                            then "Nothing changed causing cmd to run.\n"
+                            else "Changed WRITE files caused cmd to run: " ++ show (map fst3 $ Set.toList $ head changedW) ++ " \n"
+                       else "Changed READ files caused cmd to run: " ++ show (map fst3 $ Set.toList $ head changedR) ++ " \n"
 
+                (sw,cw) = partition (\(fp,_,h) -> case Map.lookup fp ht of
+                                                    (Just h2) -> h == h2
+                                                    Nothing -> False) (tWrite touch)
+                wstr1 = "Written files UNCHANGED after run: " ++ show (map fst3 sw) ++ " \n"
+                wstr2 = "Written files CHANGED after run: " ++ show (map fst3 cw) ++ " "
+                str = cstr ++ rstr ++ wstr1 ++ wstr2
+            withVar debugFile ((`hPutStrLn` str) . fromJust)
 
 cmdRattleRaw :: UI -> [C.CmdOption] -> [String] -> IO ([CmdOption2], [C.FSATrace])
 cmdRattleRaw ui opts args = do

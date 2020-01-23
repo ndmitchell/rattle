@@ -44,12 +44,15 @@ toCmds = f . lines
         getDir str = case stripPrefix "dir: " str of
           Nothing -> error $ "Expected line beginning with 'dir: ' got: " ++ str
           Just d -> d
+        unlines [] = []
+        unlines [x] = x
+        unlines (x:xs) = x ++ '\n' : unlines xs
 
 -- takes a single file as an argument and a number of threads
 main :: IO ()
 main = do
-  [file,j] <- getArgs
-  file <- readFile file
+  [fileN,j] <- getArgs
+  file <- readFile fileN
   let cmds = toCmds file
-  rattleRun (localOptions (read j) $ file <.> "debug") $
+  rattleRun (localOptions (read j) $ fileN <.> "debug") $
     forM_ cmds $ uncurry shcCmd
