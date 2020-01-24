@@ -7,6 +7,7 @@ import System.Environment
 import Control.Monad
 import qualified Data.ByteString.Char8 as BS
 import System.FilePath
+import Data.Maybe
 
 -- Takes as arguments a file and the number of threads to run with
 -- File is of the following format
@@ -40,13 +41,14 @@ toCmds = f . lines
         getCmd (x:xs) =
           -- first get dir; then get cmd
           let (y, zs) = h xs in
-            ((unlines y, getDir x), zs)
+            ((stripDashC $ unlines y, getDir x), zs)
         getDir str = case stripPrefix "dir: " str of
           Nothing -> error $ "Expected line beginning with 'dir: ' got: " ++ str
           Just d -> d
         unlines [] = []
         unlines [x] = x
         unlines (x:xs) = x ++ '\n' : unlines xs
+        stripDashC str = fromMaybe str $ stripPrefix "-c" str
 
 -- takes a single file as an argument and a number of threads
 main :: IO ()
