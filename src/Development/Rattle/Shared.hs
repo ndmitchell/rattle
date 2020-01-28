@@ -47,7 +47,7 @@ getList typ (Shared lock dir) name = withLock lock $ do
               | BS.null bstr = []
               | otherwise = case runGetState get bstr 0 of
                               Left str -> error $ "Failed to decode: " ++ str
-                              Right (a, rbstr) -> decodeAll rbstr ++ a
+                              Right (a, rbstr) -> a ++ decodeAll rbstr
 
 setList :: (Show a, Serialize b) => String -> IOMode -> Shared -> a -> [b] -> IO ()
 setList typ mode (Shared lock dir) name vals = withLock lock $ do
@@ -110,7 +110,7 @@ data File = File FileName ModTime Hash
 
 instance Serialize File
 
--- First trace in list should be most recent one.
+-- First trace in list is earliest one; last is latest one.
 getCmdTraces :: Shared -> Cmd -> IO [Trace (FileName, ModTime, Hash)]
 getCmdTraces shared cmd = map (fmap fromFile) <$> getList "command" shared cmd
     where fromFile (File path mt x) = (path, mt, x)
