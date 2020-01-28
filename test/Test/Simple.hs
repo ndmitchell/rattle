@@ -30,7 +30,10 @@ main = unless isMac $ do
     putStrLn $ "Work: " ++ show w
     putStrLn $ "Span: " ++ show s
     putStrLn $ "Parallelism: " ++ show p
-    putStrLn "Build 2: Expect nothing"
+    putStrLn "Build 2: Expect 1 thing"
+    ignoreIO $ cmd ["sh", "-c", "echo '//comment' >> " ++ root </> "test/C/constants.c"]
+    rattleRun rattleOptions build
+    putStrLn "Build 2.5: Expect nothing"
     rattleRun rattleOptions build
     wipe
     putStrLn "Build 3: Expect cached (some speculation)"

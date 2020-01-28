@@ -23,7 +23,6 @@ import Control.Concurrent.Extra
 import qualified Data.ByteString as BS
 import Data.Serialize
 import GHC.Generics
-import Data.Either
 import General.FileInfo
 ---------------------------------------------------------------------
 -- PRIMITIVES
@@ -43,7 +42,12 @@ getList :: (Show a, Serialize b) => String -> Shared -> a -> IO [b]
 getList typ (Shared lock dir) name = withLock lock $ do
     let file = dir </> typ </> filename (hashString $ show name)
     b <- doesFileExist file
-    if not b then return [] else fromRight [] . decode <$> BS.readFile file
+    if not b then return [] else decodeAll <$> BS.readFile file
+      where decodeAll bstr
+              | BS.null bstr = []
+              | otherwise = case runGetState get bstr 0 of
+                              Left str -> error $ "Failed to decode: " ++ str
+                              Right (a, rbstr) -> decodeAll rbstr ++ a
 
 setList :: (Show a, Serialize b) => String -> IOMode -> Shared -> a -> [b] -> IO ()
 setList typ mode (Shared lock dir) name vals = withLock lock $ do
@@ -106,6 +110,7 @@ data File = File FileName ModTime Hash
 
 instance Serialize File
 
+-- First trace in list should be most recent one.
 getCmdTraces :: Shared -> Cmd -> IO [Trace (FileName, ModTime, Hash)]
 getCmdTraces shared cmd = map (fmap fromFile) <$> getList "command" shared cmd
     where fromFile (File path mt x) = (path, mt, x)
