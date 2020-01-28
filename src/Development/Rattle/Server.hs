@@ -97,39 +97,44 @@ addCmdOptions new r@Rattle{options=o@RattleOptions{rattleCmdOptions=old}} =
 withRattle :: RattleOptions -> (Rattle -> IO a) -> IO a
 withRattle options@RattleOptions{..} act = withUI rattleFancyUI (return "Running") $ \ui -> withShared rattleFiles $ \shared -> do
     options@RattleOptions{..} <- rattleOptionsExplicit options
+    -- make sure we have a thread for the speculation too
+    withNumCapabilities (rattleProcesses + 1) $ do
 
-    speculate <- maybe (return []) (getSpeculate shared) rattleSpeculate
-    speculate <- fmap (takeWhile (not . null . snd)) $ -- don't speculate on things we have no traces for
-        forM speculate $ \x -> do
-            traces <- unsafeInterleaveIO (getCmdTraces shared x)
-            return (x, normalizeTouch $ foldMap (fmap (expand rattleNamedDirs . fst3) . tTouch) traces)
-    speculated <- newIORef False
+        when (rattleProcesses > 1 && not rtsSupportsBoundThreads) $
+            putStrLn "WARNING: Running with multiple threads but not compiled with -threaded"
 
-    runIndex <- nextRun shared rattleMachine
-    timer <- offsetTime
-    let s0 = Right $ S Map.empty [] emptyHazardSet [] []
-    state <- newVar s0
+        speculate <- maybe (return []) (getSpeculate shared) rattleSpeculate
+        speculate <- fmap (takeWhile (not . null . snd)) $ -- don't speculate on things we have no traces for
+            forM speculate $ \x -> do
+                traces <- unsafeInterleaveIO (getCmdTraces shared x)
+                return (x, normalizeTouch $ foldMap (fmap (expand rattleNamedDirs . fst3) . tTouch) traces)
+        speculated <- newIORef False
 
-    let saveSpeculate state =
-            whenJust rattleSpeculate $ \name ->
-                whenRightM (readVar state) $ \v ->
-                    setSpeculate shared name $ reverse $ required v
+        runIndex <- nextRun shared rattleMachine
+        timer <- offsetTime
+        let s0 = Right $ S Map.empty [] emptyHazardSet [] []
+        state <- newVar s0
 
-    -- first try and run it
-    let attempt1 = withPool rattleProcesses $ \pool -> do
-            let r = Rattle{..}
-            runSpeculate r
-            (act r <* saveSpeculate state) `finally` writeVar state (Left Finished)
-    attempt1 `catch` \(h :: Hazard) -> do
-        b <- readIORef speculated
-        if not (recoverableHazard h || restartableHazard h) then throwIO h else do
-            -- if we speculated, and we failed with a hazard, try again
-            putStrLn "Warning: Speculation lead to a hazard, retrying without speculation"
-            print h
-            state <- newVar s0
-            withPool rattleProcesses $ \pool -> do
-                let r = Rattle{speculate=[], ..}
+        let saveSpeculate state =
+                whenJust rattleSpeculate $ \name ->
+                    whenRightM (readVar state) $ \v ->
+                        setSpeculate shared name $ reverse $ required v
+
+        -- first try and run it
+        let attempt1 = withPool rattleProcesses $ \pool -> do
+                let r = Rattle{..}
+                runSpeculate r
                 (act r <* saveSpeculate state) `finally` writeVar state (Left Finished)
+        attempt1 `catch` \(h :: Hazard) -> do
+            b <- readIORef speculated
+            if not (recoverableHazard h || restartableHazard h) then throwIO h else do
+                -- if we speculated, and we failed with a hazard, try again
+                putStrLn "Warning: Speculation lead to a hazard, retrying without speculation"
+                print h
+                state <- newVar s0
+                withPool rattleProcesses $ \pool -> do
+                    let r = Rattle{speculate=[], ..}
+                    (act r <* saveSpeculate state) `finally` writeVar state (Left Finished)
 
 runSpeculate :: Rattle -> IO ()
 runSpeculate rattle@Rattle{..} = void $ forkIO $ void $ runPoolMaybe pool $
