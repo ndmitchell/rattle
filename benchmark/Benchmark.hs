@@ -20,7 +20,7 @@ main = do
             putStrLn lbl
             let count = 5
             times <- replicateM count $ do
-                cmd_ Shell clean
+                Stdout (_ :: String) <- cmd Shell clean
                 fst <$> duration act
             putStrLn $ unwords (map showDuration times) ++ " = " ++ showDuration (sum times / intToDouble count)
 
