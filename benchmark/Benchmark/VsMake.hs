@@ -9,13 +9,13 @@ import System.Directory.Extra
 import Development.Rattle
 import Development.Shake.Command
 import System.Time.Extra
+import Data.Maybe
 import System.IO.Extra
-import Control.Monad
+import Control.Monad.Extra
 
 
 data VsMake = VsMake
     {repo :: String
-    ,commits :: Int
     ,generate :: FilePath -> IO ()
     ,clean :: IO ()
     }
@@ -30,16 +30,15 @@ timed msg j act = do
 
 vsMake :: VsMake -> Args -> IO ()
 vsMake VsMake{..} Args{..} = withTempDir $ \dir -> do
-    let commitList = reverse [0..commits]
+    let commitList = reverse [0..fromMaybe 10 commits]
     withCurrentDirectory dir $ do
         cmd_ "git clone" repo "."
         -- generate all the Rattle files
         forM_ commitList $ \i -> do
             checkout i
-            clean
             generate $ "rattle_" ++ show i ++ ".txt"
         -- for different levels of parallelism
-        forM_ [1..4] $ \j -> do
+        forM_ (threads `orNull` [1..4]) $ \j -> do
             -- first build with make
             clean
             forM_ commitList $ \i -> do
@@ -49,7 +48,8 @@ vsMake VsMake{..} Args{..} = withTempDir $ \dir -> do
 
             -- now with rattle
             clean
-            removeDirectoryRecursive ".rattle"
+            whenM (doesDirectoryExist ".rattle") $
+                removeDirectoryRecursive ".rattle"
             let opts = rattleOptions{rattleProcesses=j, rattleUI=Just RattleQuiet, rattleNamedDirs=[]}
             forM_ commitList $ \i -> do
                 checkout i

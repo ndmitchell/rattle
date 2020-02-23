@@ -2,7 +2,7 @@
 
 module Benchmark.Args(
     Args(..), getArguments,
-    elemOrNull
+    elemOrNull, orNull,
     ) where
 
 import System.Console.CmdArgs
@@ -12,18 +12,25 @@ data Args = Args
     ,threads :: [Int] -- which thread numbers to use
     ,repeat_ :: Maybe Int
     ,step :: [String] -- which steps to run
+    ,commits :: Maybe Int
     }
     deriving Data
 
-
-getArguments :: IO Args
-getArguments = cmdArgs $ Args
+mode :: Mode (CmdArgs Args)
+mode = cmdArgsMode $ Args
     {names = [] &= args
     ,threads = [] &= name "j"
     ,repeat_ = Nothing
     ,step = []
+    ,commits = Nothing
     }
+
+getArguments :: IO Args
+getArguments = cmdArgsRun mode
 
 
 elemOrNull :: Eq a => a -> [a] -> Bool
 elemOrNull x xs = null xs || x `elem` xs
+
+orNull :: [a] -> [a] -> [a]
+orNull xs ys = if null xs then ys else xs

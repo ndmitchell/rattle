@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Benchmark.FSATrace(main) where
@@ -12,11 +13,9 @@ main = vsMake VsMake{..}
     where
         repo = "https://github.com/jacereda/fsatrace"
 
-        commits = 1
-
         generate :: FilePath -> IO ()
         generate file = do
-            cmd_ "make clean"
+            cmd_ "make clean" (EchoStdout False)
             Stdout xs <- cmd "make -j1"
             writeFile file $
                 replace "fsatrace.exe" "fsatrace_.exe" $
