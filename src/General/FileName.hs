@@ -14,14 +14,23 @@ import Development.Shake.Classes
 import qualified System.FilePath as Native
 import System.Info.Extra
 import Data.List
-import GHC.Generics
 
 ---------------------------------------------------------------------
 -- FileName newtype
 
--- | UTF8 ByteString
-newtype FileName = FileName BS.ByteString
-    deriving (Hashable, Binary, Eq, NFData, Generic, Ord)
+-- | The hash of the filename, and the UTF8 ByteString
+data FileName = FileName Int !BS.ByteString
+    deriving Eq
+
+instance NFData FileName where
+  rnf FileName{} = ()
+
+instance Ord FileName where
+  compare (FileName _ a) (FileName _ b) = compare a b
+
+instance Hashable FileName where
+    hashWithSalt _ = hash
+    hash (FileName x _) = x
 
 instance Show FileName where
   show = fileNameToString
@@ -30,17 +39,17 @@ fileNameToString :: FileName -> FilePath
 fileNameToString = UTF8.toString . fileNameToByteString
 
 fileNameToByteString :: FileName -> BS.ByteString
-fileNameToByteString (FileName x) = x
+fileNameToByteString (FileName _ x) = x
 
 fileNameFromString :: FilePath -> FileName
 fileNameFromString = fileNameFromByteString . UTF8.fromString
 
 fileNameFromByteString :: BS.ByteString -> FileName
-fileNameFromByteString = FileName . filepathNormalise
+fileNameFromByteString = byteStringToFileName . filepathNormalise
 
 -- don't normalise
 byteStringToFileName :: BS.ByteString -> FileName
-byteStringToFileName = FileName
+byteStringToFileName x = FileName (hash x) x
 
 ---------------------------------------------------------------------
 -- NORMALISATION
