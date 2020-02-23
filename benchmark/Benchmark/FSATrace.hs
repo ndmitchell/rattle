@@ -11,13 +11,17 @@ import Data.List.Extra
 main :: Args -> IO ()
 main = vsMake VsMake{..}
     where
+        broken = ["eafc609"]
+
         repo = "https://github.com/jacereda/fsatrace"
 
-        generate :: FilePath -> IO ()
-        generate file = do
+        generateVersion = 1
+
+        generate :: IO String
+        generate = do
             cmd_ "make clean" (EchoStdout False)
             Stdout xs <- cmd "make -j1"
-            writeFile file $
+            return $
                 replace "fsatrace.exe" "fsatrace_.exe" $
                 replace "-MMD" "" xs
 

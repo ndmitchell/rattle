@@ -104,6 +104,7 @@ executable rattle-benchmark
         rattle,
         process,
         bytestring,
+        filepath,
         cmdargs,
         shake >= 0.19
     other-modules:
