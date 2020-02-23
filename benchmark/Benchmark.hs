@@ -6,6 +6,7 @@ import Benchmark.Args
 import qualified Benchmark.FSATrace
 import qualified Benchmark.Redis
 import qualified Benchmark.Micro
+import qualified Benchmark.Intro
 import Control.Monad
 
 
@@ -13,6 +14,7 @@ benchmarks =
     ["fsatrace" * Benchmark.FSATrace.main
     ,"redis" * Benchmark.Redis.main
     ,"micro" * Benchmark.Micro.main
+    ,"intro" * Benchmark.Intro.main
     ]
     where (*) = (,)
 
