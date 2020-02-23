@@ -17,7 +17,7 @@ import qualified Data.ByteString.Char8 as BS
 
 
 localOptions :: Int -> RattleOptions
-localOptions j = RattleOptions ".rattle" (Just "") "m1" True j [] [(BS.pack "PWD", ".")] Nothing
+localOptions j = RattleOptions ".rattle" (Just "") "m1" True j [] [("PWD", ".")] Nothing
 
 shcCmd :: String -> FilePath -> Run ()
 shcCmd c d = cmd (Cwd d) ["sh", "-c", c]
