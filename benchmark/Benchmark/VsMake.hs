@@ -25,8 +25,8 @@ data VsMake = VsMake
     }
 
 
-checkout :: Int -> IO String
-checkout i = do
+gitCheckout :: Int -> IO String
+gitCheckout i = do
     Stdout x <- cmd "git reset --hard" ["origin/master~" ++ show i]
     -- HEAD is now at 41fbba1 Warning
     return $ words x !! 4
@@ -46,6 +46,13 @@ timed msg j act = do
 vsMake :: VsMake -> Args -> IO ()
 vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
     let commitList = reverse [0..fromMaybe 10 commits]
+
+    let checkout i act = do
+            commit <- gitCheckout i
+            when (commit `notElem` broken) $
+                flip finally (putStrLn $ "AT COMMIT " ++ commit) $
+                    act commit
+
     withCurrentDirectory dir $ do
         cmd_ "git clone" repo "."
 
@@ -53,8 +60,7 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
         putStrLn "GENERATING RATTLE SCRIPTS"
         forM_ commitList $ \i -> do
             putChar '.'
-            commit <- checkout i
-            when (commit `notElem` broken) $ do
+            checkout i $ \commit -> do
                 file <- generateName vs commit
                 unlessM (doesFileExist file) $ do
                     res <- generate
@@ -68,10 +74,8 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
             putStrLn "BUILDING WITH MAKE"
             clean
             forM_ (commitList++[0]) $ \i -> do
-                commit <- checkout i
-                when (commit `notElem` broken) $
-                    flip finally (putStrLn $ "AT COMMIT " ++ commit) $
-                        timed "make" j $ cmd_ "make" ["-j" ++ show j] (EchoStdout False)
+                checkout i $ \_ ->
+                    timed "make" j $ cmd_ "make" ["-j" ++ show j] (EchoStdout False)
 
             -- now with rattle
             putStrLn "BUILDING WITH RATTLE"
@@ -79,8 +83,7 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
             whenM (doesDirectoryExist ".rattle") $
                 removeDirectoryRecursive ".rattle"
             forM_ (commitList ++ [0]) $ \i -> do
-                commit <- checkout i
-                when (commit `notElem` broken) $ do
+                checkout i $ \commit -> do
                     file <- generateName vs commit
                     cmds <- map words . lines <$> readFile' file
                     let opts = rattleOptions{rattleProcesses=j, rattleUI=Just RattleQuiet, rattleNamedDirs=[]}
