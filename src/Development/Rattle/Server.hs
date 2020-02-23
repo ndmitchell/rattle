@@ -310,8 +310,7 @@ cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{..} save = join $ modi
 
         -- look for hazards
         -- push writes to the end, and reads to the start, because reads before writes is the problem
-        let newHazards = newHazardSet start stop cmd $ fmap fst3 tTouch
-        case mergeHazardSet (required s) (hazard s) newHazards of
+        case addHazardSet (required s) (hazard s) start stop cmd $ fmap fst3 tTouch of
             (ps@(p:_), _) -> return (Left $ Hazard p, print ps >> throwIO p)
             ([], hazard2) -> do
                 s <- return s{hazard = hazard2}

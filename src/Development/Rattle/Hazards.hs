@@ -3,7 +3,7 @@
 
 module Development.Rattle.Hazards(
     Hazard(..), Recoverable(..),
-    HazardSet, mergeHazardSet, newHazardSet, emptyHazardSet, seenHazardSet,
+    HazardSet, mergeHazardSet, newHazardSet, emptyHazardSet, seenHazardSet, addHazardSet,
     recoverableHazard, restartableHazard,
     ) where
 
@@ -56,6 +56,10 @@ newHazardSet start stop cmd Touch{..} = HazardSet $ Map.fromList $
 mergeHazardSet :: [Cmd] -> HazardSet -> HazardSet -> ([Hazard], HazardSet)
 mergeHazardSet required (HazardSet h1) (HazardSet h2) =
     second HazardSet $ unionWithKeyEithers (mergeFileOps required) h1 h2
+
+-- | addHazardSet a b c d e f == mergeHazardSet a b (newHazardSet c d e f)
+addHazardSet :: [Cmd] -> HazardSet -> Seconds -> Seconds -> Cmd -> Touch FileName -> ([Hazard], HazardSet)
+addHazardSet a b c d e f = mergeHazardSet a b (newHazardSet c d e f)
 
 -- Very carefully written to include the commands
 {- HLINT ignore mergeFileOps "Redundant if" -}
