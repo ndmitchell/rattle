@@ -29,13 +29,13 @@ main Args{..} = withTempDir $ \dir -> withCurrentDirectory dir $ do
     cmd_ "chmod +x gcc.sh"
     let commands =
             [("-o main.exe main.o util.o","main.exe: main.o util.o")
-            ,("-c main.c","main.o: main.c")
             ,("-c util.c","util.o: util.c")
+            ,("-c main.c","main.o: main.c")
             ]
 
     writeFile "Makefile" $ unlines $ concat
         [[b,"\t./gcc.sh " ++ a] | (a,b) <- commands]
-    let rattleCmds = map ((++) "./gcc.sh " . fst) commands
+    let rattleCmds = reverse $ map ((++) "./gcc.sh " . fst) commands
 
     let clean = do
             whenM (doesDirectoryExist ".rattle") $
