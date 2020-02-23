@@ -9,6 +9,7 @@ import Control.Monad
 import System.Time.Extra
 import Numeric.Extra
 import Development.Shake hiding (readFile', withTempDir)
+import qualified Data.ByteString as BS
 import Development.Rattle
 
 main :: IO ()
