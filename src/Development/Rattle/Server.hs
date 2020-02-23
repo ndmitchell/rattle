@@ -206,7 +206,8 @@ cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
 -- either fetch it from the cache or run it)
 cmdRattleRun :: Rattle -> Cmd -> Seconds -> [Trace (FileName, ModTime, Hash)] -> [String] -> IO ()
 cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
-    let match (fp, mt, h) = (== Just h) <$> hashFileForwardIfStale fp mt h
+    let forwardOpt = rattleForward rattleOptions
+    let match (fp, mt, h) = (== Just h) <$> (if forwardOpt then hashFileForwardIfStale else hashFileIfStale) fp mt h
     histRead <- filterM (allM match . tRead . tTouch) hist
     histBoth <- filterM (allM match . tWrite . tTouch) histRead
     case histBoth of
@@ -231,7 +232,8 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
                     (opts2, c) <- display [] $ cmdRattleRaw ui opts args
                     stop <- timer
                     touch <- fsaTrace c
-                    checkHashForwardConsistency touch
+                    when forwardOpt $
+                        checkHashForwardConsistency touch
                     let pats = matchMany [((), x) | Ignored xs <- opts2, x <- xs]
                     --let hasTrailingPathSeparator x = if BS.null x then False else isPathSeparator $ BS.last x
                     let hasTrailingPathSeparatorBS = maybe False (isPathSeparator . snd) . BS.unsnoc
@@ -239,8 +241,8 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
                                  hasTrailingPathSeparatorBS (fileNameToByteString x) ||
                                  pats [((),fileNameToString x)] /= []
                     let f hasher xs = mapMaybeM (\x -> fmap (\(mt,h) -> (x,mt,h)) <$> hasher x) $ filter (not . skip) xs
-                    touch <- Touch <$> f hashFileForward (tRead touch) <*> f hashFile (tWrite touch)
-                    touch <- generateHashForwards cmd [x | HashNonDeterministic xs <- opts2, x <- xs] touch
+                    touch <- Touch <$> f (if forwardOpt then hashFileForward else hashFile) (tRead touch) <*> f hashFile (tWrite touch)
+                    touch <- if forwardOpt then generateHashForwards cmd [x | HashNonDeterministic xs <- opts2, x <- xs] touch else return touch
                     when (rattleShare options) $
                         forM_ (tWrite touch) $ \(fp, mt, h) ->
                             setFile shared fp h ((== Just h) <$> hashFileIfStale fp mt h)

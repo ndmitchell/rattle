@@ -16,7 +16,7 @@ import Control.Monad
 
 
 localOptions :: Int -> RattleOptions
-localOptions j = RattleOptions ".rattle" (Just "") "m1" True j [] [("PWD", ".")] Nothing
+localOptions j = RattleOptions ".rattle" (Just "") "m1" True j [] [("PWD", ".")] Nothing False
 
 shcCmd :: String -> FilePath -> Run ()
 shcCmd c d = cmd (Cwd d) ["sh", "-c", c]

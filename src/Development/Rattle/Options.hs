@@ -28,12 +28,13 @@ data RattleOptions = RattleOptions
     ,rattleCmdOptions :: [C.CmdOption] -- ^ Extra options added to every command line
     ,rattleNamedDirs :: [(String, FilePath)] -- ^ Named directories, e.g. (PWD, .)
     ,rattleUI :: Maybe RattleUI -- ^ Nothing for auto detect
+    ,rattleForward :: Bool -- ^ Support forward style stuff
     } deriving Show
 
 
 -- | Default 'RattleOptions' value.
 rattleOptions :: RattleOptions
-rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 0 [] [("PWD",".")] Nothing
+rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 0 [] [("PWD",".")] Nothing False
 
 
 rattleOptionsExplicit :: RattleOptions -> IO RattleOptions
