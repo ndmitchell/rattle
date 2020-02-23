@@ -11,6 +11,7 @@ import Development.Shake.Command
 import System.Time.Extra
 import Control.Exception
 import System.FilePath
+import Data.IORef
 import Data.Maybe
 import System.IO.Extra
 import Control.Monad.Extra
@@ -38,10 +39,11 @@ generateName VsMake{..} commit = do
     return $ tdir </> takeBaseName repo ++ "." ++ commit ++ "." ++ show generateVersion ++ ".txt"
 
 
-timed :: String -> Int -> IO () -> IO ()
-timed msg j act = do
+timed :: IORef Seconds -> String -> Int -> IO () -> IO ()
+timed ref msg j act = do
     (t, _) <- duration act
     putStrLn $ msg ++ " " ++ show j ++ " = " ++ showDuration t
+    modifyIORef' ref (+ t)
 
 vsMake :: VsMake -> Args -> IO ()
 vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
@@ -69,15 +71,20 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
                         writeFile file res
             putStrLn ""
 
+
+
         -- for different levels of parallelism
         forM_ (threads `orNull` [1..4]) $ \j -> do
+            make <- newIORef 0
+            rattle <- newIORef 0
+
             -- first build with make
             when ("make" `elemOrNull` step) $ do
                 putStrLn "BUILDING WITH MAKE"
                 clean
                 forM_ (commitList++[0]) $ \i -> do
                     checkout i $ \_ ->
-                        timed "make" j $ cmd_ "make" ["-j" ++ show j] (EchoStdout False)
+                        timed make "make" j $ cmd_ "make" ["-j" ++ show j] (EchoStdout False)
 
             -- now with rattle
             when ("rattle" `elemOrNull` step) $ do
@@ -90,4 +97,8 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
                         file <- generateName vs commit
                         cmds <- map words . lines <$> readFile' file
                         let opts = rattleOptions{rattleProcesses=j, rattleUI=Just RattleQuiet, rattleNamedDirs=[]}
-                        timed "rattle" j $ rattleRun opts $ forM_ cmds cmd
+                        timed rattle "rattle" j $ rattleRun opts $ forM_ cmds cmd
+
+            make <- readIORef make
+            rattle <- readIORef rattle
+            putStrLn $ "TOTALS: make = " ++ showDuration make ++ ", rattle =" ++ showDuration rattle
