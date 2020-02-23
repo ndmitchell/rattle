@@ -25,12 +25,13 @@ data VsMake = VsMake
     ,broken :: [String]
     ,make :: CmdArgument
     ,rattle :: CmdArgument
+    ,master :: String
     }
 
 
-gitCheckout :: Int -> IO String
-gitCheckout i = do
-    Stdout x <- cmd "git reset --hard" ["origin/master~" ++ show i]
+gitCheckout :: VsMake -> Int -> IO String
+gitCheckout VsMake{..} i = do
+    Stdout x <- cmd "git reset --hard" ["origin/" ++ master ++ "~" ++ show i]
     -- HEAD is now at 41fbba1 Warning
     return $ words x !! 4
 

@@ -13,9 +13,8 @@ main :: Args -> IO ()
 main = vsMake VsMake{..}
     where
         broken = []
-
         repo = "https://github.com/antirez/redis"
-
+        master = "unstable"
         generateVersion = 1
 
         generate :: IO String

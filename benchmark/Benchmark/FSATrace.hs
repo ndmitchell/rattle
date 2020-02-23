@@ -11,12 +11,10 @@ main :: Args -> IO ()
 main = vsMake VsMake{..}
     where
         broken = ["eafc609","ad2c880","70a3926","8f298b3","c56947b"]
-
         repo = "https://github.com/jacereda/fsatrace"
-
+        master = "master"
         make = cmd "make"
         rattle = mempty
-
         generateVersion = 1
 
         generate :: IO String
