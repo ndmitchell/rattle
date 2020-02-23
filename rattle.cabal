@@ -111,6 +111,7 @@ executable rattle-benchmark
         Benchmark.Args
         Benchmark.FSATrace
         Benchmark.Micro
+        Benchmark.Redis
         Benchmark.VsMake
 
 executable buildScript
