@@ -49,7 +49,7 @@ main Args{..} = withTempDir $ \dir -> withCurrentDirectory dir $ do
         let opts = rattleOptions{rattleProcesses=j, rattleUI=Just RattleQuiet, rattleNamedDirs=[]}
         let rattle = rattleRun opts $ mapM_ (cmd Shell) rattleCmds
 
-        forM_ [("make",make),("rattle",rattle)] $ \(name,act) -> do
+        forM_ [("make  ",make),("rattle",rattle)] $ \(name,act) -> do
             putStr $ name ++ " -j" ++ show j ++ ": "
             hFlush stdout
             clean
