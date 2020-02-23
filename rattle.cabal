@@ -117,7 +117,7 @@ executable buildScript
     hs-source-dirs: test, src
     main-is: Test/BuildScript.hs
     ghc-options: -main-is BuildScript.main -threaded -fwarn-unused-imports
-
+    buildable: False
     build-depends:
         async,
         base >= 4.10 && < 5,
