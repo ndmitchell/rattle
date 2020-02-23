@@ -30,6 +30,8 @@ import qualified Data.ByteString.Char8 as BS
 import Foreign.C.String
 
 #else
+import Data.Time.Clock
+import Data.Fixed
 import GHC.IO.Exception
 import System.IO.Error
 import System.Posix.Files.ByteString
@@ -242,7 +244,7 @@ extractFileTime :: FileStatus -> Word32
 #define MIN_VERSION_unix(a,b,c) 0
 #endif
 #if MIN_VERSION_unix(2,6,0)
-extractFileTime x = ceiling $ modificationTimeHiRes x * 1e4 -- precision of 0.1ms
+extractFileTime = fromInteger . (\(MkFixed x) -> x) . nominalDiffTimeToSeconds . modificationTimeHiRes
 #else
 extractFileTime x = fromIntegral $ fromEnum $ modificationTime x
 #endif
