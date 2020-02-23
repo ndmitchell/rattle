@@ -21,7 +21,7 @@ main = do
             putStrLn lbl
             let count = 5
             times <- replicateM count $ withTempDir $ \dir -> do
-                Stdout (_ :: String) <- cmd Shell clean
+                cmd_ Shell clean (EchoStdout False)
                 fst <$> duration (act dir)
             putStrLn $ unwords (map showDuration times) ++ " = " ++ showDuration (sum times / intToDouble count)
 
