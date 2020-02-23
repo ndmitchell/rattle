@@ -231,8 +231,10 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
                     checkHashForwardConsistency touch
                     let pats = matchMany [((), x) | Ignored xs <- opts2, x <- xs]
                     --let hasTrailingPathSeparator x = if BS.null x then False else isPathSeparator $ BS.last x
-                    let skip x = let y = fileNameToString x in
-                                   isPrefixOf "/dev/" y || hasTrailingPathSeparator y || pats [((),y)] /= []
+                    let hasTrailingPathSeparatorBS = maybe False (isPathSeparator . snd) . BS.unsnoc
+                    let skip x = BS.isPrefixOf slashDev (fileNameToByteString x) ||
+                                 hasTrailingPathSeparatorBS (fileNameToByteString x) ||
+                                 pats [((),fileNameToString x)] /= []
                     let f hasher xs = mapMaybeM (\x -> fmap (\(mt,h) -> (x,mt,h)) <$> hasher x) $ filter (not . skip) xs
                     touch <- Touch <$> f hashFileForward (tRead touch) <*> f hashFile (tWrite touch)
                     touch <- generateHashForwards cmd [x | HashNonDeterministic xs <- opts2, x <- xs] touch
@@ -246,6 +248,8 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
         overrides = [x | C.Traced x <- opts] ++ [x | C.UserCommand x <- opts]
         cmdline = unwords $ ["cd " ++ x ++ " &&" | C.Cwd x <- opts] ++ args
 
+slashDev :: BS.ByteString
+slashDev = BS.pack "/dev/"
 
 cmdRattleRaw :: UI -> [C.CmdOption] -> [String] -> IO ([CmdOption2], [C.FSATrace BS.ByteString])
 cmdRattleRaw ui opts args = do
