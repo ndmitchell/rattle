@@ -35,7 +35,7 @@ checkout i = do
 generateName :: VsMake -> String -> IO FilePath
 generateName VsMake{..} commit = do
     tdir <- getTemporaryDirectory
-    return $ tdir </> takeBaseName repo ++ "." ++ show generateVersion ++ ".txt"
+    return $ tdir </> takeBaseName repo ++ "." ++ commit ++ "." ++ show generateVersion ++ ".txt"
 
 
 timed :: String -> Int -> IO () -> IO ()
