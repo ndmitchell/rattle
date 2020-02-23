@@ -14,6 +14,7 @@ import Development.Rattle
 main :: Args -> IO ()
 main Args{..} = withTempDir $ \dir -> withCurrentDirectory dir $ do
     writeFile "gcc.sh" "sleep 1 && gcc $*"
+    cmd_ "chmod +x gcc.sh"
     writeFile "Makefile" $ unlines
         ["main.o: main.c"
         ,"\t./gcc.sh -c main.c"
