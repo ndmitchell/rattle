@@ -25,9 +25,16 @@ withPool :: Int -> (Pool -> IO a) -> IO a
 withPool n act = do
     limit <- newLimit n
     threads <- newVar $ Just Set.empty
-    act (Pool limit threads) `finally` do
+    act (Pool limit threads) `finally2` do
         threads <- modifyVar threads $ \(Just v) -> return (Nothing, v)
         mapConcurrently cancel $ Set.toList threads
+
+
+a `finally2` sequel =
+  uninterruptibleMask $ \restore -> do
+    r <- restore a `onException` sequel
+    _ <- sequel
+    return r
 
 
 spawn :: Var (Maybe (Set.HashSet (Async ()))) -> IO a -> IO a
