@@ -13,7 +13,7 @@ import General.Pool
 import Development.Rattle.Types
 import Development.Rattle.UI
 import Development.Rattle.Shared
-import Development.Rattle.Options
+import Development.Rattle.Options hiding (rattleOptions) -- want to avoid accidentally using default options!
 import Development.Rattle.Hash
 import Development.Rattle.Hazards
 import Development.Rattle.CmdOption
@@ -141,7 +141,7 @@ withRattle options@RattleOptions{..} act = withUI rattleUI (return "Running") $ 
                     (act r <* saveSpeculate state) `finally` writeVar state (Left Finished)
 
 runSpeculate :: Rattle -> IO ()
-runSpeculate rattle@Rattle{..} = when (rattleProcesses rattleOptions > 1) $ void $ forkIO $ void $ runPoolMaybe pool $
+runSpeculate rattle@Rattle{..} = when (rattleProcesses options > 1) $ void $ forkIO $ void $ runPoolMaybe pool $
     -- speculate on a process iff it is the first process in speculate that:
     -- 1) we have some parallelism free
     -- 2) it is the first eligible in the list
@@ -206,7 +206,7 @@ cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
 -- either fetch it from the cache or run it)
 cmdRattleRun :: Rattle -> Cmd -> Seconds -> [Trace (FileName, ModTime, Hash)] -> [String] -> IO ()
 cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
-    let forwardOpt = rattleForward rattleOptions
+    let forwardOpt = rattleForward options
     let match (fp, mt, h) = (== Just h) <$> (if forwardOpt then hashFileForwardIfStale else hashFileIfStale) fp mt h
     histRead <- filterM (allM match . tRead . tTouch) hist
     histBoth <- filterM (allM match . tWrite . tTouch) histRead
