@@ -117,10 +117,12 @@ executable rattle-benchmark
         rattle,
         process,
         bytestring,
+        cmdargs,
         shake >= 0.19
     other-modules:
-        Benchmark.Type
+        Benchmark.Args
         Benchmark.FSATrace
+        Benchmark.VsMake
 
 executable buildScript
     default-language: Haskell2010

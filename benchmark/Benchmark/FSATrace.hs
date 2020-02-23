@@ -2,13 +2,13 @@
 
 module Benchmark.FSATrace(benchmark) where
 
-import Benchmark.Type
+import Benchmark.VsMake
 import Development.Shake.Command
 import Data.List.Extra
 
 
-benchmark :: Benchmark
-benchmark = Benchmark{..}
+benchmark :: Args -> IO ()
+benchmark = vsMake VsMake{..}
     where
         repo = "https://github.com/jacereda/fsatrace"
 
