@@ -53,7 +53,7 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
     let commitList = reverse [0..fromMaybe 10 commits]
 
     let checkout i act = do
-            commit <- gitCheckout i
+            commit <- gitCheckout vs i
             when (commit `notElem` broken) $
                 flip onException (putStrLn $ "AT COMMIT " ++ commit) $
                     act commit
