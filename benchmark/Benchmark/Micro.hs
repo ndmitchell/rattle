@@ -1,25 +1,28 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module MicroBenchmark where
+module Benchmark.Micro(main) where
 
-import System.Environment
+import Benchmark.Args
 import System.Process
 import System.IO.Extra
 import Control.Monad
+import Data.Maybe
 import System.Time.Extra
 import Numeric.Extra
 import Development.Shake hiding (readFile', withTempDir)
 import qualified Data.ByteString as BS
 import Development.Rattle
 
-main :: IO ()
-main = do
-    clean:run:other <- getArgs
+main :: Args -> IO ()
+main Args{..} = do
+    let clean = "make clean"
+    let run = "commands.txt"
     cmds <- map words . lines <$> readFile' run
 
-    let benchmark lbl act = when (null other || lbl `elem` other) $ do
+    let benchmark lbl act = when (lbl `elemOrNull` step) $ do
             putStrLn lbl
-            let count = 5
+            let count = fromMaybe 5 repeat_
             times <- replicateM count $ withTempDir $ \dir -> do
                 cmd_ Shell clean (EchoStdout False)
                 fst <$> duration (act dir)

@@ -1,14 +1,14 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Benchmark.FSATrace(benchmark) where
+module Benchmark.FSATrace(main) where
 
 import Benchmark.VsMake
 import Development.Shake.Command
 import Data.List.Extra
 
 
-benchmark :: Args -> IO ()
-benchmark = vsMake VsMake{..}
+main :: Args -> IO ()
+main = vsMake VsMake{..}
     where
         repo = "https://github.com/jacereda/fsatrace"
 

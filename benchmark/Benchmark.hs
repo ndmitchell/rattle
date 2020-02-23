@@ -3,12 +3,14 @@
 module Benchmark(main) where
 
 import Benchmark.Args
-import Benchmark.FSATrace as FSATrace
+import qualified Benchmark.FSATrace
+import qualified Benchmark.Micro
 import Control.Monad
 
 
 benchmarks =
-    ["fsatrace" * FSATrace.benchmark
+    ["fsatrace" * Benchmark.FSATrace.main
+    ,"micro" * Benchmark.Micro.main
     ]
     where (*) = (,)
 
