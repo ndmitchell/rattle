@@ -94,12 +94,7 @@ normalizeTouch (Touch a b) = Touch (f $ sort a) (sort $ Set.toList b2)
         f [] = []
 
 canonicalizeTouch :: Touch FilePath -> IO (Touch FilePath)
-canonicalizeTouch (Touch a b) = Touch <$> mapM g a <*> mapM g b
-    where g x = do
-            -- TEMPORARY EXPERIMENT
-            y <- canonicalizePath x
-            when (x /= y) $ print ("canonicalizePath CHANGED THINGS", x, y)
-            return y
+canonicalizeTouch (Touch a b) = Touch <$> mapM canonicalizePath a <*> mapM canonicalizePath b
 
 
 -- | Which run we are in, monotonically increasing
