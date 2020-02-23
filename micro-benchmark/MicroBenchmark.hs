@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Benchmark where
+module MicroBenchmark where
 
 import System.Environment
 import System.Process
