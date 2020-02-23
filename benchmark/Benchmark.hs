@@ -41,10 +41,10 @@ main = do
 
     benchmark "rattle" $
         withTempDir $ \dir ->
-            rattleRun rattleOptions{rattleFiles=dir, rattleSpeculate=Nothing, rattleProcesses=1, rattleShare=False} $
+            rattleRun rattleOptions{rattleFiles=dir, rattleSpeculate=Nothing, rattleProcesses=1, rattleShare=False, rattleUI=Just RattleQuiet} $
                 forM_ cmds cmd
 
     benchmark "rattle share" $
         withTempDir $ \dir ->
-            rattleRun rattleOptions{rattleFiles=dir, rattleProcesses=1} $
+            rattleRun rattleOptions{rattleFiles=dir, rattleProcesses=1, rattleUI=Just RattleQuiet} $
                 forM_ cmds cmd
