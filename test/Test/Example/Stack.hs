@@ -6,6 +6,7 @@ module Test.Example.Stack(main) where
 import Development.Rattle
 import Development.Shake.FilePath
 import System.IO.Extra
+import System.Info.Extra
 import Language.Haskell.TH
 import qualified Data.ByteString as BS
 import qualified Development.Shake.Command as C
@@ -58,7 +59,8 @@ haskell name act v = do
 
 
 main :: IO ()
-main = do
+-- Unfortunately 8.8.1 and 8.8.2 are broken when loading Cabal
+main = unless isWindows $ do
     args <- getArgs
     unsetEnv "GHC_PACKAGE_PATH"
     tdir <- canonicalizePath =<< getTemporaryDirectory
