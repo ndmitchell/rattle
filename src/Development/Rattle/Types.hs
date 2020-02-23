@@ -11,6 +11,7 @@ module Development.Rattle.Types(
 import Data.Hashable
 import Data.List.Extra
 import System.Directory
+import System.Info.Extra
 import Control.Monad
 import Development.Shake.Command
 import Data.Semigroup
@@ -59,8 +60,15 @@ instance Hashable a => Hashable (Touch a) where
     hashWithSalt s (Touch r w) = hashWithSalt s (r,w)
 
 fsaTrace :: [FSATrace] -> IO (Touch FileName)
--- normalize twice because normalisation is cheap, but canonicalisation might be expensive
-fsaTrace fs = fmap (fmap fileNameFromString . normalizeTouch) $ canonicalizeTouch $ normalizeTouch $ mconcat $ map f fs
+-- We want to get normalized traces. On Linux, things come out normalized, and we just want to dedupe them
+-- On Windows things come out as C:\windows\system32\KERNELBASE.dll instead of C:\Windows\System32\KernelBase.dll
+-- so important to call (expensive) normalizeTouch
+fsaTrace fs
+    | isWindows =
+        -- normalize twice because normalisation is cheap, but canonicalisation might be expensive
+        fmap (normalizeTouch . fmap fileNameFromString) $ canonicalizeTouch $ normalizeTouch $ mconcatMap f fs
+    | otherwise =
+        return $ normalizeTouch $ fmap fileNameFromString $ mconcatMap f fs
     where
         f (FSAWrite x) = Touch [] [x]
         f (FSARead x) = Touch [x] []
