@@ -61,7 +61,7 @@ mergeHazardSet required (HazardSet h1) (HazardSet h2) =
 addHazardSet :: [Cmd] -> HazardSet -> Seconds -> Seconds -> Cmd -> Touch FileName -> ([Hazard], HazardSet)
 addHazardSet required (HazardSet h1) start stop cmd Touch{..} =
     second HazardSet $ insertWithKeyEithers (mergeFileOps required) h1 $
-    map (,(Write,stop ,cmd)) tWrite ++ map (,(Read ,start,cmd)) tRead
+    map (,(Write,stop,cmd)) tWrite ++ map (,(Read,start,cmd)) tRead
 
 
 -- Very carefully written to include the commands
@@ -69,8 +69,10 @@ addHazardSet required (HazardSet h1) start stop cmd Touch{..} =
 {- HLINT ignore mergeFileOps "Use infix" -}
 
 -- r is required list; s is speculate list
-mergeFileOps :: [Cmd] -> FileName -> (ReadOrWrite, Seconds, Cmd) -> (ReadOrWrite, Seconds, Cmd) -> Either Hazard (ReadOrWrite, Seconds, Cmd)
-mergeFileOps r x (Read, t1, cmd1) (Read, t2, cmd2) = Right (Read, min t1 t2, if t1 < t2 then cmd1 else cmd2)
+mergeFileOps :: [Cmd] -> FileName -> (ReadOrWrite, Seconds, Cmd) -> (ReadOrWrite, Seconds, Cmd) -> Either Hazard (Maybe (ReadOrWrite, Seconds, Cmd))
+mergeFileOps r x (Read, t1, cmd1) (Read, t2, cmd2)
+    | t1 <= t2 = Right Nothing -- don't update the Map (an optimisation for the common case)
+    | otherwise = Right $ Just (Read, t2, cmd2)
 mergeFileOps r x (Write, t1, cmd1) (Write, t2, cmd2) = Left $ WriteWriteHazard x cmd1 cmd2 $
     -- if they both were required, we've got a problem
     if elem cmd1 r && elem cmd2 r then NonRecoverable
@@ -83,7 +85,7 @@ mergeFileOps r x (Read, tR, cmdR) (Write, tW, cmdW)
         -- managed to read something that was speculated, which is bad
         if elem cmdR r && notElem cmdW r then hazard Restartable
         -- otherwise, everything is good
-        else Right (Write, tW, cmdW)
+        else Right $ Just (Write, tW, cmdW)
 
     | otherwise = -- read happened first
         -- if the read was speculated, we can ignore it
