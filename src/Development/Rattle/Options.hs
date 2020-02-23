@@ -1,7 +1,7 @@
 {-# LANGUAGE TupleSections #-}
 
 module Development.Rattle.Options(
-    RattleOptions(..), rattleOptions,
+    RattleOptions(..), RattleUI(..), rattleOptions,
     rattleOptionsExplicit, shorten, expand
     ) where
 
@@ -10,6 +10,7 @@ import General.Extra
 import Data.Ord
 import System.FilePath
 import System.Directory
+import Development.Rattle.UI
 import qualified Development.Shake.Command as C
 import Data.Maybe
 import Data.List.Extra
@@ -25,7 +26,7 @@ data RattleOptions = RattleOptions
     ,rattleProcesses :: Int -- ^ Number of simulateous processes
     ,rattleCmdOptions :: [C.CmdOption] -- ^ Extra options added to every command line
     ,rattleNamedDirs :: [(BSC.ByteString, FilePath)] -- ^ Named directories
-    ,rattleFancyUI :: Maybe Bool -- ^ True for Yes, Nothing for auto detect, False for no
+    ,rattleUI :: Maybe RattleUI -- ^ Nothing for auto detect
     } deriving Show
 
 

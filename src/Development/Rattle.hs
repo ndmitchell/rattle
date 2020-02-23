@@ -9,7 +9,7 @@ module Development.Rattle(
     rattleRun, Run,
     rattleDump,
     Hazard,
-    RattleOptions(..), rattleOptions,
+    RattleOptions(..), rattleOptions, RattleUI(..),
     cmd, CmdOption(..), CmdOption2(..), toCmdOption,
     module Development.Rattle.Derived,
     module Development.Rattle.Program,

@@ -2,6 +2,7 @@
 
 module Development.Rattle.UI(
     UI, withUI, addUI, isControlledUI,
+    RattleUI(..),
     ) where
 
 
@@ -16,6 +17,11 @@ import Data.IORef
 import Control.Concurrent.Async
 import Control.Monad.Extra
 
+
+data RattleUI = RattleSerial -- Show a series of lines for each command run
+              | RattleFancy -- Show a few lines that change as commands run
+              | RattleQuiet -- Don't show commands
+    deriving Show
 
 data S = S
     {sTraces :: [Maybe (String, String, Seconds)] -- ^ the traced items, in the order we display them, and relative start time
@@ -76,16 +82,23 @@ showDurationSecs = replace ".00s" "s" . showDuration . intToDouble . round
 
 
 -- | Run a compact UI, with the ShakeOptions modifier, combined with
-withUI :: Maybe Bool -> IO String -> (UI -> IO a) -> IO a
+withUI :: Maybe RattleUI -> IO String -> (UI -> IO a) -> IO a
 withUI fancy header act = case fancy of
-    Nothing -> withUISerial act
-    Just True -> do
+    Nothing ->
+        {-
+        b <- checkEscCodes
+        if b then withUICompact header act else withUISerial act
+        -}
+        -- for now, let's default to serial
+        withUISerial act
+    Just RattleFancy -> do
         -- checking the escape codes may also enable them
         checkEscCodes
         withUICompact header act
-    Just False -> do
-        b <- checkEscCodes
-        if b then withUICompact header act else withUISerial act
+    Just RattleSerial ->
+        withUISerial act
+    Just RattleQuiet ->
+        withUIQuiet act
 
 withUICompact :: IO String -> (UI -> IO a) -> IO a
 withUICompact header act = do
@@ -110,3 +123,7 @@ withUISerial act =
     act $ UI False $ \msg1 msg2 act -> do
         BS.putStrLn $ BS.pack $ msg1 ++ if null msg2 then "" else " (" ++ msg2 ++ ")"
         act
+
+withUIQuiet :: (UI -> IO a) -> IO a
+withUIQuiet act =
+    act $ UI False $ \_ _ act -> act
