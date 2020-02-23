@@ -48,6 +48,7 @@ hashHex :: Hash -> String
 hashHex (Hash x) = f $ BS8.unpack x
     where
         f (x:xs) = g (x `shiftR` 4) : g (x .&. 0xf) : f xs
+        f [] = []
         g x = case x of
             0  -> '0'
             1  -> '1'
