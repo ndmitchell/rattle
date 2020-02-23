@@ -59,7 +59,10 @@ mergeHazardSet required (HazardSet h1) (HazardSet h2) =
 
 -- | addHazardSet a b c d e f == mergeHazardSet a b (newHazardSet c d e f)
 addHazardSet :: [Cmd] -> HazardSet -> Seconds -> Seconds -> Cmd -> Touch FileName -> ([Hazard], HazardSet)
-addHazardSet a b c d e f = mergeHazardSet a b (newHazardSet c d e f)
+addHazardSet required (HazardSet h1) start stop cmd Touch{..} =
+    second HazardSet $ insertWithKeyEithers (mergeFileOps required) h1 $
+    map (,(Write,stop ,cmd)) tWrite ++ map (,(Read ,start,cmd)) tRead
+
 
 -- Very carefully written to include the commands
 {- HLINT ignore mergeFileOps "Redundant if" -}

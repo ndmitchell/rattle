@@ -5,7 +5,7 @@ module General.Extra(
     NoShow(..),
     memoIO, catchIO,
     getProcessorCount,
-    unionWithKeyEithers
+    unionWithKeyEithers, insertWithKeyEithers
     ) where
 
 import Control.Exception.Extra
@@ -109,7 +109,10 @@ getProcessorCount = let res = unsafePerformIO act in return res
 -- Data.HashMap
 
 unionWithKeyEithers :: (Eq k, Hashable k) => (k -> v -> v -> Either e v) -> Map.HashMap k v -> Map.HashMap k v -> ([e], Map.HashMap k v)
-unionWithKeyEithers op lhs rhs = foldl' f ([], lhs) $ Map.toList rhs
+unionWithKeyEithers op lhs rhs = insertWithKeyEithers op lhs $ Map.toList rhs
+
+insertWithKeyEithers :: (Eq k, Hashable k) => (k -> v -> v -> Either e v) -> Map.HashMap k v -> [(k,v)] -> ([e], Map.HashMap k v)
+insertWithKeyEithers op lhs rhs = foldl' f ([], lhs) rhs
     where
         f (es, mp) (k, v2) = case Map.lookup k mp of
             Nothing -> (es, Map.insert k v2 mp)
