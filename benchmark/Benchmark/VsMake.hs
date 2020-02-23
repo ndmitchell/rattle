@@ -57,34 +57,37 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
         cmd_ "git clone" repo "."
 
         -- generate all the Rattle files
-        putStrLn "GENERATING RATTLE SCRIPTS"
-        forM_ commitList $ \i -> do
-            putChar '.' >> hFlush stdout
-            checkout i $ \commit -> do
-                file <- generateName vs commit
-                unlessM (doesFileExist file) $ do
-                    res <- generate
-                    evaluate $ length res
-                    writeFile file res
-        putStrLn ""
+        when ("generate" `elemOrNull` step) $ do
+            putStrLn "GENERATING RATTLE SCRIPTS"
+            forM_ commitList $ \i -> do
+                putChar '.' >> hFlush stdout
+                checkout i $ \commit -> do
+                    file <- generateName vs commit
+                    unlessM (doesFileExist file) $ do
+                        res <- generate
+                        evaluate $ length res
+                        writeFile file res
+            putStrLn ""
 
         -- for different levels of parallelism
         forM_ (threads `orNull` [1..4]) $ \j -> do
             -- first build with make
-            putStrLn "BUILDING WITH MAKE"
-            clean
-            forM_ (commitList++[0]) $ \i -> do
-                checkout i $ \_ ->
-                    timed "make" j $ cmd_ "make" ["-j" ++ show j] (EchoStdout False)
+            when ("make" `elemOrNull` step) $ do
+                putStrLn "BUILDING WITH MAKE"
+                clean
+                forM_ (commitList++[0]) $ \i -> do
+                    checkout i $ \_ ->
+                        timed "make" j $ cmd_ "make" ["-j" ++ show j] (EchoStdout False)
 
             -- now with rattle
-            putStrLn "BUILDING WITH RATTLE"
-            clean
-            whenM (doesDirectoryExist ".rattle") $
-                removeDirectoryRecursive ".rattle"
-            forM_ (commitList ++ [0]) $ \i -> do
-                checkout i $ \commit -> do
-                    file <- generateName vs commit
-                    cmds <- map words . lines <$> readFile' file
-                    let opts = rattleOptions{rattleProcesses=j, rattleUI=Just RattleQuiet, rattleNamedDirs=[]}
-                    timed "rattle" j $ rattleRun opts $ forM_ cmds cmd
+            when ("rattle" `elemOrNull` step) $ do
+                putStrLn "BUILDING WITH RATTLE"
+                clean
+                whenM (doesDirectoryExist ".rattle") $
+                    removeDirectoryRecursive ".rattle"
+                forM_ (commitList ++ [0]) $ \i -> do
+                    checkout i $ \commit -> do
+                        file <- generateName vs commit
+                        cmds <- map words . lines <$> readFile' file
+                        let opts = rattleOptions{rattleProcesses=j, rattleUI=Just RattleQuiet, rattleNamedDirs=[]}
+                        timed "rattle" j $ rattleRun opts $ forM_ cmds cmd
