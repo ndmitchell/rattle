@@ -13,10 +13,10 @@ import Development.Rattle
 
 main :: IO ()
 main = do
-    [clean, run] <- getArgs
+    clean:run:other <- getArgs
     cmds <- map words . lines <$> readFile' run
 
-    let benchmark lbl act = do
+    let benchmark lbl act = when (null other || lbl `elem` other) $ do
             putStrLn lbl
             let count = 5
             times <- replicateM count $ do
