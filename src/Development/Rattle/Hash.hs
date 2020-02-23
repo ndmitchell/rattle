@@ -130,8 +130,7 @@ hashFile file = do
 
 
 hashString :: String -> Hash
--- we first 'show' the String to avoid having > 256 characters in it
-hashString = mkHash . SHA.hash . BS.pack . show
+hashString = mkHash . SHA.hash . BS.pack
 
 
 hashHash :: Hash -> Hash
