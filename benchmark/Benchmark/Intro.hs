@@ -27,19 +27,15 @@ main :: Args -> IO ()
 main Args{..} = withTempDir $ \dir -> withCurrentDirectory dir $ do
     writeFile "gcc.sh" "sleep 1 && gcc $*"
     cmd_ "chmod +x gcc.sh"
-    writeFile "Makefile" $ unlines
-        ["main.exe: main.o util.o"
-        ,"\t./gcc.sh -o main.exe main.o util.o"
-        ,"main.o: main.c"
-        ,"\t./gcc.sh -c main.c"
-        ,"util.o: util.c"
-        ,"\t./gcc.sh -c util.c"
-        ]
-    rattleCmds <- return
-        ["./gcc.sh -c main.c"
-        ,"./gcc.sh -c util.c"
-        ,"./gcc.sh -o main.exe main.o util.o"
-        ]
+    let commands =
+            [("-o main.exe main.o util.o","main.exe: main.o util.o")
+            ,("-c main.c","main.o: main.c")
+            ,("-c util.c","util.o: util.c")
+            ]
+
+    writeFile "Makefile" $ unlines $ concat
+        [[b,"\t./gcc.sh " ++ b] | (a,b) <- commands]
+    let rattleCmds = map ((++) "./gcc.sh" . fst) commands
 
     let clean = do
             whenM (doesDirectoryExist ".rattle") $
