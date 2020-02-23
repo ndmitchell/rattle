@@ -22,7 +22,8 @@ main Args{..} = do
     cmds <- map words . lines <$> readFile' run
 
     let benchmark lbl act = when (lbl `elemOrNull` step) $ do
-            putStrLn lbl
+            putStr $ lbl ++ ": "
+            hFlush stdout
             let count = fromMaybe 5 repeat_
             -- ignore the slowest few times when taking the average
             let ignore = if count >= 5 then 2 else 0
