@@ -41,7 +41,7 @@ fileNameFromString = fileNameFromByteString . UTF8.fromString
 fileNameFromByteString :: BS.ByteString -> FileName
 fileNameFromByteString = FileName . filepathNormalise
 
--- don't  normalise
+-- don't normalise
 byteStringToFileName :: BS.ByteString -> FileName
 byteStringToFileName = FileName
 
