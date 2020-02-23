@@ -141,7 +141,7 @@ withRattle options@RattleOptions{..} act = withUI rattleUI (return "Running") $ 
                     (act r <* saveSpeculate state) `finally` writeVar state (Left Finished)
 
 runSpeculate :: Rattle -> IO ()
-runSpeculate rattle@Rattle{..} = void $ forkIO $ void $ runPoolMaybe pool $
+runSpeculate rattle@Rattle{..} = when (rattleProcesses rattleOptions > 1) $ void $ forkIO $ void $ runPoolMaybe pool $
     -- speculate on a process iff it is the first process in speculate that:
     -- 1) we have some parallelism free
     -- 2) it is the first eligible in the list
