@@ -87,7 +87,7 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
             when ("make" `elemOrNull` step) $ do
                 putStrLn "BUILDING WITH MAKE"
                 clean
-                forM_ (commitList++[0]) $ \i -> do
+                forM_ (commitList++[0]) $ \i ->
                     checkout i $ \_ ->
                         timed makeTime "make" j $ cmd_ make ["-j" ++ show j] (EchoStdout False) stderr
 
@@ -97,7 +97,7 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
                 clean
                 whenM (doesDirectoryExist ".rattle") $
                     removeDirectoryRecursive ".rattle"
-                forM_ (commitList ++ [0]) $ \i -> do
+                forM_ (commitList ++ [0]) $ \i ->
                     checkout i $ \commit -> do
                         file <- generateName vs commit
                         cmds <- lines <$> readFile' file

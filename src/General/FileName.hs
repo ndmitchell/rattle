@@ -1,4 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, FlexibleInstances, DeriveGeneric #-}
 
 -- copied from ndmitchell/shake/src/Development/Shake/Internal/FileName.hs commit 8a96542
 module General.FileName(
