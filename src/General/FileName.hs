@@ -15,7 +15,6 @@ import qualified System.FilePath as Native
 import System.Info.Extra
 import Data.List
 import GHC.Generics
-import Data.Serialize
 
 ---------------------------------------------------------------------
 -- FileName newtype
@@ -23,8 +22,6 @@ import Data.Serialize
 -- | UTF8 ByteString
 newtype FileName = FileName BS.ByteString
     deriving (Hashable, Binary, Eq, NFData, Generic, Ord)
-
-instance Serialize FileName
 
 instance Show FileName where
   show = fileNameToString

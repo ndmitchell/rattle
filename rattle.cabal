@@ -53,7 +53,6 @@ library
         js-dgtable,
         js-flot,
         js-jquery,
-        cereal >= 0.5.8.1,
         utf8-string >= 1.0.1.1
 
     if !os(windows)
@@ -140,7 +139,6 @@ executable buildScript
         js-dgtable,
         js-flot,
         js-jquery,
-        cereal >= 0.5.8.1,
         utf8-string >= 1.0.1.1
 
     if !os(windows)
@@ -198,7 +196,6 @@ test-suite rattle-test
         js-dgtable,
         js-flot,
         js-jquery,
-        cereal >= 0.5.8.1,
         utf8-string >= 1.0.1.1
 
     if !os(windows)

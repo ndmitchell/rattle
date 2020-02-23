@@ -23,7 +23,6 @@ import qualified Data.HashSet as Set
 import GHC.Generics
 import Prelude
 import System.Time.Extra
-import Data.Serialize
 import General.FileName
 
 data Cmd = Cmd [CmdOption] [String]
@@ -35,8 +34,6 @@ instance BinaryEx Cmd where
         where [a,b] = getExList x
     putEx (Cmd a b) = putExList [putEx $ map show a, putEx b]
 
-instance Serialize Cmd
-instance Serialize CmdOption
 deriving instance Generic CmdOption
 deriving instance Read CmdOption
 instance Hashable CmdOption
@@ -53,8 +50,6 @@ instance BinaryEx a => BinaryEx (Trace a) where
         where (a,b,c,d) = binarySplit3 x
     putEx (Trace a b c d) = putExStorable a <> putExStorable b <> putExStorable c <> putEx d
 
-instance Serialize a => Serialize (Trace a)
-
 data Touch a = Touch
     {tRead :: [a]
     ,tWrite :: [a]
@@ -64,8 +59,6 @@ instance BinaryEx a => BinaryEx (Touch a) where
     getEx x = Touch (map getEx $ getExList a) (map getEx $ getExList b)
         where [a,b] = getExList x
     putEx (Touch a b) = putExList [putExList $ map putEx a, putExList $ map putEx b]
-
-instance Serialize a => Serialize (Touch a)
 
 instance Semigroup (Touch a) where
     Touch r1 w1 <> Touch r2 w2 = Touch (r1++r2) (w1++w2)
@@ -119,8 +112,6 @@ canonicalizeTouch (Touch a b) = Touch <$> mapM canonicalizePath a <*> mapM canon
 -- | Which run we are in, monotonically increasing
 newtype RunIndex = RunIndex Int
     deriving (Eq,Ord,Show,Generic,Storable,BinaryEx)
-
-instance Serialize RunIndex
 
 instance Hashable RunIndex where
     hashWithSalt s (RunIndex i) = hashWithSalt s i

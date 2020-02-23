@@ -17,8 +17,6 @@ import Data.Word
 import Numeric
 import System.IO
 import Foreign
-import General.Binary
-import Data.Serialize
 import GHC.Generics
 
 #if defined(PORTABLE)
@@ -39,9 +37,7 @@ import System.Posix.Files.ByteString
 
 -- A piece of file information, where 0 and 1 are special (see fileInfo* functions)
 newtype FileInfo a = FileInfo Word32
-    deriving (Typeable,Hashable,Binary,Storable,NFData,Generic,BinaryEx)
-
-instance Serialize a => Serialize (FileInfo a)
+    deriving (Typeable,Hashable,Binary,Storable,NFData,Generic)
 
 noFileHash :: FileHash
 noFileHash = FileInfo 1   -- Equal to nothing
@@ -67,9 +63,6 @@ instance Eq (FileInfo a) where
 data FileInfoHash deriving Generic; type FileHash = FileInfo FileInfoHash
 data FileInfoMod deriving Generic; type ModTime  = FileInfo FileInfoMod
 data FileInfoSize; type FileSize = FileInfo FileInfoSize
-
-instance Serialize FileInfoHash
-instance Serialize FileInfoMod
 
 getFileHash :: FileName -> IO FileHash
 getFileHash x = withFile (fileNameToString x) ReadMode $ \h ->

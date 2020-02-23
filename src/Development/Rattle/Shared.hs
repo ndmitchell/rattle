@@ -21,7 +21,6 @@ import Data.List
 import Control.Monad.Extra
 import Control.Concurrent.Extra
 import qualified Data.ByteString as BS
-import Data.Serialize
 import GHC.Generics
 import General.FileInfo
 import General.Binary
@@ -40,13 +39,13 @@ withShared dir act = do
 filename :: Hash -> String
 filename str = let (a:b:cs) = hashHex str in [a,b] </> cs
 
-getList :: (Show a, Serialize b, BinaryEx b) => String -> Shared -> a -> IO [b]
+getList :: (Show a, BinaryEx b) => String -> Shared -> a -> IO [b]
 getList typ (Shared lock dir) name = withLock lock $ do
     let file = dir </> typ </> filename (hashString $ show name)
     b <- doesFileExist file
     if not b then return [] else map getEx . getExList <$> BS.readFile file
 
-setList :: (Show a, Serialize b, BinaryEx b) => String -> IOMode -> Shared -> a -> [b] -> IO ()
+setList :: (Show a, BinaryEx b) => String -> IOMode -> Shared -> a -> [b] -> IO ()
 setList typ mode (Shared lock dir) name vals = withLock lock $ do
     let file = dir </> typ </> filename (hashString $ show name)
     createDirectoryRecursive $ takeDirectory file
@@ -104,8 +103,6 @@ setSpeculate = setList "speculate" WriteMode
 -- word orientated diffs when looking at the output in a text editor
 data File = File FileName ModTime Hash
     deriving (Show,Generic)
-
-instance Serialize File
 
 instance BinaryEx File where
     getEx x = File (byteStringToFileName a) b (getEx c)

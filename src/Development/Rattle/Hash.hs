@@ -22,7 +22,6 @@ import General.Binary
 import Control.Exception.Extra
 import Control.DeepSeq
 import GHC.Generics
-import Data.Serialize
 import General.FileName
 import General.FileInfo
 
@@ -40,8 +39,6 @@ instance BinaryEx Hash where
 
 instance Show Hash where
     show = hashHex
-
-instance Serialize Hash
 
 mkHash :: BS.ByteString -> Hash
 mkHash = Hash
