@@ -15,7 +15,7 @@ import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import qualified Data.HashMap.Strict as Map
 import System.IO.Unsafe
-import Numeric
+import Data.Bits
 import Control.Monad.Extra
 import Data.IORef
 import General.Binary
@@ -45,8 +45,26 @@ mkHash = Hash
 
 -- | Show a hash as hex characters
 hashHex :: Hash -> String
-hashHex (Hash x) = concatMap f $ BS8.unpack x
-    where f i = ['0' | i < 16] ++ showHex i ""
+hashHex (Hash x) = f $ BS8.unpack x
+    where
+        f (x:xs) = g (x `shiftR` 4) : g (x .&. 0xf) : f xs
+        g x = case x of
+            0  -> '0'
+            1  -> '1'
+            2  -> '2'
+            3  -> '3'
+            4  -> '4'
+            5  -> '5'
+            6  -> '6'
+            7  -> '7'
+            8  -> '8'
+            9  -> '9'
+            10 -> 'a'
+            11 -> 'b'
+            12 -> 'c'
+            13 -> 'd'
+            14 -> 'e'
+            15 -> 'f'
 
 -- Hashing lots of files is expensive, so we keep a cache
 {-# NOINLINE hashCache #-}
