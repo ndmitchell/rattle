@@ -60,7 +60,9 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
     let stderr = [EchoStderr False | no_stderr]
 
     withCurrentDirectory dir $ do
-        cmd_ "git clone" repo "." ["--depth=" ++ show (length commitList + 10)]
+        -- don't pass a depth argument, or git changes the length of the shown commit hashes
+        -- which messes up caching and broken hashes
+        cmd_ "git clone" repo "."
 
         -- generate all the Rattle files
         when ("generate" `elemOrNull` step) $ do
