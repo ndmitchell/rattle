@@ -50,7 +50,7 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
     let checkout i act = do
             commit <- gitCheckout i
             when (commit `notElem` broken) $
-                flip finally (putStrLn $ "AT COMMIT " ++ commit) $
+                flip onException (putStrLn $ "AT COMMIT " ++ commit) $
                     act commit
 
     withCurrentDirectory dir $ do
