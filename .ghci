@@ -1,7 +1,7 @@
 :set -fwarn-unused-binds -fwarn-unused-imports -fwarn-orphans
-:set -isrc;test
+:set -isrc;test;benchmark
 :set -ignore-package=ghc-lib-parser
-:load test/Test.hs src/Paths.hs
+:load benchmark/Benchmark.hs test/Test.hs src/Paths.hs
 :def test \x -> return $ ":main " ++ x
 
 :def docs_ \x -> return $ unlines [":!cabal haddock " ++ x]

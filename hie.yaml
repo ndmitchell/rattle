@@ -6,5 +6,6 @@ cradle:
       - -fwarn-orphans
       - -isrc
       - -itest
+      - -ibenchmark
       - -ignore-package=ghc-lib-parser
       - -idist/build/autogen
