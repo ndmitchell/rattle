@@ -8,6 +8,7 @@ import System.Process
 import System.IO.Extra
 import Control.Monad
 import Data.Maybe
+import Data.List.Extra
 import System.Time.Extra
 import Numeric.Extra
 import Development.Shake hiding (readFile', withTempDir)
@@ -23,10 +24,12 @@ main Args{..} = do
     let benchmark lbl act = when (lbl `elemOrNull` step) $ do
             putStrLn lbl
             let count = fromMaybe 5 repeat_
+            -- ignore the slowest few times when taking the average
+            let ignore = if count >= 5 then 2 else 0
             times <- replicateM count $ withTempDir $ \dir -> do
                 cmd_ Shell clean (EchoStdout False)
                 fst <$> duration (act dir)
-            putStrLn $ unwords (map showDuration times) ++ " = " ++ showDuration (sum times / intToDouble count)
+            putStrLn $ unwords (map showDuration times) ++ " = " ++ showDuration (sum (dropEnd ignore $ sort times) / intToDouble (count-ignore))
 
     benchmark "make" $ const $
         cmd_ "make -j1" (EchoStdout False)
