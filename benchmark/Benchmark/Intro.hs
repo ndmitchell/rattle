@@ -29,7 +29,7 @@ main Args{..} = withTempDir $ \dir -> withCurrentDirectory dir $ do
         ]
     writeFile "main.c" $ unlines
         ["#include <stdio.h>"
-        ,"void util();"
+        ,"char* util();"
         ,"void main(){printf(\"%s\", util());}"]
     writeFile "util.c" $ unlines
         ["char* util(){return \"test\";}"]
