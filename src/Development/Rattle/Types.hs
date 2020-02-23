@@ -1,5 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
-{-# LANGUAGE StandaloneDeriving, DeriveAnyClass, DeriveGeneric #-}
+{-# LANGUAGE StandaloneDeriving, DeriveGeneric #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Development.Rattle.Types(
@@ -25,12 +25,13 @@ import Data.Serialize
 import General.FileName
 
 data Cmd = Cmd [CmdOption] [String]
-    deriving (Show, Eq, Generic, Hashable)
+    deriving (Show, Eq, Generic)
+instance Hashable Cmd
 
 instance Serialize Cmd
-deriving instance Serialize CmdOption
+instance Serialize CmdOption
 deriving instance Generic CmdOption
-deriving instance Hashable CmdOption
+instance Hashable CmdOption
 
 data Trace a = Trace
     {tRun :: !RunIndex
