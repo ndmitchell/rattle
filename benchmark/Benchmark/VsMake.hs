@@ -23,6 +23,8 @@ data VsMake = VsMake
     ,generateVersion :: Int
     ,clean :: IO ()
     ,broken :: [String]
+    ,make :: CmdArgument
+    ,rattle :: CmdArgument
     }
 
 
@@ -72,11 +74,10 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
             putStrLn ""
 
 
-
         -- for different levels of parallelism
         forM_ (threads `orNull` [1..4]) $ \j -> do
-            make <- newIORef 0
-            rattle <- newIORef 0
+            makeTime <- newIORef 0
+            rattleTime <- newIORef 0
 
             -- first build with make
             when ("make" `elemOrNull` step) $ do
@@ -84,7 +85,7 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
                 clean
                 forM_ (commitList++[0]) $ \i -> do
                     checkout i $ \_ ->
-                        timed make "make" j $ cmd_ "make" ["-j" ++ show j] (EchoStdout False)
+                        timed makeTime "make" j $ cmd_ make ["-j" ++ show j] (EchoStdout False)
 
             -- now with rattle
             when ("rattle" `elemOrNull` step) $ do
@@ -95,10 +96,10 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
                 forM_ (commitList ++ [0]) $ \i -> do
                     checkout i $ \commit -> do
                         file <- generateName vs commit
-                        cmds <- map words . lines <$> readFile' file
+                        cmds <- lines <$> readFile' file
                         let opts = rattleOptions{rattleProcesses=j, rattleUI=Just RattleQuiet, rattleNamedDirs=[]}
-                        timed rattle "rattle" j $ rattleRun opts $ forM_ cmds cmd
+                        timed rattleTime "rattle" j $ rattleRun opts $ forM_ cmds $ cmd rattle
 
-            make <- readIORef make
-            rattle <- readIORef rattle
-            putStrLn $ "TOTALS: make = " ++ showDuration make ++ ", rattle =" ++ showDuration rattle
+            make <- readIORef makeTime
+            rattle <- readIORef rattleTime
+            putStrLn $ "TOTALS: make = " ++ showDuration make ++ ", rattle = " ++ showDuration rattle

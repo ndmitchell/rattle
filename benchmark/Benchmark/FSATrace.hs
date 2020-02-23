@@ -15,6 +15,9 @@ main = vsMake VsMake{..}
 
         repo = "https://github.com/jacereda/fsatrace"
 
+        make = cmd "make"
+        rattle = mempty
+
         generateVersion = 1
 
         generate :: IO String
