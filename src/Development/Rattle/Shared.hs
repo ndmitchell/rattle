@@ -44,12 +44,7 @@ getList :: (Show a, Serialize b, BinaryEx b) => String -> Shared -> a -> IO [b]
 getList typ (Shared lock dir) name = withLock lock $ do
     let file = dir </> typ </> filename (hashString $ show name)
     b <- doesFileExist file
-    if not b then return [] else decodeAll <$> BS.readFile file
-      where decodeAll bstr
-              | BS.null bstr = []
-              | otherwise = case runGetState get bstr 0 of
-                              Left str -> error $ "Failed to decode: " ++ str
-                              Right (a, rbstr) -> a ++ decodeAll rbstr
+    if not b then return [] else map getEx . getExList <$> BS.readFile file
 
 setList :: (Show a, Serialize b, BinaryEx b) => String -> IOMode -> Shared -> a -> [b] -> IO ()
 setList typ mode (Shared lock dir) name vals = withLock lock $ do
@@ -59,7 +54,7 @@ setList typ mode (Shared lock dir) name vals = withLock lock $ do
         writeFile (file <.> "txt") $ show name
     withFile file mode $ \h -> do
         hSetEncoding h utf8
-        BS.hPutStr h $ encode vals
+        BS.hPutStr h $ runBuilder $ putExList $ map putEx vals
 
 ---------------------------------------------------------------------
 -- SPECIAL SUPPORT FOR FILES
