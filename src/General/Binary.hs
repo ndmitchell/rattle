@@ -9,7 +9,7 @@ module General.Binary(
     ) where
 
 import Control.Monad
-import Data.Binary
+import Data.Word
 import Data.List.Extra
 import Data.Tuple.Extra
 import Foreign.Storable
