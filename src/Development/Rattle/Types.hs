@@ -11,6 +11,7 @@ module Development.Rattle.Types(
 import Data.Hashable
 import Data.List.Extra
 import System.Directory
+import Control.Monad
 import Development.Shake.Command
 import Data.Semigroup
 import qualified Data.HashSet as Set
@@ -75,7 +76,12 @@ normalizeTouch (Touch a b) = Touch (sort $ Set.toList $ a2 `Set.difference` b2) 
           b2 = Set.fromList b
 
 canonicalizeTouch :: Touch FilePath -> IO (Touch FilePath)
-canonicalizeTouch (Touch a b) = Touch <$> mapM canonicalizePath a <*> mapM canonicalizePath b
+canonicalizeTouch (Touch a b) = Touch <$> mapM g a <*> mapM g b
+    where g x = do
+            -- TEMPORARY EXPERIMENT
+            y <- canonicalizePath x
+            when (x /= y) $ print ("canonicalizePath CHANGED THINGS", x, y)
+            return y
 
 
 -- | Which run we are in, monotonically increasing
