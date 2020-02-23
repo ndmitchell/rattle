@@ -15,7 +15,7 @@ main = vsMake VsMake{..}
         broken = []
         repo = "https://github.com/antirez/redis"
         master = "unstable"
-        generateVersion = 1
+        generateVersion = 2
 
         generate :: IO String
         generate = do
@@ -45,7 +45,10 @@ fromTrace root = f []
             -- make[3]: Leaving directory '/home/neil/redis-5.0.7/deps/lua/src'
             | "Leaving directory" `isInfixOf` x = f (tail cwds) xs
 
-            | fst (word1 x) `elem` ["cc","ar"] = (case cwds of c:_ -> "cd " ++ c ++ " && " ++ x; [] -> x) : f cwds xs
+            | fst (word1 x) `elem` ["cc","ar"]
+            , not $ " -MM " `isInfixOf` x -- the first line generates everyones deps
+            , x <- replace " -MMD " " " x -- not required
+                = (case cwds of c:_ -> "cd " ++ c ++ " && " ++ x; [] -> x) : f cwds xs
 
             | otherwise = f cwds xs
         f cwds [] = []
