@@ -20,33 +20,31 @@ main = do
     let benchmark lbl act = when (null other || lbl `elem` other) $ do
             putStrLn lbl
             let count = 5
-            times <- replicateM count $ do
+            times <- replicateM count $ withTempDir $ \dir -> do
                 Stdout (_ :: String) <- cmd Shell clean
-                fst <$> duration act
+                fst <$> duration (act dir)
             putStrLn $ unwords (map showDuration times) ++ " = " ++ showDuration (sum times / intToDouble count)
 
-    benchmark "System.Process" $
+    benchmark "System.Process" $ const $
         forM_ cmds $ \(command:args) ->
             callProcess command args
 
-    benchmark "shake.cmd" $
+    benchmark "shake.cmd" $ const $
         forM_ cmds cmd_
 
-    benchmark "shake.cmd fsatrace" $
+    benchmark "shake.cmd fsatrace" $ const $
         forM_ cmds $ \xs -> cmd_ $ "fsatrace" : "rwmdqt" : "fsatrace.out" : "--" : xs
 
-    benchmark "shake.cmd traced" $
+    benchmark "shake.cmd traced" $ const $
         forM_ cmds $ \xs -> do
             _ :: [FSATrace BS.ByteString] <- cmd xs
             return ()
 
     let opts dir = rattleOptions{rattleFiles=dir, rattleProcesses=1, rattleUI=Just RattleQuiet, rattleNamedDirs=[]}
-    benchmark "rattle" $
-        withTempDir $ \dir ->
-            rattleRun (opts dir){rattleSpeculate=Nothing, rattleShare=False} $
-                forM_ cmds cmd
+    benchmark "rattle" $ \dir ->
+        rattleRun (opts dir){rattleSpeculate=Nothing, rattleShare=False} $
+            forM_ cmds cmd
 
-    benchmark "rattle share" $
-        withTempDir $ \dir ->
-            rattleRun (opts dir) $
-                forM_ cmds cmd
+    benchmark "rattle share" $ \dir ->
+        rattleRun (opts dir) $
+            forM_ cmds cmd
