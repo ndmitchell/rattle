@@ -40,13 +40,13 @@ main = do
             _ :: [FSATrace BS.ByteString] <- cmd xs
             return ()
 
-    let opts = rattleOptions{rattleFiles=dir, rattleProcesses=1, rattleUI=Just RattleQuiet, rattleNamedDirs=[]}
+    let opts dir = rattleOptions{rattleFiles=dir, rattleProcesses=1, rattleUI=Just RattleQuiet, rattleNamedDirs=[]}
     benchmark "rattle" $
         withTempDir $ \dir ->
-            rattleRun opts{rattleSpeculate=Nothing, rattleShare=False} $
+            rattleRun (opts dir){rattleSpeculate=Nothing, rattleShare=False} $
                 forM_ cmds cmd
 
     benchmark "rattle share" $
         withTempDir $ \dir ->
-            rattleRun opts $
+            rattleRun (opts dir) $
                 forM_ cmds cmd
