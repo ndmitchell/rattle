@@ -29,7 +29,7 @@ main = vsMake VsMake{..}
 
         -- should touch .make-prerequisites in src and deps directories to force it to recursively
         -- rebuild stuff
-        make = cmd "touch src/.make-prerequisites && touch deps/make-prerequisites && make MALLOC=libc"
+        make = cmd Shell "touch src/.make-prerequisites && touch deps/make-prerequisites && make MALLOC=libc"
         rattle = cmd Shell
 
 
