@@ -88,6 +88,7 @@ data Rattle = Rattle
     ,pool :: Pool
     ,ui :: UI
     ,shared :: Shared
+    ,shortener :: FileName -> FileName
     }
 
 addCmdOptions :: [C.CmdOption] -> Rattle -> Rattle
@@ -105,10 +106,12 @@ withRattle options@RattleOptions{..} act = withUI rattleUI (return "Running") $ 
             putStrLn "WARNING: Running with multiple threads but not compiled with -threaded"
 
         speculate <- maybe (return []) (getSpeculate shared) rattleSpeculate
+        let expander = expand rattleNamedDirs
+        let shortener = shorten rattleNamedDirs
         speculate <- fmap (takeWhile (not . null . snd)) $ -- don't speculate on things we have no traces for
             forM speculate $ \x -> do
                 traces <- unsafeInterleaveIO (getCmdTraces shared x)
-                return (x, normalizeTouch $ foldMap (fmap (expand rattleNamedDirs . fst3) . tTouch) traces)
+                return (x, normalizeTouch $ foldMap (fmap (expander . fst3) . tTouch) traces)
         speculated <- newIORef False
 
         runIndex <- nextRun shared rattleMachine
@@ -316,4 +319,4 @@ cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{..} save = join $ modi
                 let earliest = minimum $ maxTimestamp : map fst3 (running s)
                 (safe, pending) <- return $ partition (\x -> fst3 x < earliest) $ pending s
                 s <- return s{pending = pending}
-                return (Right s, forM_ safe $ \(_,c,t) -> addCmdTrace shared c $ fmap (\(f,mt,h) -> (shorten (rattleNamedDirs options) f, mt,h)) t)
+                return (Right s, forM_ safe $ \(_,c,t) -> addCmdTrace shared c $ fmap (\(f,mt,h) -> (shortener f, mt,h)) t)

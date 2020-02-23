@@ -11,6 +11,7 @@ import Data.Ord
 import System.FilePath
 import System.Directory
 import Development.Rattle.UI
+import qualified Data.HashMap.Strict as Map
 import qualified Development.Shake.Command as C
 import Data.Maybe
 import Data.List.Extra
@@ -25,14 +26,14 @@ data RattleOptions = RattleOptions
     ,rattleShare :: Bool -- ^ Should I share files from the cache
     ,rattleProcesses :: Int -- ^ Number of simulateous processes
     ,rattleCmdOptions :: [C.CmdOption] -- ^ Extra options added to every command line
-    ,rattleNamedDirs :: [(BSC.ByteString, FilePath)] -- ^ Named directories
+    ,rattleNamedDirs :: [(String, FilePath)] -- ^ Named directories, e.g. (PWD, .)
     ,rattleUI :: Maybe RattleUI -- ^ Nothing for auto detect
     } deriving Show
 
 
 -- | Default 'RattleOptions' value.
 rattleOptions :: RattleOptions
-rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 0 [] [(BSC.pack "PWD",".")] Nothing
+rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 0 [] [("PWD",".")] Nothing
 
 
 rattleOptionsExplicit :: RattleOptions -> IO RattleOptions
@@ -48,17 +49,21 @@ rattleOptionsExplicit = fixProcessorCount >=> fixNamedDirs
             return o{rattleNamedDirs = sortOn (Down . snd) xs}
 
 
-shorten :: [(BSC.ByteString, FilePath)] -> FileName -> FileName
-shorten named x = fromMaybe x $ firstJust f named
-    where f (name,dir) = do rest <- stripPrefix dir $ fileNameToString x; return $ fileNameFromString $ "$" ++ BSC.unpack name </> rest
+shorten :: [(String, String)] -> FileName -> FileName
+shorten [] = id
+shorten named = \x -> fromMaybe x $ firstJust (f x) named2
+    where
+        named2 = [(BSC.pack $ "$" ++ a ++ [pathSeparator], BSC.pack $ addTrailingPathSeparator b) | (a,b) <- named]
+        f x (name,dir) = do rest <- BSC.stripPrefix dir $ fileNameToByteString x; return $ byteStringToFileName $ name <> rest
 
-expand :: [(BSC.ByteString, FilePath)] -> FileName -> FileName
-expand named f = g $ fileNameToByteString f
-  where g bs
-          | '$' == BSC.head bs =
-            let (x1, x2) = BSC.break isPathSeparator $ BSC.tail bs in
-              if BSC.null x2 then f
-              else case lookup x1 named of
-                     (Just y) -> fileNameFromByteString $ BSC.append (BSC.pack y) x2
-                     Nothing  -> f
-          | otherwise = f
+expand :: [(String, String)] -> FileName -> FileName
+expand [] = id
+expand named = \x -> case BSC.uncons $ fileNameToByteString x of
+    Just ('$', x)
+        | (x1, x2) <- BSC.break isPathSeparator x
+        , not $ BSC.null x2
+        , Just v <- Map.lookup x1 named2
+        -> byteStringToFileName $ v <> x2
+    _ -> x
+    where
+        named2 = Map.fromList [(BSC.pack a, BSC.pack b) | (a,b) <- named]
