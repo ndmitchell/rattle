@@ -1,19 +1,14 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Benchmark.Micro(main) where
+module Benchmark.Intro(main) where
 
 import Benchmark.Args
-import System.Process
 import System.IO.Extra
 import Control.Monad.Extra
-import Data.Maybe
-import Data.List.Extra
 import System.Time.Extra
 import System.Directory
-import Numeric.Extra
 import Development.Shake.Command
-import qualified Data.ByteString as BS
 import Development.Rattle
 
 main :: Args -> IO ()
