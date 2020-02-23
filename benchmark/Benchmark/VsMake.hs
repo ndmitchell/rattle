@@ -57,6 +57,7 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
             when (commit `notElem` broken) $
                 flip onException (putStrLn $ "AT COMMIT " ++ commit) $
                     act commit
+    let stderr = [EchoStderr False | no_stderr]
 
     withCurrentDirectory dir $ do
         cmd_ "git clone" repo "." ["--depth=" ++ show (length commitList + 10)]
@@ -86,7 +87,7 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
                 clean
                 forM_ (commitList++[0]) $ \i -> do
                     checkout i $ \_ ->
-                        timed makeTime "make" j $ cmd_ make ["-j" ++ show j] (EchoStdout False)
+                        timed makeTime "make" j $ cmd_ make ["-j" ++ show j] (EchoStdout False) stderr
 
             -- now with rattle
             when ("rattle" `elemOrNull` step) $ do
@@ -99,7 +100,7 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
                         file <- generateName vs commit
                         cmds <- lines <$> readFile' file
                         let opts = rattleOptions{rattleProcesses=j, rattleUI=Just RattleQuiet, rattleNamedDirs=[]}
-                        timed rattleTime "rattle" j $ rattleRun opts $ forM_ cmds $ cmd rattle
+                        timed rattleTime "rattle" j $ rattleRun opts $ forM_ cmds $ cmd rattle stderr
 
             make <- readIORef makeTime
             rattle <- readIORef rattleTime

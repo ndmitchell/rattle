@@ -13,6 +13,7 @@ data Args = Args
     ,repeat_ :: Maybe Int
     ,step :: [String] -- which steps to run
     ,commits :: Maybe Int
+    ,no_stderr :: Bool
     }
     deriving Data
 
@@ -23,6 +24,7 @@ mode = cmdArgsMode $ Args
     ,repeat_ = Nothing
     ,step = []
     ,commits = Nothing
+    ,no_stderr = False
     }
 
 getArguments :: IO Args
