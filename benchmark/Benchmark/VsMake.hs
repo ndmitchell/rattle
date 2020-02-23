@@ -59,7 +59,7 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
         -- generate all the Rattle files
         putStrLn "GENERATING RATTLE SCRIPTS"
         forM_ commitList $ \i -> do
-            putChar '.'
+            putChar '.' >> hFlush stdout
             checkout i $ \commit -> do
                 file <- generateName vs commit
                 unlessM (doesFileExist file) $ do
