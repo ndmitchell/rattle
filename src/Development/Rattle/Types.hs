@@ -69,7 +69,7 @@ fsaTrace fs
         -- normalize twice because normalisation is cheap, but canonicalisation might be expensive
         fmap (normalizeTouch . fmap mkFileName) $ canonicalizeTouch $ normalizeTouch $ mconcatMap f fs
     | otherwise =
-        return $ normalizeTouch $ fmap mkFileName $ mconcatMap f fs
+        return $ normalizeTouch $ mkFileName <$> mconcatMap f fs
     where
         -- We know the file names are already normalized from Shake so avoid a redundant conversion
         mkFileName = byteStringToFileName . UTF8.fromString
