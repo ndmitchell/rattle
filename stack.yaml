@@ -2,3 +2,8 @@
 resolver: lts-14.17
 packages:
 - .
+
+extra-deps:
+  - git: https://github.com/ndmitchell/shake.git
+    commit: a322c0c1b793dbe4c822276708aee40ef5a73bd0
+  - extra-1.6.20
