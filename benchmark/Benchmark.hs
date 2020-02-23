@@ -36,7 +36,7 @@ main = do
 
     benchmark "shake.cmd traced" $
         forM_ cmds $ \xs -> do
-            _ :: [FSATrace] <- cmd xs
+            _ :: [FSATrace BS.ByteString] <- cmd xs
             return ()
 
     benchmark "rattle" $
