@@ -1,5 +1,4 @@
-# Can't use GHC 8.8.1 because of https://gitlab.haskell.org/ghc/ghc/issues/17575
-resolver: lts-14.17
+resolver: nightly-2020-02-23
 packages:
 - .
 
@@ -8,4 +7,3 @@ extra-deps:
     commit: a322c0c1b793dbe4c822276708aee40ef5a73bd0
   - git: https://github.com/ndmitchell/filepattern.git
     commit: cd32fb717d9dd662c9a5d8695c53af7a09fe13ae
-  - extra-1.6.20
