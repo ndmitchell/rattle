@@ -16,12 +16,13 @@ main Args{..} = withTempDir $ \dir -> withCurrentDirectory dir $ do
     writeFile "gcc.sh" "sleep 1 && gcc $*"
     cmd_ "chmod +x gcc.sh"
     writeFile "Makefile" $ unlines
-        ["main.o: main.c"
+        ["main.exe: main.o util.o"
+        ,"\t./gcc.sh -o main.exe main.o util.o"
+        ,"main.o: main.c"
         ,"\t./gcc.sh -c main.c"
         ,"util.o: util.c"
         ,"\t./gcc.sh -c util.c"
-        ,"main.exe: main.o util.o"
-        ,"\t./gcc.sh -o main.exe main.o util.o"]
+        ]
     rattleCmds <- return
         ["./gcc.sh -c main.c"
         ,"./gcc.sh -c util.c"
