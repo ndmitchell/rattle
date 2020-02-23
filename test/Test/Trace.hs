@@ -13,10 +13,10 @@ check got want = do
     want <- mapM canonicalizePath want
     nubOrd got `intersect` want === want
 
-traceWrite :: [FSATrace] -> [FilePath] -> IO ()
+traceWrite :: [FSATrace FilePath] -> [FilePath] -> IO ()
 traceWrite ts = check [t | FSAWrite t <- ts]
 
-traceRead :: [FSATrace] -> [FilePath] -> IO ()
+traceRead :: [FSATrace FilePath] -> [FilePath] -> IO ()
 traceRead ts = check [t | FSARead t <- ts]
 
 

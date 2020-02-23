@@ -36,6 +36,7 @@ import Data.Tuple.Extra
 import System.Time.Extra
 import General.FileName
 import General.FileInfo
+import qualified Data.ByteString.UTF8 as UTF8
 import qualified Data.ByteString.Char8 as BS
 
 -- | Type of actions to run. Executed using 'rattle'.
@@ -246,7 +247,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
         cmdline = unwords $ ["cd " ++ x ++ " &&" | C.Cwd x <- opts] ++ args
 
 
-cmdRattleRaw :: UI -> [C.CmdOption] -> [String] -> IO ([CmdOption2], [C.FSATrace])
+cmdRattleRaw :: UI -> [C.CmdOption] -> [String] -> IO ([CmdOption2], [C.FSATrace BS.ByteString])
 cmdRattleRaw ui opts args = do
     (opts, opts2) <- return $ partitionEithers $ map fromCmdOption opts
     case [x | WriteFile x <- opts2] of
@@ -258,7 +259,7 @@ cmdRattleRaw ui opts args = do
             forM_ files $ \file -> do
                 createDirectoryIfMissing True $ takeDirectory file
                 writeFileUTF8 file $ concat args
-            return (opts2, map C.FSAWrite files)
+            return (opts2, map (C.FSAWrite . UTF8.fromString) files)
 
 checkHashForwardConsistency :: Touch FileName -> IO ()
 checkHashForwardConsistency Touch{..} = do

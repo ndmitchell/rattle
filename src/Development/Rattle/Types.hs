@@ -16,6 +16,7 @@ import Control.Monad
 import Development.Shake.Command
 import Data.Semigroup
 import qualified Data.ByteString.UTF8 as UTF8
+import qualified Data.ByteString as BS
 import qualified Data.HashSet as Set
 import GHC.Generics
 import Prelude
@@ -60,20 +61,20 @@ instance Hashable a => Hashable (Trace a) where
 instance Hashable a => Hashable (Touch a) where
     hashWithSalt s (Touch r w) = hashWithSalt s (r,w)
 
-fsaTrace :: [FSATrace] -> IO (Touch FileName)
+fsaTrace :: [FSATrace BS.ByteString] -> IO (Touch FileName)
 -- We want to get normalized traces. On Linux, things come out normalized, and we just want to dedupe them
 -- On Windows things come out as C:\windows\system32\KERNELBASE.dll instead of C:\Windows\System32\KernelBase.dll
 -- so important to call (expensive) normalizeTouch
 fsaTrace fs
     | isWindows =
         -- normalize twice because normalisation is cheap, but canonicalisation might be expensive
-        fmap (normalizeTouch . fmap mkFileName) $ canonicalizeTouch $ normalizeTouch $ mconcatMap f fs
+        fmap (normalizeTouch . fmap (byteStringToFileName . UTF8.fromString)) $
+        canonicalizeTouch $
+        fmap UTF8.toString $ normalizeTouch $ mconcatMap f fs
     | otherwise =
-        return $ normalizeTouch $ mkFileName <$> mconcatMap f fs
-    where
         -- We know the file names are already normalized from Shake so avoid a redundant conversion
-        mkFileName = byteStringToFileName . UTF8.fromString
-
+        return $ normalizeTouch $ byteStringToFileName <$> mconcatMap f fs
+    where
         f (FSAWrite x) = Touch [] [x]
         f (FSARead x) = Touch [x] []
         f (FSADelete x) = Touch [] [x]
