@@ -70,7 +70,8 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
             forM_ (commitList++[0]) $ \i -> do
                 commit <- checkout i
                 when (commit `notElem` broken) $
-                    timed "make" j $ cmd_ "make" ["-j" ++ show j] (EchoStdout False)
+                    flip finally (putStrLn $ "AT COMMIT " ++ commit) $
+                        timed "make" j $ cmd_ "make" ["-j" ++ show j] (EchoStdout False)
 
             -- now with rattle
             putStrLn "BUILDING WITH RATTLE"
