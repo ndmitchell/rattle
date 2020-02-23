@@ -59,7 +59,7 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
                     act commit
 
     withCurrentDirectory dir $ do
-        cmd_ "git clone" repo "."
+        cmd_ "git clone" repo "." ["--depth=" ++ show (length commitList + 10)]
 
         -- generate all the Rattle files
         when ("generate" `elemOrNull` step) $ do
