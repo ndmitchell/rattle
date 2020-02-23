@@ -28,6 +28,9 @@ main Args{..} = do
                 fst <$> duration (act dir)
             putStrLn $ unwords (map showDuration times) ++ " = " ++ showDuration (sum times / intToDouble count)
 
+    benchmark "make" $ const $
+        cmd_ "make -j1" (EchoStdout False)
+
     benchmark "System.Process" $ const $
         forM_ cmds $ \(command:args) ->
             callProcess command args
