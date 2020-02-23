@@ -15,6 +15,7 @@ import System.Info.Extra
 import Control.Monad
 import Development.Shake.Command
 import Data.Semigroup
+import qualified Data.ByteString.UTF8 as UTF8
 import qualified Data.HashSet as Set
 import GHC.Generics
 import Prelude
@@ -66,10 +67,13 @@ fsaTrace :: [FSATrace] -> IO (Touch FileName)
 fsaTrace fs
     | isWindows =
         -- normalize twice because normalisation is cheap, but canonicalisation might be expensive
-        fmap (normalizeTouch . fmap fileNameFromString) $ canonicalizeTouch $ normalizeTouch $ mconcatMap f fs
+        fmap (normalizeTouch . fmap mkFileName) $ canonicalizeTouch $ normalizeTouch $ mconcatMap f fs
     | otherwise =
-        return $ normalizeTouch $ fmap fileNameFromString $ mconcatMap f fs
+        return $ normalizeTouch $ fmap mkFileName $ mconcatMap f fs
     where
+        -- We know the file names are already normalized from Shake so avoid a redundant conversion
+        mkFileName = byteStringToFileName . UTF8.fromString
+
         f (FSAWrite x) = Touch [] [x]
         f (FSARead x) = Touch [x] []
         f (FSADelete x) = Touch [] [x]
