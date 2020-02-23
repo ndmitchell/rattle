@@ -84,9 +84,13 @@ fsaTrace fs
 
 normalizeTouch :: (Ord a, Hashable a) => Touch a -> Touch a
 -- added 'sort' because HashSet uses the ordering of the hashes, which is confusing
-normalizeTouch (Touch a b) = Touch (sort $ Set.toList $ a2 `Set.difference` b2) (sort $ Set.toList b2)
-    where a2 = Set.fromList a
-          b2 = Set.fromList b
+-- and since we are sorting, try and avoid doing too much hash manipulation of the reads
+normalizeTouch (Touch a b) = Touch (f $ sort a) (sort $ Set.toList b2)
+    where
+        b2 = Set.fromList b
+        f (x1:x2:xs) | x1 == x2 = f (x1:xs)
+        f (x:xs) | x `Set.member` b2 = f xs
+                 | otherwise = x : f xs
 
 canonicalizeTouch :: Touch FilePath -> IO (Touch FilePath)
 canonicalizeTouch (Touch a b) = Touch <$> mapM g a <*> mapM g b
