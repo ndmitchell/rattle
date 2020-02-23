@@ -10,11 +10,11 @@ module Development.Rattle.Hash(
 import System.IO
 import Data.Hashable
 import qualified Crypto.Hash.SHA256 as SHA
+import qualified Data.ByteString as BS8
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import qualified Data.HashMap.Strict as Map
 import System.IO.Unsafe
-import Data.Char
 import Numeric
 import Control.Monad.Extra
 import Data.IORef
@@ -45,7 +45,7 @@ mkHash = Hash
 
 -- | Show a hash as hex characters
 hashHex :: Hash -> String
-hashHex (Hash x) = concatMap (f . ord) $ BS.unpack x
+hashHex (Hash x) = concatMap f $ BS8.unpack x
     where f i = ['0' | i < 16] ++ showHex i ""
 
 -- Hashing lots of files is expensive, so we keep a cache
