@@ -7,6 +7,7 @@ import Benchmark.Args
 import System.IO.Extra
 import Control.Monad.Extra
 import System.Time.Extra
+import Data.List.Extra
 import System.Directory
 import Development.Shake.Command
 import Development.Rattle
@@ -49,7 +50,7 @@ main Args{..} = withTempDir $ \dir -> withCurrentDirectory dir $ do
         let opts = rattleOptions{rattleProcesses=j, rattleUI=Just RattleQuiet, rattleNamedDirs=[]}
         let rattle = rattleRun opts $ mapM_ (cmd Shell) rattleCmds
 
-        forM_ [("make  ",make),("rattle",rattle)] $ \(name,act) -> do
+        forM_ [("make  ",make),("rattle",rattle)] $ \(name,act) -> when (trim name `elemOrNull` step) $ do
             putStr $ name ++ " -j" ++ show j ++ ": "
             hFlush stdout
             clean
