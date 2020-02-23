@@ -35,7 +35,7 @@ main Args{..} = withTempDir $ \dir -> withCurrentDirectory dir $ do
 
     writeFile "Makefile" $ unlines $ concat
         [[b,"\t./gcc.sh " ++ a] | (a,b) <- commands]
-    let rattleCmds = map ((++) "./gcc.sh" . fst) commands
+    let rattleCmds = map ((++) "./gcc.sh " . fst) commands
 
     let clean = do
             whenM (doesDirectoryExist ".rattle") $
