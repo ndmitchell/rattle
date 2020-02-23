@@ -5,7 +5,6 @@ import Development.Rattle
 import Data.List.Extra
 import System.Environment
 import Control.Monad
-import qualified Data.ByteString.Char8 as BS
 
 -- Takes as arguments a file and the number of threads to run with
 -- File is of the following format
