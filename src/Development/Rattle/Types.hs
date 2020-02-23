@@ -91,6 +91,7 @@ normalizeTouch (Touch a b) = Touch (f $ sort a) (sort $ Set.toList b2)
         f (x1:x2:xs) | x1 == x2 = f (x1:xs)
         f (x:xs) | x `Set.member` b2 = f xs
                  | otherwise = x : f xs
+        f [] = []
 
 canonicalizeTouch :: Touch FilePath -> IO (Touch FilePath)
 canonicalizeTouch (Touch a b) = Touch <$> mapM g a <*> mapM g b
