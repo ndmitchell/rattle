@@ -11,7 +11,7 @@ import Data.List.Extra
 main :: Args -> IO ()
 main = vsMake VsMake{..}
     where
-        broken = ["eafc609"]
+        broken = ["eafc609","ad2c880"]
 
         repo = "https://github.com/jacereda/fsatrace"
 
