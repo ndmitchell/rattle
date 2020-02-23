@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, DeriveGeneric #-}
 
 module Development.Rattle.Hash(
-    Hash(..),
+    Hash(..), hashLength,
     hashFile, hashString, hashHash, hashHex,
     hashFileForward, toHashForward, fromHashForward,
     hashFileForwardIfStale, hashFileIfStale
@@ -18,6 +18,7 @@ import Data.Char
 import Numeric
 import Control.Monad.Extra
 import Data.IORef
+import General.Binary
 import Control.Exception.Extra
 import Control.DeepSeq
 import GHC.Generics
@@ -25,9 +26,17 @@ import Data.Serialize
 import General.FileName
 import General.FileInfo
 
--- | A hash, encoded 32 bytes, may contain NUL or other funny characters
+-- | A hash, exactly 32 bytes, may contain NUL or other funny characters
 newtype Hash = Hash BS.ByteString
     deriving (NFData, Eq, Hashable, Generic)
+
+hashLength :: Int
+hashLength = 32
+
+instance BinaryEx Hash where
+    getEx = Hash
+    putEx (Hash x) = putEx x
+
 
 instance Show Hash where
     show = hashHex

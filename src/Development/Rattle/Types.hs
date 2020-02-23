@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving, DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
 {-# LANGUAGE StandaloneDeriving, DeriveGeneric #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -13,6 +14,7 @@ import Data.List.Extra
 import System.Directory
 import System.Info.Extra
 import Control.Monad
+import General.Binary
 import Development.Shake.Command
 import Data.Semigroup
 import qualified Data.ByteString.UTF8 as UTF8
@@ -28,17 +30,28 @@ data Cmd = Cmd [CmdOption] [String]
     deriving (Show, Eq, Generic)
 instance Hashable Cmd
 
+instance BinaryEx Cmd where
+    getEx x = Cmd (map read $ getEx a) (getEx b)
+        where [a,b] = getExList x
+    putEx (Cmd a b) = putExList [putEx $ map show a, putEx b]
+
 instance Serialize Cmd
 instance Serialize CmdOption
 deriving instance Generic CmdOption
+deriving instance Read CmdOption
 instance Hashable CmdOption
 
 data Trace a = Trace
-    {tRun :: !RunIndex
-    ,tStart :: Seconds
-    ,tStop :: Seconds
+    {tRun :: {-# UNPACK #-} !RunIndex
+    ,tStart :: {-# UNPACK #-} !Seconds
+    ,tStop :: {-# UNPACK #-} !Seconds
     ,tTouch :: Touch a
     } deriving (Show, Functor, Foldable, Traversable, Eq, Generic)
+
+instance BinaryEx a => BinaryEx (Trace a) where
+    getEx x = Trace a b c $ getEx d
+        where (a,b,c,d) = binarySplit3 x
+    putEx (Trace a b c d) = putExStorable a <> putExStorable b <> putExStorable c <> putEx d
 
 instance Serialize a => Serialize (Trace a)
 
@@ -46,6 +59,11 @@ data Touch a = Touch
     {tRead :: [a]
     ,tWrite :: [a]
     } deriving (Show, Functor, Foldable, Traversable, Eq, Generic)
+
+instance BinaryEx a => BinaryEx (Touch a) where
+    getEx x = Touch (map getEx $ getExList a) (map getEx $ getExList b)
+        where [a,b] = getExList x
+    putEx (Touch a b) = putExList [putExList $ map putEx a, putExList $ map putEx b]
 
 instance Serialize a => Serialize (Touch a)
 
@@ -100,7 +118,7 @@ canonicalizeTouch (Touch a b) = Touch <$> mapM canonicalizePath a <*> mapM canon
 
 -- | Which run we are in, monotonically increasing
 newtype RunIndex = RunIndex Int
-    deriving (Eq,Ord,Show,Generic)
+    deriving (Eq,Ord,Show,Generic,Storable,BinaryEx)
 
 instance Serialize RunIndex
 

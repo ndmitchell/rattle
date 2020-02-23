@@ -24,6 +24,8 @@ import qualified Data.ByteString as BS
 import Data.Serialize
 import GHC.Generics
 import General.FileInfo
+import General.Binary
+
 ---------------------------------------------------------------------
 -- PRIMITIVES
 
@@ -38,7 +40,7 @@ withShared dir act = do
 filename :: Hash -> String
 filename str = let (a:b:cs) = hashHex str in [a,b] </> cs
 
-getList :: (Show a, Serialize b) => String -> Shared -> a -> IO [b]
+getList :: (Show a, Serialize b, BinaryEx b) => String -> Shared -> a -> IO [b]
 getList typ (Shared lock dir) name = withLock lock $ do
     let file = dir </> typ </> filename (hashString $ show name)
     b <- doesFileExist file
@@ -49,7 +51,7 @@ getList typ (Shared lock dir) name = withLock lock $ do
                               Left str -> error $ "Failed to decode: " ++ str
                               Right (a, rbstr) -> a ++ decodeAll rbstr
 
-setList :: (Show a, Serialize b) => String -> IOMode -> Shared -> a -> [b] -> IO ()
+setList :: (Show a, Serialize b, BinaryEx b) => String -> IOMode -> Shared -> a -> [b] -> IO ()
 setList typ mode (Shared lock dir) name vals = withLock lock $ do
     let file = dir </> typ </> filename (hashString $ show name)
     createDirectoryRecursive $ takeDirectory file
@@ -109,6 +111,13 @@ data File = File FileName ModTime Hash
     deriving (Show,Generic)
 
 instance Serialize File
+
+instance BinaryEx File where
+    getEx x = File (byteStringToFileName a) b (getEx c)
+        where (b,ca) = binarySplit x
+              (c,a) = BS.splitAt hashLength ca
+    putEx (File a b c) = putExStorable b <> putEx c <> putEx (fileNameToByteString a)
+
 
 -- First trace in list is earliest one; last is latest one.
 getCmdTraces :: Shared -> Cmd -> IO [Trace (FileName, ModTime, Hash)]

@@ -75,6 +75,7 @@ library
         Development.Rattle.Types
         Development.Rattle.UI
         General.Bilist
+        General.Binary
         General.Extra
         General.Limit
         General.Paths

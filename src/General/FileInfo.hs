@@ -17,6 +17,7 @@ import Data.Word
 import Numeric
 import System.IO
 import Foreign
+import General.Binary
 import Data.Serialize
 import GHC.Generics
 
@@ -38,7 +39,7 @@ import System.Posix.Files.ByteString
 
 -- A piece of file information, where 0 and 1 are special (see fileInfo* functions)
 newtype FileInfo a = FileInfo Word32
-    deriving (Typeable,Hashable,Binary,Storable,NFData, Generic)
+    deriving (Typeable,Hashable,Binary,Storable,NFData,Generic,BinaryEx)
 
 instance Serialize a => Serialize (FileInfo a)
 
