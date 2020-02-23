@@ -48,3 +48,4 @@ fromTrace root = f []
             | fst (word1 x) `elem` ["cc","ar"] = (case cwds of c:_ -> "cd " ++ c ++ " && " ++ x; [] -> x) : f cwds xs
 
             | otherwise = f cwds xs
+        f cwds [] = []
