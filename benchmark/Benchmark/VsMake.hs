@@ -102,7 +102,7 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
                     checkout i $ \commit -> do
                         file <- generateName vs commit
                         cmds <- lines <$> readFile' file
-                        let opts = rattleOptions{rattleProcesses=j, rattleUI=Just RattleQuiet, rattleNamedDirs=[]}
+                        let opts = rattleOptions{rattleProcesses=j, rattleUI=Just RattleQuiet, rattleNamedDirs=[], rattleShare=False}
                         timed rattleTime "rattle" j $ rattleRun opts $ forM_ cmds $ cmd rattle stderr
 
             make <- readIORef makeTime
