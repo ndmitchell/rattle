@@ -185,7 +185,7 @@ calculateSpeculateNext S{speculatable, running, started, hazard}
     | any (null . thd3) running = Nothing
     | otherwise = step (newTrace $ mconcatMap thd3 running) speculatable
     where
-        newTrace Touch{..} = (setFromList tRead, setFromList tWrite)
+        newTrace Touch{..} = (Set.fromList tRead, Set.fromList tWrite)
         addTrace (r,w) Touch{..} = (f r tRead, f w tWrite)
             where f set xs = foldl' (flip Set.insert) set xs
 

@@ -1,4 +1,3 @@
-{-# LANGUAGE TupleSections #-}
 
 module General.Extra(
     whenRightM, allMaybeM,
@@ -6,14 +5,13 @@ module General.Extra(
     NoShow(..),
     memoIO, catchIO,
     getProcessorCount,
-    unionWithKeyEithers, insertWithKeyEithers, setFromList,
+    unionWithKeyEithers, insertWithKeyEithers
     ) where
 
 import Control.Exception.Extra
 import System.Directory
 import Data.IORef
 import qualified Data.HashMap.Strict as Map
-import qualified Data.HashSet as Set
 import Data.Hashable
 import Control.Monad
 import System.IO.Unsafe
@@ -122,6 +120,3 @@ insertWithKeyEithers op lhs = foldl' f ([], lhs)
                 Left e -> (e:es, mp)
                 Right Nothing -> (es, mp)
                 Right (Just v) -> (es, Map.insert k v mp)
-
-setFromList :: (Eq a, Hashable a) => [a] -> Set.HashSet a
-setFromList = Set.fromMap . Map.fromList . map (,())
