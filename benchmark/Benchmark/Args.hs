@@ -14,6 +14,7 @@ data Args = Args
     ,step :: [String] -- which steps to run
     ,commits :: Maybe Int
     ,no_stderr :: Bool
+    ,count :: Maybe Int
     }
     deriving Data
 
@@ -25,6 +26,7 @@ mode = cmdArgsMode $ Args
     ,step = []
     ,commits = Nothing
     ,no_stderr = False
+    ,count = Nothing
     }
 
 getArguments :: IO Args

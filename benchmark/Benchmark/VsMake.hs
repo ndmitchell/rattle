@@ -50,7 +50,7 @@ timed ref msg j act = do
 
 vsMake :: VsMake -> Args -> IO ()
 vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
-    let commitList = reverse [0..fromMaybe 10 commits]
+    let commitList = maybe id take count $ reverse [0..fromMaybe 10 commits]
 
     let checkout i act = do
             commit <- gitCheckout vs i
