@@ -41,12 +41,12 @@ instance Show Edge where
   show (Edge e1 e2 (Just h)) = showCmd (fst e1) ++ " -> " ++ showCmd (fst e2) ++ " [ label=\"" ++ show h ++ "\" ];"
 
 getCmdsTraces :: RattleOptions -> IO [(Cmd,[Trace (FileName, ModTime, Hash)])]
-getCmdsTraces options@RattleOptions{..} = withShared rattleFiles$ \shared -> do
+getCmdsTraces options@RattleOptions{..} = withShared rattleFiles True $ \shared -> do
   cmds <- maybe (return []) (getSpeculate shared) rattleSpeculate
   fmap (takeWhile (not . null . snd)) $ forM cmds $ \x -> (x,) <$> getCmdTraces shared x
 
 getLastRun :: RattleOptions -> IO (Maybe RunIndex)
-getLastRun options@RattleOptions{..} = withShared rattleFiles $ \shared ->
+getLastRun options@RattleOptions{..} = withShared rattleFiles True $ \shared ->
   lastRun shared rattleMachine
 
 constructGraph :: RattleOptions -> IO Graph

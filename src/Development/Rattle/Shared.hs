@@ -26,13 +26,13 @@ import General.Binary
 ---------------------------------------------------------------------
 -- PRIMITIVES
 
-data Shared = Shared Lock FilePath
+data Shared = Shared Lock FilePath Bool
 
-withShared :: FilePath -> (Shared -> IO a) -> IO a
-withShared dir act = do
+withShared :: FilePath -> Bool -> (Shared -> IO a) -> IO a
+withShared dir multiple act = do
     lock <- newLock
     createDirectoryRecursive dir
-    act $ Shared lock dir
+    act $ Shared lock dir multiple
 
 filenameHash :: Hash -> String
 filenameHash str = let (a:b:cs) = hashHex str in [a,b] </> cs
@@ -41,18 +41,19 @@ filenameValue :: BinaryEx a => a -> String
 filenameValue = filenameHash . hashByteString . runBuilder . putEx
 
 getList :: (BinaryEx a, BinaryEx b) => String -> Shared -> a -> IO [b]
-getList typ (Shared lock dir) name = withLock lock $ do
+getList typ (Shared lock dir _) name = withLock lock $ do
     let file = dir </> typ </> filenameValue name
     b <- doesFileExist file
     if not b then return [] else map getEx . getExList <$> BS.readFile file
 
 setList :: (Show a, BinaryEx a, BinaryEx b) => String -> IOMode -> Shared -> a -> [b] -> IO ()
-setList typ mode (Shared lock dir) name vals = withLock lock $ do
+setList typ mode (Shared lock dir multiple) name vals = withLock lock $ do
+    let mode2 = if multiple then mode else WriteMode
     let file = dir </> typ </> filenameValue name
     createDirectoryRecursive $ takeDirectory file
     unlessM (doesFileExist $ file <.> "txt") $
         writeFile (file <.> "txt") $ show name
-    withFile file mode $ \h -> do
+    withFile file mode2 $ \h -> do
         hSetEncoding h utf8
         BS.hPutStr h $ runBuilder $ putExList $ map putEx vals
 
@@ -60,7 +61,7 @@ setList typ mode (Shared lock dir) name vals = withLock lock $ do
 -- SPECIAL SUPPORT FOR FILES
 
 getFile :: Shared -> Hash -> IO (Maybe (FileName -> IO ()))
-getFile (Shared lock dir) hash = do
+getFile (Shared lock dir _) hash = do
     let file = dir </> "files" </> filenameHash hash
     b <- doesFileExist file
     return $ if not b then Nothing else Just $ \out -> do
@@ -69,7 +70,7 @@ getFile (Shared lock dir) hash = do
       copyFile file x
 
 setFile :: Shared -> FileName -> Hash -> IO Bool -> IO ()
-setFile (Shared lock dir) source hash check = do
+setFile (Shared lock dir _) source hash check = do
     let file = dir </> "files" </> filenameHash hash
     unlessM (doesFileExist file) $ withLock lock $ do
         createDirectoryRecursive $ takeDirectory file
