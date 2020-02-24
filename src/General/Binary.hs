@@ -5,7 +5,7 @@ module General.Binary(
     Builder(..), runBuilder, sizeBuilder,
     BinaryEx(..),
     Storable, putExStorable, getExStorable, putExStorableList, getExStorableList,
-    putExList, getExList, putExN, getExN
+    putExList, getExList, putExN, getExN, putExPair, getExPair
     ) where
 
 import Control.Monad
@@ -200,6 +200,12 @@ getExList bs
     = BS.unsafeTake n bs : getExList (BS.unsafeDrop n bs)
     | otherwise = error "getList, corrupted binary"
     where len = BS.length bs
+
+putExPair :: Builder -> Builder -> Builder
+putExPair a b = putExN a <> b
+
+getExPair :: BS.ByteString -> (BS.ByteString, BS.ByteString)
+getExPair = getExN
 
 putExN :: Builder -> Builder
 putExN (Builder n old) = Builder (n+4) $ \p i -> do

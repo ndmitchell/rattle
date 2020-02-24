@@ -42,8 +42,8 @@ mkCmd a b = Cmd (hash (a,b)) a b
 
 instance BinaryEx Cmd where
     getEx x = mkCmd (getEx a) (getEx b)
-        where [a,b] = getExList x
-    putEx (Cmd _ a b) = putExList [putEx a, putEx b]
+        where (a,b) = getExPair x
+    putEx (Cmd _ a b) = putExPair (putEx a) (putEx b)
 
 -- The common values for CmdOption are [], [Shell] - optimise those
 instance BinaryEx [CmdOption] where
