@@ -13,7 +13,9 @@ main :: Args -> IO ()
 main = vsMake VsMake{..}
     where
         broken = []
-        repo = "https://github.com/antirez/redis"
+        -- a clone of Redis so we get stable -N history
+        -- Originally "https://github.com/antirez/redis"
+        repo = "https://github.com/ndmitchell/redis"
         master = "unstable"
         generateVersion = 2
 
