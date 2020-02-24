@@ -183,8 +183,9 @@ calculateSpeculateNext :: S -> Maybe Cmd
 calculateSpeculateNext S{speculatable, running, started, hazard}
     | null speculatable = Nothing
     | any (null . thd3) running = Nothing
-    | otherwise = step (addTrace (Set.empty, Set.empty) $ foldMap thd3 running) speculatable
+    | otherwise = step (newTrace $ mconcatMap thd3 running) speculatable
     where
+        newTrace Touch{..} = (Set.fromList tRead, Set.fromList tWrite)
         addTrace (r,w) Touch{..} = (f r tRead, f w tWrite)
             where f set xs = foldl' (flip Set.insert) set xs
 
