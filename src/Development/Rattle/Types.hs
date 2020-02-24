@@ -88,6 +88,7 @@ instance Semigroup (Touch a) where
 instance Monoid (Touch a) where
     mempty = Touch [] []
     mappend = (<>)
+    mconcat xs = Touch (concatMap tRead xs) (concatMap tWrite xs)
 
 instance Hashable a => Hashable (Trace a) where
     hashWithSalt s (Trace a b c d) = hashWithSalt s (a,b,c,d)
