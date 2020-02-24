@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
 
 module Development.Rattle.Shared(
     Shared, withShared,
@@ -21,7 +20,6 @@ import Data.List
 import Control.Monad.Extra
 import Control.Concurrent.Extra
 import qualified Data.ByteString as BS
-import GHC.Generics
 import General.FileInfo
 import General.Binary
 
@@ -102,7 +100,7 @@ setSpeculate = setList "speculate" WriteMode
 -- Intermediate data type which puts spaces in the right places to get better
 -- word orientated diffs when looking at the output in a text editor
 data File = File FileName ModTime Hash
-    deriving (Show,Generic)
+    deriving (Show)
 
 instance BinaryEx File where
     getEx x = File (byteStringToFileName a) b (getEx c)

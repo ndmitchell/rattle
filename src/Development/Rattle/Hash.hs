@@ -1,4 +1,4 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveGeneric #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Development.Rattle.Hash(
     Hash(..), hashLength,
@@ -21,13 +21,12 @@ import Data.IORef
 import General.Binary
 import Control.Exception.Extra
 import Control.DeepSeq
-import GHC.Generics
 import General.FileName
 import General.FileInfo
 
 -- | A hash, exactly 32 bytes, may contain NUL or other funny characters
 newtype Hash = Hash BS.ByteString
-    deriving (NFData, Eq, Hashable, Generic)
+    deriving (NFData, Eq, Hashable)
 
 hashLength :: Int
 hashLength = 32

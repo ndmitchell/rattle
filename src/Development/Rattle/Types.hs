@@ -43,7 +43,7 @@ data Trace a = Trace
     ,tStart :: {-# UNPACK #-} !Seconds
     ,tStop :: {-# UNPACK #-} !Seconds
     ,tTouch :: Touch a
-    } deriving (Show, Functor, Foldable, Traversable, Eq, Generic)
+    } deriving (Show, Functor, Foldable, Traversable, Eq)
 
 instance BinaryEx a => BinaryEx (Trace a) where
     getEx x = Trace a b c $ getEx d
@@ -53,7 +53,7 @@ instance BinaryEx a => BinaryEx (Trace a) where
 data Touch a = Touch
     {tRead :: [a]
     ,tWrite :: [a]
-    } deriving (Show, Functor, Foldable, Traversable, Eq, Generic)
+    } deriving (Show, Functor, Foldable, Traversable, Eq)
 
 instance BinaryEx a => BinaryEx (Touch a) where
     getEx x = Touch (map getEx $ getExList a) (map getEx $ getExList b)
@@ -111,10 +111,7 @@ canonicalizeTouch (Touch a b) = Touch <$> mapM canonicalizePath a <*> mapM canon
 
 -- | Which run we are in, monotonically increasing
 newtype RunIndex = RunIndex Int
-    deriving (Eq,Ord,Show,Generic,Storable,BinaryEx)
-
-instance Hashable RunIndex where
-    hashWithSalt s (RunIndex i) = hashWithSalt s i
+    deriving (Eq,Ord,Show,Storable,BinaryEx,Hashable)
 
 runIndex0 :: RunIndex
 runIndex0 = RunIndex 0

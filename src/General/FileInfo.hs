@@ -1,4 +1,4 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveDataTypeable, CPP, DeriveGeneric #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveDataTypeable, CPP #-}
 
 -- copied from ndmitchell/shake/src/Development/Shake/Interal/FileInfo.hs commit 645c99b
 module General.FileInfo(
@@ -17,7 +17,6 @@ import Data.Word
 import Numeric
 import System.IO
 import Foreign
-import GHC.Generics
 
 #if defined(PORTABLE)
 import System.IO.Error
@@ -39,7 +38,7 @@ import System.Posix.Files.ByteString
 
 -- A piece of file information, where 0 and 1 are special (see fileInfo* functions)
 newtype FileInfo a = FileInfo Word32
-    deriving (Typeable,Hashable,Binary,Storable,NFData,Generic)
+    deriving (Typeable,Hashable,Binary,Storable,NFData)
 
 noFileHash :: FileHash
 noFileHash = FileInfo 1   -- Equal to nothing
@@ -62,8 +61,8 @@ instance Eq (FileInfo a) where
         | a == 1 || b == 1 = False
         | otherwise = a == b
 
-data FileInfoHash deriving Generic; type FileHash = FileInfo FileInfoHash
-data FileInfoMod deriving Generic; type ModTime  = FileInfo FileInfoMod
+data FileInfoHash; type FileHash = FileInfo FileInfoHash
+data FileInfoMod; type ModTime  = FileInfo FileInfoMod
 data FileInfoSize; type FileSize = FileInfo FileInfoSize
 
 getFileHash :: FileName -> IO FileHash
