@@ -161,7 +161,7 @@ nextSpeculate Rattle{..} S{..}
     | otherwise = step (addTrace (Set.empty, Set.empty) $ foldMap thd3 running) speculate
     where
         addTrace (r,w) Touch{..} = (f r tRead, f w tWrite)
-            where f set xs = Set.union set $ Set.fromList xs
+            where f set xs = Set.union (Set.fromList xs) set
 
         step :: (Set.HashSet FileName, Set.HashSet FileName) -> [(Cmd, Touch FileName)] -> Maybe Cmd
         step _ [] = Nothing
