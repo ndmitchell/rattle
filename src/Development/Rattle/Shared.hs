@@ -37,16 +37,16 @@ withShared dir act = do
 filenameHash :: Hash -> String
 filenameHash str = let (a:b:cs) = hashHex str in [a,b] </> cs
 
-filenameValue :: Show a => a -> String
-filenameValue = filenameHash . hashString . show
+filenameValue :: BinaryEx a => a -> String
+filenameValue = filenameHash . hashByteString . runBuilder . putEx
 
-getList :: (Show a, BinaryEx b) => String -> Shared -> a -> IO [b]
+getList :: (BinaryEx a, BinaryEx b) => String -> Shared -> a -> IO [b]
 getList typ (Shared lock dir) name = withLock lock $ do
     let file = dir </> typ </> filenameValue name
     b <- doesFileExist file
     if not b then return [] else map getEx . getExList <$> BS.readFile file
 
-setList :: (Show a, BinaryEx b) => String -> IOMode -> Shared -> a -> [b] -> IO ()
+setList :: (Show a, BinaryEx a, BinaryEx b) => String -> IOMode -> Shared -> a -> [b] -> IO ()
 setList typ mode (Shared lock dir) name vals = withLock lock $ do
     let file = dir </> typ </> filenameValue name
     createDirectoryRecursive $ takeDirectory file

@@ -2,7 +2,7 @@
 
 module Development.Rattle.Hash(
     Hash(..), hashLength,
-    hashFile, hashString, hashHash, hashHex,
+    hashFile, hashString, hashByteString, hashHash, hashHex,
     hashFileForward, toHashForward, fromHashForward,
     hashFileForwardIfStale, hashFileIfStale
     ) where
@@ -148,8 +148,10 @@ hashFile file = do
 
 
 hashString :: String -> Hash
-hashString = mkHash . SHA.hash . BS.pack
+hashString = hashByteString . BS.pack
 
+hashByteString :: BS.ByteString -> Hash
+hashByteString = mkHash . SHA.hash
 
 hashHash :: Hash -> Hash
 hashHash (Hash x) = mkHash $ SHA.hash x
