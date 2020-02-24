@@ -25,7 +25,6 @@ import Control.Monad.Extra
 import qualified Data.Heap as Heap
 import qualified Data.HashSet as Set
 import Data.IORef.Extra
-import System.Random
 
 
 ---------------------------------------------------------------------
@@ -50,7 +49,7 @@ data S = S
 
 emptyS :: Int -> Bool -> IO S
 emptyS n deterministic = do
-    rand <- if not deterministic then return randomIO else do
+    rand <- do
         ref <- newIORef 0
         -- no need to be thread-safe - if two threads race they were basically the same time anyway
         return $ do i <- readIORef ref; writeIORef' ref (i+1); return i
