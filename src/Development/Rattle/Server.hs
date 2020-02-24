@@ -178,7 +178,7 @@ nextSpeculate Rattle{..} S{..}
 
 
 cmdRattle :: Rattle -> [C.CmdOption] -> [String] -> IO ()
-cmdRattle rattle opts args = cmdRattleRequired rattle $ Cmd (rattleCmdOptions (options rattle) ++ opts) args
+cmdRattle rattle opts args = cmdRattleRequired rattle $ mkCmd (rattleCmdOptions (options rattle) ++ opts) args
 
 cmdRattleRequired :: Rattle -> Cmd -> IO ()
 cmdRattleRequired rattle@Rattle{..} cmd = runPool pool $ do
@@ -205,7 +205,7 @@ cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
 
 -- either fetch it from the cache or run it)
 cmdRattleRun :: Rattle -> Cmd -> Seconds -> [Trace (FileName, ModTime, Hash)] -> [String] -> IO ()
-cmdRattleRun rattle@Rattle{..} cmd@(Cmd opts args) startTimestamp hist msgs = do
+cmdRattleRun rattle@Rattle{..} cmd@(Cmd _ opts args) startTimestamp hist msgs = do
     let forwardOpt = rattleForward options
     let match (fp, mt, h) = (== Just h) <$> (if forwardOpt then hashFileForwardIfStale else hashFileIfStale) fp mt h
     histRead <- filterM (allM match . tRead . tTouch) hist

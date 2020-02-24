@@ -134,7 +134,7 @@ showEdges :: [Edge] -> String
 showEdges = intercalate "\n" . map show
 
 showCmd :: Cmd -> String
-showCmd (Cmd _ args) = show $ showCmdHelper args
+showCmd (Cmd _ _ args) = show $ showCmdHelper args
 
 showCmdHelper :: [String] -> String
 showCmdHelper = unwords

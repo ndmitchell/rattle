@@ -5,7 +5,7 @@
 
 module Development.Rattle.Types(
     Trace(..), Touch(..), fsaTrace, normalizeTouch,
-    Cmd(..),
+    Cmd(..), mkCmd,
     RunIndex, runIndex0, nextRunIndex,
     ) where
 
@@ -25,14 +25,24 @@ import Prelude
 import System.Time.Extra
 import General.FileName
 
-data Cmd = Cmd [CmdOption] [String]
-    deriving (Show, Eq, Generic)
-instance Hashable Cmd
+-- record the hash as the first field
+data Cmd = Cmd Int [CmdOption] [String]
+    deriving Eq
+
+instance Show Cmd where
+    show (Cmd _ a b) = "Cmd " ++ show a ++ " " ++ show b
+
+instance Hashable Cmd where
+    hashWithSalt _ = hash
+    hash (Cmd x _ _) = x
+
+mkCmd :: [CmdOption] -> [String] -> Cmd
+mkCmd a b = Cmd (hash (a,b)) a b
 
 instance BinaryEx Cmd where
-    getEx x = Cmd (map read $ getEx a) (getEx b)
+    getEx x = mkCmd (map read $ getEx a) (getEx b)
         where [a,b] = getExList x
-    putEx (Cmd a b) = putExList [putEx $ map show a, putEx b]
+    putEx (Cmd _ a b) = putExList [putEx $ map show a, putEx b]
 
 deriving instance Generic CmdOption
 deriving instance Read CmdOption
