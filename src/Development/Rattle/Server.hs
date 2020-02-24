@@ -184,14 +184,6 @@ calculateSpeculateNext S{speculatable, running, started, hazard}
     | any (null . thd3) running = Nothing
     | otherwise = step (newTouchSet $ map thd3 running) speculatable
     where
-        -- For sets, Set.fromList is fastest if there are no dupes
-        -- Otherwise a Set.member/Set.insert is fastest
-        newTouchSet [] = TouchSet Set.empty Set.empty
-        newTouchSet (Touch{..}:xs) = foldl' addTouchSet (TouchSet (Set.fromList tRead) (Set.fromList tWrite)) xs
-
-        addTouchSet TouchSet{..} Touch{..} = TouchSet (f tReads tRead) (f tWrites tWrite)
-            where f set xs = foldl' (\mp k -> if Set.member k mp then mp else Set.insert k mp) set xs
-
         step :: TouchSet -> [(Cmd, Touch FileName)] -> Maybe Cmd
         step _ [] = Nothing
         step rw ((x,_):xs)
