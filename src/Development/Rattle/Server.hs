@@ -179,7 +179,6 @@ ensureS = fillInNext . reduceSpeculate
 -- 4) no read/write conflicts with anything completed
 -- 5) no read conflicts with anything running or any earlier speculation
 calculateSpeculateNext :: S -> Maybe Cmd
--- FIXME: May want to also consume the prefix of speculate, or its O(n^2)
 calculateSpeculateNext S{speculatable, running, started, hazard}
     | null speculatable = Nothing
     | any (null . thd3) running = Nothing
