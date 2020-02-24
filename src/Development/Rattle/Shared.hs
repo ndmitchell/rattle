@@ -71,7 +71,6 @@ getFile (Shared lock dir) hash = do
 setFile :: Shared -> FileName -> Hash -> IO Bool -> IO ()
 setFile (Shared lock dir) source hash check = do
     let file = dir </> "files" </> filenameHash hash
-    b <- doesFileExist file
     unlessM (doesFileExist file) $ withLock lock $ do
         createDirectoryRecursive $ takeDirectory file
         copyFile (fileNameToString source) (file <.> "tmp")
