@@ -182,28 +182,28 @@ calculateSpeculateNext :: S -> Maybe Cmd
 calculateSpeculateNext S{speculatable, running, started, hazard}
     | null speculatable = Nothing
     | any (null . thd3) running = Nothing
-    | otherwise = step (newTrace $ map thd3 running) speculatable
+    | otherwise = step (newTouchSet $ map thd3 running) speculatable
     where
         -- For sets, Set.fromList is fastest if there are no dupes
         -- Otherwise a Set.member/Set.insert is fastest
-        newTrace [] = (Set.empty, Set.empty)
-        newTrace (Touch{..}:xs) = foldl' addTrace (Set.fromList tRead, Set.fromList tWrite) xs
+        newTouchSet [] = TouchSet Set.empty Set.empty
+        newTouchSet (Touch{..}:xs) = foldl' addTouchSet (TouchSet (Set.fromList tRead) (Set.fromList tWrite)) xs
 
-        addTrace (r,w) Touch{..} = (f r tRead, f w tWrite)
+        addTouchSet TouchSet{..} Touch{..} = TouchSet (f tReads tRead) (f tWrites tWrite)
             where f set xs = foldl' (\mp k -> if Set.member k mp then mp else Set.insert k mp) set xs
 
-        step :: (Set.HashSet FileName, Set.HashSet FileName) -> [(Cmd, Touch FileName)] -> Maybe Cmd
+        step :: TouchSet -> [(Cmd, Touch FileName)] -> Maybe Cmd
         step _ [] = Nothing
         step rw ((x,_):xs)
             | x `Map.member` started = step rw xs -- do not update the rw, since its already covered
-        step rw@(r, w) ((x, t@Touch{..}):xs)
+        step rw@(TouchSet r w) ((x, t@Touch{..}):xs)
             | not $ any (\v -> v `Set.member` r || v `Set.member` w || seenHazardSet v hazard) tWrite
                 -- if anyone I write has ever been read or written, or might be by an ongoing thing, that would be bad
             , not $ any (`Set.member` w) tRead
                 -- if anyone I read might be being written right now, that would be bad
                 = Just x
             | otherwise
-                = step (addTrace rw t) xs
+                = step (addTouchSet rw t) xs
 
 
 cmdRattle :: Rattle -> [C.CmdOption] -> [String] -> IO ()

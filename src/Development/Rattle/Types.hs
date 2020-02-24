@@ -5,6 +5,7 @@
 
 module Development.Rattle.Types(
     Trace(..), Touch(..), fsaTrace, normalizeTouch,
+    TouchSet(..),
     Cmd(..), mkCmd,
     RunIndex, runIndex0, nextRunIndex,
     ) where
@@ -130,6 +131,9 @@ normalizeTouch (Touch a b) = Touch (f $ sort a) (sort $ Set.toList b2)
 
 canonicalizeTouch :: Touch FilePath -> IO (Touch FilePath)
 canonicalizeTouch (Touch a b) = Touch <$> mapM canonicalizePath a <*> mapM canonicalizePath b
+
+
+data TouchSet = TouchSet {tReads :: Set.HashSet FileName, tWrites :: Set.HashSet FileName}
 
 
 -- | Which run we are in, monotonically increasing
