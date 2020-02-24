@@ -15,6 +15,7 @@ import System.Directory
 import System.Info.Extra
 import Control.Monad
 import General.Binary
+import General.Extra
 import Data.Word
 import Development.Shake.Command
 import Data.Semigroup
@@ -122,7 +123,7 @@ normalizeTouch :: (Ord a, Hashable a) => Touch a -> Touch a
 -- and since we are sorting, try and avoid doing too much hash manipulation of the reads
 normalizeTouch (Touch a b) = Touch (f $ sort a) (sort $ Set.toList b2)
     where
-        b2 = Set.fromList b
+        b2 = setFromList b
         f (x1:x2:xs) | x1 == x2 = f (x1:xs)
         f (x:xs) | x `Set.member` b2 = f xs
                  | otherwise = x : f xs
