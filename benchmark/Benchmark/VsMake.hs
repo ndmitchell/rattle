@@ -50,7 +50,8 @@ timed ref msg j act = do
 
 vsMake :: VsMake -> Args -> IO ()
 vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
-    let commitList = maybe id take count $ reverse [0..fromMaybe 10 commits]
+    let counted = maybe id take count
+    let commitList = reverse [0..fromMaybe 10 commits]
 
     let checkout i act = do
             commit <- gitCheckout vs i
@@ -67,7 +68,7 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
         -- generate all the Rattle files
         when ("generate" `elemOrNull` step) $ do
             putStrLn "GENERATING RATTLE SCRIPTS"
-            forM_ commitList $ \i -> do
+            forM_ (counted commitList) $ \i -> do
                 putChar '.' >> hFlush stdout
                 checkout i $ \commit -> do
                     file <- generateName vs commit
@@ -87,7 +88,7 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
             when ("make" `elemOrNull` step) $ do
                 putStrLn "BUILDING WITH MAKE"
                 clean
-                forM_ (commitList++[0]) $ \i ->
+                forM_ (counted $ commitList ++ [0]) $ \i ->
                     checkout i $ \_ ->
                         timed makeTime "make" j $ cmd_ make ["-j" ++ show j] (EchoStdout False) stderr
 
@@ -97,7 +98,7 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
                 clean
                 whenM (doesDirectoryExist ".rattle") $
                     removeDirectoryRecursive ".rattle"
-                forM_ (commitList ++ [0]) $ \i ->
+                forM_ (counted $ commitList ++ [0]) $ \i ->
                     checkout i $ \commit -> do
                         file <- generateName vs commit
                         cmds <- lines <$> readFile' file
