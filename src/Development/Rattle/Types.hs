@@ -47,15 +47,20 @@ instance BinaryEx Cmd where
         where (a,b) = getExPair x
     putEx (Cmd _ a b) = putExPair (putEx a) (putEx b)
 
--- The common values for CmdOption are [], [Shell] - optimise those
+-- The common values for CmdOption are [], [Shell] and a few others - optimise those
 instance BinaryEx [CmdOption] where
     getEx x
         | BS.null x = []
-        | BS.length x == 1 = [Shell]
+        | BS.length x == 1 = case getEx x :: Word8 of
+            0 -> [Shell]
+            1 -> [EchoStderr False]
+            2 -> [Shell,EchoStderr False]
         | otherwise = map read $ getEx x
 
     putEx [] = mempty
     putEx [Shell] = putEx (0 :: Word8)
+    putEx [EchoStderr False] = putEx (1 :: Word8)
+    putEx [Shell,EchoStderr False] = putEx (2 :: Word8)
     putEx xs = putEx $ map show xs
 
 deriving instance Generic CmdOption
