@@ -165,7 +165,11 @@ modifyS rattle@Rattle{..} act = join $ modifyVar state $ \case
             Right (Just s) -> return (Right $ ensureS s, runSpeculate rattle >> cont)
 
 ensureS :: S -> S
-ensureS s = s{speculateNext = calculateSpeculateNext s}
+ensureS s0 = s2
+    where
+        -- often we drain the front of the speculatable list repeatedly, so do that once
+        s1 = s0{speculatable = dropWhile (\(c, _) -> c `Map.member` started s0) $ speculatable s1}
+        s2 = s1{speculateNext = calculateSpeculateNext s1}
 
 
 -- speculate on a process iff it is the first process in speculate that:
