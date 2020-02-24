@@ -183,11 +183,15 @@ calculateSpeculateNext :: S -> Maybe Cmd
 calculateSpeculateNext S{speculatable, running, started, hazard}
     | null speculatable = Nothing
     | any (null . thd3) running = Nothing
-    | otherwise = step (newTrace $ mconcatMap thd3 running) speculatable
+    | otherwise = step (newTrace $ map thd3 running) speculatable
     where
-        newTrace Touch{..} = (Set.fromList tRead, Set.fromList tWrite)
+        -- For sets, Set.fromList is fastest if there are no dupes
+        -- Otherwise a Set.member/Set.insert is fastest
+        newTrace [] = (Set.empty, Set.empty)
+        newTrace (Touch{..}:xs) = foldl' addTrace (Set.fromList tRead, Set.fromList tWrite) xs
+
         addTrace (r,w) Touch{..} = (f r tRead, f w tWrite)
-            where f set xs = foldl' (flip Set.insert) set xs
+            where f set xs = foldl' (\mp k -> if Set.member k mp then mp else Set.insert k mp) set xs
 
         step :: (Set.HashSet FileName, Set.HashSet FileName) -> [(Cmd, Touch FileName)] -> Maybe Cmd
         step _ [] = Nothing
