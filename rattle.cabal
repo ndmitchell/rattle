@@ -53,6 +53,7 @@ library
         js-dgtable,
         js-flot,
         js-jquery,
+        heaps,
         utf8-string >= 1.0.1.1
 
     if !os(windows)
