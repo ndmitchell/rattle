@@ -6,7 +6,7 @@
 
 module Development.Rattle.Types(
     Trace(..), Touch(..), fsaTrace, normalizeTouch,
-    TouchSet(..), newTouchSet, addTouchSet,
+    TouchSet, tsRead, tsWrite, newTouchSet, addTouchSet,
     Cmd(..), mkCmd,
     RunIndex, runIndex0, nextRunIndex,
     ) where
@@ -136,14 +136,14 @@ canonicalizeTouch (Touch a b) = Touch <$> mapM canonicalizePath a <*> mapM canon
 
 -- For sets, Set.fromList is fastest if there are no dupes
 -- Otherwise a Set.member/Set.insert is fastest
-data TouchSet = TouchSet {tReads :: Set.HashSet FileName, tWrites :: Set.HashSet FileName}
+data TouchSet = TouchSet {tsRead :: Set.HashSet FileName, tsWrite :: Set.HashSet FileName}
 
 newTouchSet :: [Touch FileName] -> TouchSet
 newTouchSet [] = TouchSet Set.empty Set.empty
 newTouchSet (Touch{..}:xs) = foldl' addTouchSet (TouchSet (Set.fromList tRead) (Set.fromList tWrite)) xs
 
 addTouchSet :: TouchSet -> Touch FileName -> TouchSet
-addTouchSet TouchSet{..} Touch{..} = TouchSet (f tReads tRead) (f tWrites tWrite)
+addTouchSet TouchSet{..} Touch{..} = TouchSet (f tsRead tRead) (f tsWrite tWrite)
     where f set xs = foldl' (\mp k -> if Set.member k mp then mp else Set.insert k mp) set xs
 
 
