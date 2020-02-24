@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables, RecordWildCards, TupleSections, LambdaCase #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving, GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, GADTs, NamedFieldPuns #-}
 
 module Development.Rattle.Server(
     Rattle, withRattle, Run(..),
@@ -140,6 +140,7 @@ withRattle options@RattleOptions{..} act = withUI rattleUI (return "Running") $ 
                     let r = Rattle{speculate=[], ..}
                     (act r <* saveSpeculate state) `finally` writeVar state (Left Finished)
 
+-- Should be rerun every time the 'running' list changes
 runSpeculate :: Rattle -> IO ()
 runSpeculate rattle@Rattle{..} = when (rattleProcesses options > 1) $ void $ forkIO $ void $ runPoolMaybe pool $
     -- speculate on a process iff it is the first process in speculate that:
@@ -156,7 +157,7 @@ runSpeculate rattle@Rattle{..} = when (rattleProcesses options > 1) $ void $ for
 
 
 nextSpeculate :: Rattle -> S -> Maybe Cmd
-nextSpeculate Rattle{..} S{..}
+nextSpeculate Rattle{speculate} S{running, started, hazard}
     | any (null . thd3) running = Nothing
     | otherwise = step (addTrace (Set.empty, Set.empty) $ foldMap thd3 running) speculate
     where
@@ -200,7 +201,7 @@ cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
             go <- once $ cmdRattleRun rattle cmd start hist msgs
             s <- return s{running = (start, cmd, foldMap (fmap fst3 . tTouch) hist) : running s}
             s <- return s{started = Map.insert cmd (NoShow go) $ started s}
-            return (Right s, runSpeculate rattle >> go >> runSpeculate rattle)
+            return (Right s, runSpeculate rattle >> go)
 
 
 -- either fetch it from the cache or run it)
@@ -320,4 +321,6 @@ cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{..} save = join $ modi
                 let earliest = minimum $ maxTimestamp : map fst3 (running s)
                 (safe, pending) <- return $ partition (\x -> fst3 x < earliest) $ pending s
                 s <- return s{pending = pending}
-                return (Right s, forM_ safe $ \(_,c,t) -> addCmdTrace shared c $ fmap (\(f,mt,h) -> (shortener f, mt,h)) t)
+                return $ (Right s,) $ do
+                    runSpeculate rattle
+                    forM_ safe $ \(_,c,t) -> addCmdTrace shared c $ fmap (\(f,mt,h) -> (shortener f, mt,h)) t
