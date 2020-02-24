@@ -218,7 +218,8 @@ cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
         Nothing -> do
             hist <- unsafeInterleaveIO $ map (fmap (\(f,mt,h) -> (expand (rattleNamedDirs options) f, mt, h))) <$> getCmdTraces shared cmd
             go <- once $ cmdRattleRun rattle cmd start hist msgs
-            s <- return s{running = (start, cmd, if null hist then Nothing else Just $ foldMap (fmap fst3 . tTouch) hist) : running s}
+            let specHist = if null hist then Nothing else Just $ fmap fst3 $ tTouch $ last hist
+            s <- return s{running = (start, cmd, specHist) : running s}
             s <- return s{started = Map.insert cmd (NoShow go) $ started s}
             return (Right $ Just s, go)
 
