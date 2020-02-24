@@ -76,7 +76,7 @@ library
         General.Bilist
         General.Binary
         General.Extra
-        General.Limit
+        General.Threads
         General.Paths
         General.Pool
         General.EscCodes
@@ -162,7 +162,7 @@ executable buildScript
         Development.Rattle.UI
         General.Bilist
         General.Extra
-        General.Limit
+        General.Threads
         General.Paths
         General.Pool
         General.EscCodes
@@ -219,7 +219,7 @@ test-suite rattle-test
         Development.Rattle.UI
         General.Bilist
         General.Extra
-        General.Limit
+        General.Threads
         General.Paths
         General.Pool
         General.EscCodes
@@ -229,7 +229,6 @@ test-suite rattle-test
         Test.Example.Stack
         Test.Simple
         Test.Trace
-        Test.Limit
         Test.Type
         General.FileName
         General.FileInfo

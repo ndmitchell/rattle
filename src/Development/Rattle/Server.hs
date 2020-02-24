@@ -68,6 +68,10 @@ data S = S
     ,required :: [Cmd]
         -- ^ Things what were required by the user calling cmdRattle, not added due to speculation.
         --   Will be the 'speculate' list next time around.
+    ,speculatable :: [(Cmd, Touch FileName)]
+        -- ^ Things that were used in the last speculation with this name
+    ,speculateNext :: Maybe Cmd
+        -- ^ If I was to speculate, which would I do. A cached value computed from specutable, started, running and hazard
     } deriving Show
 
 data Problem
@@ -80,7 +84,6 @@ throwProblem (Hazard h) = throwIO h
 
 data Rattle = Rattle
     {options :: RattleOptions
-    ,speculate :: [(Cmd, Touch FileName)] -- ^ Things that were used in the last speculation with this name
     ,runIndex :: !RunIndex -- ^ Run# we are on
     ,state :: Var (Either Problem S)
     ,timer :: IO Seconds
@@ -105,19 +108,20 @@ withRattle options@RattleOptions{..} act = withUI rattleUI (return "Running") $ 
         when (rattleProcesses > 1 && not rtsSupportsBoundThreads) $
             putStrLn "WARNING: Running with multiple threads but not compiled with -threaded"
 
-        speculate <- maybe (return []) (getSpeculate shared) rattleSpeculate
         let expander = expand rattleNamedDirs
         let shortener = shorten rattleNamedDirs
-        speculate <- fmap (takeWhile (not . null . snd)) $ -- don't speculate on things we have no traces for
-            forM speculate $ \x -> do
-                traces <- unsafeInterleaveIO (getCmdTraces shared x)
-                return (x, normalizeTouch $ foldMap (fmap (expander . fst3) . tTouch) traces)
+        speculatable <- if rattleProcesses <= 1 then return [] else do
+            speculatable <- maybe (return []) (getSpeculate shared) rattleSpeculate
+            fmap (takeWhile (not . null . snd)) $ -- don't speculate on things we have no traces for
+                forM speculatable $ \x -> do
+                    traces <- unsafeInterleaveIO (getCmdTraces shared x)
+                    return (x, normalizeTouch $ foldMap (fmap (expander . fst3) . tTouch) traces)
         speculated <- newIORef False
 
         runIndex <- nextRun shared rattleMachine
         timer <- offsetTime
-        let s0 = Right $ S Map.empty [] emptyHazardSet [] []
-        state <- newVar s0
+        let s0 = S Map.empty [] emptyHazardSet [] [] speculatable Nothing
+        state <- newVar $ Right $ ensureS s0
 
         let saveSpeculate state =
                 whenJust rattleSpeculate $ \name ->
@@ -125,7 +129,7 @@ withRattle options@RattleOptions{..} act = withUI rattleUI (return "Running") $ 
                         setSpeculate shared name $ reverse $ required v
 
         -- first try and run it
-        let attempt1 = withPool rattleProcesses $ \pool -> do
+        let attempt1 = runPool True rattleProcesses $ \pool -> do
                 let r = Rattle{..}
                 runSpeculate r
                 (act r <* saveSpeculate state) `finally` writeVar state (Left Finished)
@@ -135,31 +139,46 @@ withRattle options@RattleOptions{..} act = withUI rattleUI (return "Running") $ 
                 -- if we speculated, and we failed with a hazard, try again
                 putStrLn "Warning: Speculation lead to a hazard, retrying without speculation"
                 print h
-                state <- newVar s0
-                withPool rattleProcesses $ \pool -> do
-                    let r = Rattle{speculate=[], ..}
+                state <- newVar $ Right s0{speculatable=[]}
+                runPool True rattleProcesses $ \pool -> do
+                    let r = Rattle{..}
                     (act r <* saveSpeculate state) `finally` writeVar state (Left Finished)
 
--- Should be rerun every time the 'running' list changes
+-- Kick off the speculation pool worker thread
 runSpeculate :: Rattle -> IO ()
-runSpeculate rattle@Rattle{..} = when (rattleProcesses options > 1) $ void $ forkIO $ void $ runPoolMaybe pool $
-    -- speculate on a process iff it is the first process in speculate that:
-    -- 1) we have some parallelism free
-    -- 2) it is the first eligible in the list
-    -- 3) not already been started
-    -- 4) no read/write conflicts with anything completed
-    -- 5) no read conflicts with anything running or any earlier speculation
-    join $ modifyVar state $ \s -> case s of
-        Right s | Just cmd <- nextSpeculate rattle s -> do
-            writeIORef speculated True
-            cmdRattleStarted rattle cmd s ["speculative"]
-        _ -> return (s,  return ())
+runSpeculate rattle@Rattle{..} = when (rattleProcesses options > 1) $
+    addPool PoolSpeculate pool $ do
+        modifyS rattle $ \case
+            s@S{speculateNext=Just cmd} -> do
+                writeIORef speculated True
+                cmdRattleStarted rattle cmd s ["speculative"]
+            _ -> return (Right Nothing, return ())
+
+modifyS :: Rattle -> (S -> IO (Either Problem (Maybe S), IO a)) -> IO a
+modifyS rattle@Rattle{..} act = join $ modifyVar state $ \case
+    Left e -> throwProblem e
+    Right s -> do
+        (res, cont) <- act s
+        case res of
+            Left e -> return (Left e, cont)
+            Right Nothing -> return (Right s, cont)
+            Right (Just s) -> return (Right $ ensureS s, runSpeculate rattle >> cont)
+
+ensureS :: S -> S
+ensureS s = s{speculateNext = calculateSpeculateNext s}
 
 
-nextSpeculate :: Rattle -> S -> Maybe Cmd
-nextSpeculate Rattle{speculate} S{running, started, hazard}
+-- speculate on a process iff it is the first process in speculate that:
+-- 1) we have some parallelism free
+-- 2) it is the first eligible in the list
+-- 3) not already been started
+-- 4) no read/write conflicts with anything completed
+-- 5) no read conflicts with anything running or any earlier speculation
+calculateSpeculateNext :: S -> Maybe Cmd
+-- FIXME: May want to also consume the prefix of speculate, or its O(n^2)
+calculateSpeculateNext S{speculatable, running, started, hazard}
     | any (null . thd3) running = Nothing
-    | otherwise = step (addTrace (Set.empty, Set.empty) $ foldMap thd3 running) speculate
+    | otherwise = step (addTrace (Set.empty, Set.empty) $ foldMap thd3 running) speculatable
     where
         addTrace (r,w) Touch{..} = (f r tRead, f w tWrite)
             where f set xs = Set.union (Set.fromList xs) set
@@ -182,26 +201,25 @@ cmdRattle :: Rattle -> [C.CmdOption] -> [String] -> IO ()
 cmdRattle rattle opts args = cmdRattleRequired rattle $ mkCmd (rattleCmdOptions (options rattle) ++ opts) args
 
 cmdRattleRequired :: Rattle -> Cmd -> IO ()
-cmdRattleRequired rattle@Rattle{..} cmd = runPool pool $ do
+cmdRattleRequired rattle@Rattle{..} cmd = addPoolWait PoolRequired pool $ do
     modifyVar_ state $ return . fmap (\s -> s{required = cmd : required s})
     cmdRattleStart rattle cmd
 
 cmdRattleStart :: Rattle -> Cmd -> IO ()
-cmdRattleStart rattle@Rattle{..} cmd = join $ modifyVar state $ \case
-    Left e -> throwProblem e
-    Right s -> cmdRattleStarted rattle cmd s []
+cmdRattleStart rattle cmd = modifyS rattle $ \s ->
+    cmdRattleStarted rattle cmd s []
 
-cmdRattleStarted :: Rattle -> Cmd -> S -> [String] -> IO (Either Problem S, IO ())
+cmdRattleStarted :: Rattle -> Cmd -> S -> [String] -> IO (Either Problem (Maybe S), IO ())
 cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
     start <- timer
     case Map.lookup cmd (started s) of
-        Just (NoShow wait) -> return (Right s, wait)
+        Just (NoShow wait) -> return (Right Nothing, wait)
         Nothing -> do
             hist <- unsafeInterleaveIO $ map (fmap (\(f,mt,h) -> (expand (rattleNamedDirs options) f, mt, h))) <$> getCmdTraces shared cmd
             go <- once $ cmdRattleRun rattle cmd start hist msgs
             s <- return s{running = (start, cmd, foldMap (fmap fst3 . tTouch) hist) : running s}
             s <- return s{started = Map.insert cmd (NoShow go) $ started s}
-            return (Right s, runSpeculate rattle >> go)
+            return (Right $ Just s, go)
 
 
 -- either fetch it from the cache or run it)
@@ -301,26 +319,22 @@ generateHashForwards cmd ms t = do
 
 -- | I finished running a command
 cmdRattleFinished :: Rattle -> Seconds -> Cmd -> Trace (FileName, ModTime, Hash) -> Bool -> IO ()
-cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{..} save = join $ modifyVar state $ \case
-    Left e -> throwProblem e
-    Right s -> do
-        -- update all the invariants
-        stop <- timer
-        s <- return s{running = filter ((/= start) . fst3) $ running s}
-        s <- return s{pending = [(stop, cmd, trace) | save] ++ pending s}
+cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{..} save = modifyS rattle $ \s -> do
+    -- update all the invariants
+    stop <- timer
+    s <- return s{running = filter ((/= start) . fst3) $ running s}
+    s <- return s{pending = [(stop, cmd, trace) | save] ++ pending s}
 
-        -- look for hazards
-        -- push writes to the end, and reads to the start, because reads before writes is the problem
-        case addHazardSet (required s) (hazard s) start stop cmd $ fmap fst3 tTouch of
-            (ps@(p:_), _) -> return (Left $ Hazard p, print ps >> throwIO p)
-            ([], hazard2) -> do
-                s <- return s{hazard = hazard2}
+    -- look for hazards
+    -- push writes to the end, and reads to the start, because reads before writes is the problem
+    case addHazardSet (required s) (hazard s) start stop cmd $ fmap fst3 tTouch of
+        (ps@(p:_), _) -> return (Left $ Hazard p, print ps >> throwIO p)
+        ([], hazard2) -> do
+            s <- return s{hazard = hazard2}
 
-                -- move people out of pending if they have survived long enough
-                maxTimestamp <- timer
-                let earliest = minimum $ maxTimestamp : map fst3 (running s)
-                (safe, pending) <- return $ partition (\x -> fst3 x < earliest) $ pending s
-                s <- return s{pending = pending}
-                return $ (Right s,) $ do
-                    runSpeculate rattle
-                    forM_ safe $ \(_,c,t) -> addCmdTrace shared c $ fmap (\(f,mt,h) -> (shortener f, mt,h)) t
+            -- move people out of pending if they have survived long enough
+            maxTimestamp <- timer
+            let earliest = minimum $ maxTimestamp : map fst3 (running s)
+            (safe, pending) <- return $ partition (\x -> fst3 x < earliest) $ pending s
+            s <- return s{pending = pending}
+            return (Right $ Just s, forM_ safe $ \(_,c,t) -> addCmdTrace shared c $ fmap (\(f,mt,h) -> (shortener f, mt,h)) t)
