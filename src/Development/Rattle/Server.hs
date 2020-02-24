@@ -177,6 +177,7 @@ ensureS s = s{speculateNext = calculateSpeculateNext s}
 calculateSpeculateNext :: S -> Maybe Cmd
 -- FIXME: May want to also consume the prefix of speculate, or its O(n^2)
 calculateSpeculateNext S{speculatable, running, started, hazard}
+    | null speculatable = Nothing
     | any (null . thd3) running = Nothing
     | otherwise = step (addTrace (Set.empty, Set.empty) $ foldMap thd3 running) speculatable
     where
