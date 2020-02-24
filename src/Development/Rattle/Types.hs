@@ -15,6 +15,7 @@ import System.Directory
 import System.Info.Extra
 import Control.Monad
 import General.Binary
+import Data.Word
 import Development.Shake.Command
 import Data.Semigroup
 import qualified Data.ByteString.UTF8 as UTF8
@@ -40,9 +41,20 @@ mkCmd :: [CmdOption] -> [String] -> Cmd
 mkCmd a b = Cmd (hash (a,b)) a b
 
 instance BinaryEx Cmd where
-    getEx x = mkCmd (map read $ getEx a) (getEx b)
+    getEx x = mkCmd (getEx a) (getEx b)
         where [a,b] = getExList x
-    putEx (Cmd _ a b) = putExList [putEx $ map show a, putEx b]
+    putEx (Cmd _ a b) = putExList [putEx a, putEx b]
+
+-- The common values for CmdOption are [], [Shell] - optimise those
+instance BinaryEx [CmdOption] where
+    getEx x
+        | BS.null x = []
+        | BS.length x == 1 = [Shell]
+        | otherwise = map read $ getEx x
+
+    putEx [] = mempty
+    putEx [Shell] = putEx (0 :: Word8)
+    putEx xs = putEx $ map show xs
 
 deriving instance Generic CmdOption
 deriving instance Read CmdOption
