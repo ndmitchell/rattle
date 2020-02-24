@@ -186,7 +186,7 @@ calculateSpeculateNext S{speculatable, running, started, hazard}
     | otherwise = step (addTrace (Set.empty, Set.empty) $ foldMap thd3 running) speculatable
     where
         addTrace (r,w) Touch{..} = (f r tRead, f w tWrite)
-            where f set xs = Set.union (Set.fromList xs) set
+            where f set xs = foldl' (flip Set.insert) set xs
 
         step :: (Set.HashSet FileName, Set.HashSet FileName) -> [(Cmd, Touch FileName)] -> Maybe Cmd
         step _ [] = Nothing
