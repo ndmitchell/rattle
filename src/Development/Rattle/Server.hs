@@ -88,6 +88,7 @@ data Rattle = Rattle
     ,state :: Var (Either Problem S)
     ,timer :: IO Seconds
     ,speculated :: IORef Bool
+    ,speculatableWrites :: Set.HashSet FileName
     ,pool :: Pool
     ,ui :: UI
     ,shared :: Shared
@@ -116,6 +117,7 @@ withRattle options@RattleOptions{..} act = withUI rattleUI (return "Running") $ 
                 forM speculatable $ \x -> do
                     traces <- unsafeInterleaveIO (getCmdTraces shared x)
                     return (x, normalizeTouch $ foldMap (fmap (expander . fst3) . tTouch) traces)
+        let speculatableWrites = Set.fromList $ concatMap (tWrite . snd) speculatable
         speculated <- newIORef False
 
         runIndex <- nextRun shared rattleMachine
@@ -184,6 +186,8 @@ calculateSpeculateNext S{speculatable, running, started, hazard}
     | not $ null speculatable, Just xs <- mapM thd3 running = step (newTouchSet xs) speculatable
     | otherwise = Nothing
     where
+        -- Note the TouchSet.tsWrite has been filtered to speculatableWrites
+        -- which is sufficient because we only check values of tWrite from speculatable
         step :: TouchSet -> [(Cmd, Touch FileName)] -> Maybe Cmd
         step _ [] = Nothing
         step rw ((x,_):xs)
@@ -218,7 +222,12 @@ cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
         Nothing -> do
             hist <- unsafeInterleaveIO $ map (fmap (\(f,mt,h) -> (expand (rattleNamedDirs options) f, mt, h))) <$> getCmdTraces shared cmd
             go <- once $ cmdRattleRun rattle cmd start hist msgs
-            let specHist = if null hist then Nothing else Just $ fmap fst3 $ tTouch $ last hist
+
+            -- we only speculate on the very last one
+            -- and we only care about reads which might be speculated as writes
+            let trimReads t = t{tRead = filter (`Set.member` speculatableWrites) $ tRead t}
+            let specHist = if null hist then Nothing else Just $ trimReads $ fmap fst3 $ tTouch $ last hist
+
             s <- return s{running = (start, cmd, specHist) : running s}
             s <- return s{started = Map.insert cmd (NoShow go) $ started s}
             return (Right $ Just s, go)
