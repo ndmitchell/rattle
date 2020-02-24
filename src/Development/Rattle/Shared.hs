@@ -34,18 +34,21 @@ withShared dir act = do
     createDirectoryRecursive dir
     act $ Shared lock dir
 
-filename :: Hash -> String
-filename str = let (a:b:cs) = hashHex str in [a,b] </> cs
+filenameHash :: Hash -> String
+filenameHash str = let (a:b:cs) = hashHex str in [a,b] </> cs
+
+filenameValue :: Show a => a -> String
+filenameValue = filenameHash . hashString . show
 
 getList :: (Show a, BinaryEx b) => String -> Shared -> a -> IO [b]
 getList typ (Shared lock dir) name = withLock lock $ do
-    let file = dir </> typ </> filename (hashString $ show name)
+    let file = dir </> typ </> filenameValue name
     b <- doesFileExist file
     if not b then return [] else map getEx . getExList <$> BS.readFile file
 
 setList :: (Show a, BinaryEx b) => String -> IOMode -> Shared -> a -> [b] -> IO ()
 setList typ mode (Shared lock dir) name vals = withLock lock $ do
-    let file = dir </> typ </> filename (hashString $ show name)
+    let file = dir </> typ </> filenameValue name
     createDirectoryRecursive $ takeDirectory file
     unlessM (doesFileExist $ file <.> "txt") $
         writeFile (file <.> "txt") $ show name
@@ -58,7 +61,7 @@ setList typ mode (Shared lock dir) name vals = withLock lock $ do
 
 getFile :: Shared -> Hash -> IO (Maybe (FileName -> IO ()))
 getFile (Shared lock dir) hash = do
-    let file = dir </> "files" </> filename hash
+    let file = dir </> "files" </> filenameHash hash
     b <- doesFileExist file
     return $ if not b then Nothing else Just $ \out -> do
       let x = fileNameToString out
@@ -67,7 +70,7 @@ getFile (Shared lock dir) hash = do
 
 setFile :: Shared -> FileName -> Hash -> IO Bool -> IO ()
 setFile (Shared lock dir) source hash check = do
-    let file = dir </> "files" </> filename hash
+    let file = dir </> "files" </> filenameHash hash
     b <- doesFileExist file
     unlessM (doesFileExist file) $ withLock lock $ do
         createDirectoryRecursive $ takeDirectory file
