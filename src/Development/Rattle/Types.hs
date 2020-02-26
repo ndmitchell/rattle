@@ -149,7 +149,7 @@ newTouchSet (Touch{..}:xs) = foldl' addTouchSet (TouchSet (Set.fromList tRead) (
 
 addTouchSet :: TouchSet -> Touch FileName -> TouchSet
 addTouchSet TouchSet{..} Touch{..} = TouchSet (f tsRead tRead) (f tsWrite tWrite)
-    where f set xs = foldl' (\mp k -> if Set.member k mp then mp else Set.insert k mp) set xs
+    where f = foldl' (\mp k -> if Set.member k mp then mp else Set.insert k mp)
 
 
 -- | Which run we are in, monotonically increasing

@@ -86,7 +86,7 @@ step pool@(Pool _ done) op = uninterruptibleMask_ $ withPool_ pool $ \s -> do
     case Heap.uncons $ todo s of
         Just (Heap.Entry _ now, todo2) | threadsCount s < threadsLimit s -> do
             -- spawn a new worker
-            t <- newThreadFinally (now >> worker pool) $ \t res -> do
+            t <- newThreadFinally (now >> worker pool) $ \t res ->
               case res of
                 -- just cause someone gets an exception, doesn't mean we die now
                 Left e | False -> withPool_ pool $ \s -> do
@@ -118,7 +118,7 @@ addPool priority pool act = step pool $ \s -> do
 addPoolWait :: PoolPriority -> Pool -> IO a -> IO a
 addPoolWait priority pool act = do
     bar <- newBarrier
-    addPool priority pool $ uninterruptibleMask $ \unmask -> do
+    addPool priority pool $ uninterruptibleMask $ \unmask ->
         signalBarrier bar =<< try_ (unmask act)
     res <- waitBarrier bar
     either throwIO return res
@@ -151,7 +151,7 @@ runPool deterministic n act = do
             case res of
                 Just (Left e) -> throwIO e
                 _ -> throwIO BlockedIndefinitelyOnMVar
-    flip finally cleanup $ handle (\BlockedIndefinitelyOnMVar -> ghc10793) $ do
+    flip finally cleanup $ handle (\BlockedIndefinitelyOnMVar -> ghc10793) $
         -- changes from Shake
         -- being in the pool doesn't consume a pool resource
         act pool
