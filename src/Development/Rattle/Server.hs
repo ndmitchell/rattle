@@ -150,14 +150,17 @@ withRattle options@RattleOptions{..} act = withUI rattleUI (return "Running") $ 
 runSpeculate :: Rattle -> IO ()
 runSpeculate rattle@Rattle{..} = when (rattleProcesses options > 1) $
     addPool PoolSpeculate pool $ do
-        modifyS rattle $ \case
+        run <- modifyS rattle $ \case
             s@S{speculateNext=Just cmd} -> do
                 writeIORef speculated True
                 cmdRattleStarted rattle cmd s ["speculative"]
             _ -> return (Right Nothing, return ())
+        -- run the command but ignore all errors, if there are real errors
+        -- whoever reruns them will bump into them
+        ignore run
 
-modifyS :: Rattle -> (S -> IO (Either Problem (Maybe S), IO a)) -> IO a
-modifyS rattle@Rattle{..} act = join $ modifyVar state $ \case
+modifyS :: Rattle -> (S -> IO (Either Problem (Maybe S), IO a)) -> IO (IO a)
+modifyS rattle@Rattle{..} act = modifyVar state $ \case
     Left e -> throwProblem e
     Right s -> do
         (res, cont) <- act s
@@ -211,7 +214,7 @@ cmdRattleRequired rattle@Rattle{..} cmd = addPoolWait PoolRequired pool $ do
     cmdRattleStart rattle cmd
 
 cmdRattleStart :: Rattle -> Cmd -> IO ()
-cmdRattleStart rattle cmd = modifyS rattle $ \s ->
+cmdRattleStart rattle cmd = join $ modifyS rattle $ \s ->
     cmdRattleStarted rattle cmd s []
 
 cmdRattleStarted :: Rattle -> Cmd -> S -> [String] -> IO (Either Problem (Maybe S), IO ())
@@ -330,7 +333,7 @@ generateHashForwards cmd ms t = do
 
 -- | I finished running a command
 cmdRattleFinished :: Rattle -> Seconds -> Cmd -> Trace (FileName, ModTime, Hash) -> Bool -> IO ()
-cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{..} save = modifyS rattle $ \s -> do
+cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{..} save = join $ modifyS rattle $ \s -> do
     -- update all the invariants
     stop <- timer
     s <- return s{running = filter ((/= start) . fst3) $ running s}
