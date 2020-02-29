@@ -43,11 +43,11 @@ generateName VsMake{..} commit = do
     return $ tdir </> takeBaseName repo ++ "." ++ commit ++ "." ++ show generateVersion ++ ".txt"
 
 
-timed :: IORef Seconds -> String -> Int -> String -> IO () -> IO ()
+timed :: IORef Seconds -> String -> Int -> Int -> IO () -> IO ()
 timed ref msg j commit act = do
     (t, _) <- duration act
-    appendFile "vsmake.log" $ intercalate "\t" [msg, show j, commit, show t] ++ "\n"
-    putStrLn $ msg ++ " " ++ show j ++ " (" ++ commit ++ ") = " ++ showDuration t
+    appendFile "vsmake.log" $ intercalate "\t" [msg, show j, show commit, show t] ++ "\n"
+    putStrLn $ msg ++ " " ++ show j ++ " (" ++ show commit ++ ") = " ++ showDuration t
     modifyIORef' ref (+ t)
 
 vsMake :: VsMake -> Args -> IO ()
