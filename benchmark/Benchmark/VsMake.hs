@@ -82,32 +82,33 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
 
 
         -- for different levels of parallelism
-        forM_ (threads `orNull` [1..4]) $ \j -> do
-            makeTime <- newIORef 0
-            rattleTime <- newIORef 0
+        replicateM_ (fromMaybe 1 repeat_) $ do
+            forM_ (threads `orNull` [1..4]) $ \j -> do
+                makeTime <- newIORef 0
+                rattleTime <- newIORef 0
 
-            -- first build with make
-            when ("make" `elemOrNull` step) $ do
-                putStrLn "BUILDING WITH MAKE"
-                clean
-                forM_ (counted $ commitList ++ [0]) $ \i ->
-                    checkout i $ \_ ->
-                        timed makeTime "make" j i $ cmd_ make ["-j" ++ show j] (EchoStdout False) stderr
+                -- first build with make
+                when ("make" `elemOrNull` step) $ do
+                    putStrLn "BUILDING WITH MAKE"
+                    clean
+                    forM_ (counted $ commitList ++ [0]) $ \i ->
+                        checkout i $ \_ ->
+                            timed makeTime "make" j i $ cmd_ make ["-j" ++ show j] (EchoStdout False) stderr
 
-            -- now with rattle
-            when ("rattle" `elemOrNull` step) $ do
-                putStrLn "BUILDING WITH RATTLE"
-                clean
-                whenM (doesDirectoryExist ".rattle") $
-                    removeDirectoryRecursive ".rattle"
-                forM_ (counted $ commitList ++ [0]) $ \i ->
-                    checkout i $ \commit -> do
-                        file <- generateName vs commit
-                        cmds <- lines <$> readFile' file
-                        let opts = rattleOptions{rattleProcesses=j, rattleUI=Just RattleQuiet, rattleNamedDirs=[], rattleShare=False}
-                        timed rattleTime "rattle" j i $ rattleRun opts $ forM_ cmds $ cmd rattle stderr
+                -- now with rattle
+                when ("rattle" `elemOrNull` step) $ do
+                    putStrLn "BUILDING WITH RATTLE"
+                    clean
+                    whenM (doesDirectoryExist ".rattle") $
+                        removeDirectoryRecursive ".rattle"
+                    forM_ (counted $ commitList ++ [0]) $ \i ->
+                        checkout i $ \commit -> do
+                            file <- generateName vs commit
+                            cmds <- lines <$> readFile' file
+                            let opts = rattleOptions{rattleProcesses=j, rattleUI=Just RattleQuiet, rattleNamedDirs=[], rattleShare=False}
+                            timed rattleTime "rattle" j i $ rattleRun opts $ forM_ cmds $ cmd rattle stderr
 
-            make <- readIORef makeTime
-            rattle <- readIORef rattleTime
-            putStrLn $ "TOTALS: make = " ++ showDuration make ++ ", rattle = " ++ showDuration rattle
+                make <- readIORef makeTime
+                rattle <- readIORef rattleTime
+                putStrLn $ "TOTALS: make = " ++ showDuration make ++ ", rattle = " ++ showDuration rattle
     copyFile (dir </> "vsmake.log") "vsmake.log"
