@@ -11,6 +11,7 @@ import Development.Shake.Command
 import System.Time.Extra
 import Control.Exception
 import System.FilePath
+import Data.List
 import Data.IORef
 import Data.Maybe
 import System.IO.Extra
@@ -42,10 +43,11 @@ generateName VsMake{..} commit = do
     return $ tdir </> takeBaseName repo ++ "." ++ commit ++ "." ++ show generateVersion ++ ".txt"
 
 
-timed :: IORef Seconds -> String -> Int -> IO () -> IO ()
-timed ref msg j act = do
+timed :: IORef Seconds -> String -> Int -> String -> IO () -> IO ()
+timed ref msg j commit act = do
     (t, _) <- duration act
-    putStrLn $ msg ++ " " ++ show j ++ " = " ++ showDuration t
+    appendFile "vsmake.log" $ intercalate "\t" [msg, show j, commit, show t] ++ "\n"
+    putStrLn $ msg ++ " " ++ show j ++ " (" ++ commit ++ ") = " ++ showDuration t
     modifyIORef' ref (+ t)
 
 vsMake :: VsMake -> Args -> IO ()
@@ -90,7 +92,7 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
                 clean
                 forM_ (counted $ commitList ++ [0]) $ \i ->
                     checkout i $ \_ ->
-                        timed makeTime "make" j $ cmd_ make ["-j" ++ show j] (EchoStdout False) stderr
+                        timed makeTime "make" j i $ cmd_ make ["-j" ++ show j] (EchoStdout False) stderr
 
             -- now with rattle
             when ("rattle" `elemOrNull` step) $ do
@@ -103,8 +105,9 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
                         file <- generateName vs commit
                         cmds <- lines <$> readFile' file
                         let opts = rattleOptions{rattleProcesses=j, rattleUI=Just RattleQuiet, rattleNamedDirs=[], rattleShare=False}
-                        timed rattleTime "rattle" j $ rattleRun opts $ forM_ cmds $ cmd rattle stderr
+                        timed rattleTime "rattle" j i $ rattleRun opts $ forM_ cmds $ cmd rattle stderr
 
             make <- readIORef makeTime
             rattle <- readIORef rattleTime
             putStrLn $ "TOTALS: make = " ++ showDuration make ++ ", rattle = " ++ showDuration rattle
+    copyFile (dir </> "vsmake.log") "vsmake.log"
