@@ -93,6 +93,7 @@ data Rattle = Rattle
     ,ui :: UI
     ,shared :: Shared
     ,shortener :: FileName -> FileName
+    ,outFile :: Var Handle -- ^ stdout or handle to file
     }
 
 addCmdOptions :: [C.CmdOption] -> Rattle -> Rattle
@@ -103,6 +104,8 @@ addCmdOptions new r@Rattle{options=o@RattleOptions{rattleCmdOptions=old}} =
 withRattle :: RattleOptions -> (Rattle -> IO a) -> IO a
 withRattle options@RattleOptions{..} act = withUI rattleUI (return "Running") $ \ui -> withShared rattleFiles rattleShare $ \shared -> do
     options@RattleOptions{..} <- rattleOptionsExplicit options
+    options@RattleOptions{..} <- maybe (return options) (\fp -> return options{rattleCmdOptions=rattleCmdOptions ++ [C.FileStdout fp, C.FileStderr fp]}) rattleOut
+
     -- make sure we have a thread for the speculation too
     withNumCapabilities (rattleProcesses + 1) $ do
 
@@ -124,6 +127,7 @@ withRattle options@RattleOptions{..} act = withUI rattleUI (return "Running") $ 
         timer <- offsetTime
         let s0 = S Map.empty [] emptyHazardSet [] [] speculatable Nothing
         state <- newVar $ Right $ ensureS s0
+        outFile <- newVar =<< maybe (return stdout) (`openFile` WriteMode) rattleOut
 
         let saveSpeculate state =
                 whenJust rattleSpeculate $ \name ->
@@ -134,17 +138,18 @@ withRattle options@RattleOptions{..} act = withUI rattleUI (return "Running") $ 
         let attempt1 = runPool True rattleProcesses $ \pool -> do
                 let r = Rattle{..}
                 runSpeculate r
-                (act r <* saveSpeculate state) `finally` writeVar state (Left Finished)
+                (act r <* saveSpeculate state) `finally` (writeVar state (Left Finished) >> withVar outFile (\fh -> whenJust rattleOut $ const $ hClose fh))
         attempt1 `catch` \(h :: Hazard) -> do
             b <- readIORef speculated
             if not (recoverableHazard h || restartableHazard h) then throwIO h else do
                 -- if we speculated, and we failed with a hazard, try again
-                putStrLn "Warning: Speculation lead to a hazard, retrying without speculation"
-                print h
+                outFile <- newVar =<< maybe (return stdout) (`openFile` AppendMode) rattleOut
+                withVar outFile $ \fh -> hPutStrLn fh "Warning: Speculation lead to a hazard, retrying without speculation" >> hPrint fh h
+                putStrLn "here"
                 state <- newVar $ Right s0{speculatable=[]}
                 runPool True rattleProcesses $ \pool -> do
                     let r = Rattle{..}
-                    (act r <* saveSpeculate state) `finally` writeVar state (Left Finished)
+                    (act r <* saveSpeculate state) `finally` (writeVar state (Left Finished) >> withVar outFile (\fh -> whenJust rattleOut $ const $ hClose fh))
 
 -- Kick off the speculation pool worker thread
 runSpeculate :: Rattle -> IO ()
@@ -262,7 +267,15 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd _ opts args) startTimestamp hist msgs = 
                     cmdRattleFinished rattle startTimestamp cmd t False
                 Nothing -> do
                     start <- timer
-                    (opts2, c) <- display [] $ cmdRattleRaw ui opts args
+                    -- close file then reopen
+                    (opts2, c) <- if isJust $ rattleOut options
+                                  then modifyVar outFile (\fh -> do
+                                                             hClose fh
+                                                             p <- display [] $ cmdRattleRaw ui opts args
+                                                             nfh <- openFile (fromJust $ rattleOut options) AppendMode
+                                                             return (nfh, p))
+                                  else display [] $ cmdRattleRaw ui opts args
+
                     stop <- timer
                     touch <- fsaTrace c
                     when forwardOpt $
@@ -342,7 +355,7 @@ cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{..} save = join $ modi
     -- look for hazards
     -- push writes to the end, and reads to the start, because reads before writes is the problem
     case addHazardSet (required s) (hazard s) start stop cmd $ fmap fst3 tTouch of
-        (ps@(p:_), _) -> return (Left $ Hazard p, print ps >> throwIO p)
+        (ps@(p:_), _) -> return (Left $ Hazard p, withVar outFile (`hPrint` ps) >> throwIO p)
         ([], hazard2) -> do
             s <- return s{hazard = hazard2}
 
