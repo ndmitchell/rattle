@@ -138,7 +138,7 @@ withRattle options@RattleOptions{..} act = withUI rattleUI (return "Running") $ 
         let attempt1 = runPool True rattleProcesses $ \pool -> do
                 let r = Rattle{..}
                 runSpeculate r
-                (act r <* saveSpeculate state) `finally` (writeVar state (Left Finished) >> withVar outFile (\fh -> whenJust rattleOut $ const $ hClose fh))
+                (act r <* saveSpeculate state) `finally` (writeVar state (Left Finished) >> withVar outFile (whenJust rattleOut . const . hClose))
         attempt1 `catch` \(h :: Hazard) -> do
             b <- readIORef speculated
             if not (recoverableHazard h || restartableHazard h) then throwIO h else do
@@ -149,7 +149,7 @@ withRattle options@RattleOptions{..} act = withUI rattleUI (return "Running") $ 
                 state <- newVar $ Right s0{speculatable=[]}
                 runPool True rattleProcesses $ \pool -> do
                     let r = Rattle{..}
-                    (act r <* saveSpeculate state) `finally` (writeVar state (Left Finished) >> withVar outFile (\fh -> whenJust rattleOut $ const $ hClose fh))
+                    (act r <* saveSpeculate state) `finally` (writeVar state (Left Finished) >> withVar outFile (whenJust rattleOut . const . hClose))
 
 -- Kick off the speculation pool worker thread
 runSpeculate :: Rattle -> IO ()
