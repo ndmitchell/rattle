@@ -82,7 +82,7 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
 
 
         -- for different levels of parallelism
-        replicateM_ (fromMaybe 1 repeat_) $ do
+        replicateM_ (fromMaybe 1 repeat_) $
             forM_ (threads `orNull` [1..4]) $ \j -> do
                 makeTime <- newIORef 0
                 rattleTime <- newIORef 0
