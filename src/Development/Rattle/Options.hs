@@ -29,12 +29,13 @@ data RattleOptions = RattleOptions
     ,rattleNamedDirs :: [(String, FilePath)] -- ^ Named directories, e.g. (PWD, .)
     ,rattleUI :: Maybe RattleUI -- ^ Nothing for auto detect
     ,rattleForward :: Bool -- ^ Support forward style stuff
+    ,rattleOut :: Maybe FilePath -- ^ File to write output to
     } deriving Show
 
 
 -- | Default 'RattleOptions' value.
 rattleOptions :: RattleOptions
-rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 0 [] [("PWD",".")] Nothing False
+rattleOptions = RattleOptions ".rattle" (Just "") "m1" True 0 [] [("PWD",".")] Nothing False Nothing
 
 
 rattleOptionsExplicit :: RattleOptions -> IO RattleOptions
