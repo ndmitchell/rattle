@@ -1,4 +1,3 @@
-{-# LANGUAGE GeneralisedNewtypeDeriving #-}
 
 -- | A bit like 'Fence', but not thread safe and optimised for avoiding taking the fence
 module General.Thread(
