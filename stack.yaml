@@ -1,9 +1,0 @@
-resolver: nightly-2020-02-23
-packages:
-- .
-
-extra-deps:
-  - git: https://github.com/ndmitchell/shake.git
-    commit: a322c0c1b793dbe4c822276708aee40ef5a73bd0
-  - git: https://github.com/ndmitchell/filepattern.git
-    commit: cd32fb717d9dd662c9a5d8695c53af7a09fe13ae
