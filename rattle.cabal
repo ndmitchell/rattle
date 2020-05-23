@@ -163,6 +163,7 @@ executable buildScript
         Development.Rattle.Types
         Development.Rattle.UI
         General.Bilist
+        General.Binary
         General.Extra
         General.Thread
         General.Paths
@@ -221,6 +222,7 @@ test-suite rattle-test
         Development.Rattle.Types
         Development.Rattle.UI
         General.Bilist
+        General.Binary
         General.Extra
         General.Thread
         General.Paths
