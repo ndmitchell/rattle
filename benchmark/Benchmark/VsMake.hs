@@ -34,13 +34,13 @@ gitCheckout :: VsMake -> Int -> IO String
 gitCheckout VsMake{..} i = do
     Stdout x <- cmd "git reset --hard" ["origin/" ++ master ++ "~" ++ show i]
     -- HEAD is now at 41fbba1 Warning
-    return $ words x !! 4
+    pure $ words x !! 4
 
 
 generateName :: VsMake -> String -> IO FilePath
 generateName VsMake{..} commit = do
     tdir <- getTemporaryDirectory
-    return $ tdir </> takeBaseName repo ++ "." ++ commit ++ "." ++ show generateVersion ++ ".txt"
+    pure $ tdir </> takeBaseName repo ++ "." ++ commit ++ "." ++ show generateVersion ++ ".txt"
 
 
 timed :: IORef Seconds -> String -> Int -> Int -> IO () -> IO ()

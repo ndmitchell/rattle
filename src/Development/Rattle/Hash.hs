@@ -90,28 +90,28 @@ hashFileForwardIfStale file mt h =
       b2 <- doesFileNameExist file2
       if not b2 then hashFileIfStale file mt h else do
         b <- doesFileNameExist file
-        if not b then return Nothing else hashFileIfStale file2 mt h
+        if not b then pure Nothing else hashFileIfStale file2 mt h
 
 hashFileIfStale :: FileName -> ModTime -> Hash -> IO (Maybe Hash)
 hashFileIfStale file mt h = do
   start <- getModTime file
   case start of
-    Nothing -> return Nothing
+    Nothing -> pure Nothing
     Just start -> do
       mp <- readIORef hashCache
       case Map.lookup file mp of
-        Just (time,hash) | time == start -> return $ Just hash
-        _ | start == mt -> do f start h; return $ Just h
+        Just (time,hash) | time == start -> pure $ Just hash
+        _ | start == mt -> do f start h; pure $ Just h
         _ -> do
           b <- doesFileNameExist file
-          if not b then return Nothing else do
+          if not b then pure Nothing else do
             res <- withFile (fileNameToString file) ReadMode $ \h -> do
               chunks <- LBS.hGetContents h
               evaluate $ force $ mkHash $ SHA.finalize $ SHA.updates SHA.init $ LBS.toChunks chunks
             end <- getModTime file
             when (Just start == end) $
               f start res
-            return $ Just res
+            pure $ Just res
     where f start res = atomicModifyIORef' hashCache $ \mp -> (Map.insert file (start, res) mp, ())
 
 -- | If there is a forwarding hash, and this file exists, use the forwarding hash instead
@@ -123,28 +123,28 @@ hashFileForward file =
             b2 <- doesFileNameExist file2
             if not b2 then hashFile file else do
                 b <- doesFileNameExist file
-                if not b then return Nothing else hashFile file2
+                if not b then pure Nothing else hashFile file2
 
 hashFile :: FileName -> IO (Maybe (ModTime, Hash))
 hashFile file = do
     start <- getModTime file
     case start of
-        Nothing -> return Nothing
+        Nothing -> pure Nothing
         Just start -> do
             mp <- readIORef hashCache
             case Map.lookup file mp of
-                Just (time, hash) | time == start -> return $ Just (time, hash)
+                Just (time, hash) | time == start -> pure $ Just (time, hash)
                 _ -> do
                     -- we can get a ModTime on a directory, but can't withFile it
                     b <- doesFileNameExist file
-                    if not b then return Nothing else do
+                    if not b then pure Nothing else do
                         res <- withFile (fileNameToString file) ReadMode $ \h -> do
                             chunks <- LBS.hGetContents h
                             evaluate $ force $ mkHash $ SHA.finalize $ SHA.updates SHA.init $ LBS.toChunks chunks
                         end <- getModTime file
                         when (Just start == end) $
                             atomicModifyIORef' hashCache $ \mp -> (Map.insert file (start, res) mp, ())
-                        return $ Just (start, res)
+                        pure $ Just (start, res)
 
 
 hashString :: String -> Hash

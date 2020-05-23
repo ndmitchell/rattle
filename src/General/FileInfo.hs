@@ -73,7 +73,7 @@ getFileHash x = withFile (fileNameToString x) ReadMode $ \h ->
         go h ptr salt = do
             n <- hGetBufSome h ptr LBS.defaultChunkSize
             if n == 0 then
-                return $! fileInfo $ fromIntegral salt
+                pure $! fileInfo $ fromIntegral salt
             else
                 go h ptr =<< hashPtrWithSalt ptr n salt
 
@@ -87,7 +87,7 @@ result :: Word32 -> Word32 -> IO (Maybe (ModTime, FileSize))
 result x y = do
     x <- evaluate $ fileInfo x
     y <- evaluate $ fileInfo y
-    return $ Just (x, y)
+    pure $ Just (x, y)
 
 doesFileNameExist :: FileName -> IO Bool
 
@@ -102,23 +102,23 @@ doesFileNameExist x = BS.useAsCString (fileNameToByteString x) $ \file ->
         res <- c_GetFileAttributesExA file 0 fad
         let peek = do
                 code <- peekFileAttributes fad
-                return $ not $ testBit code 4
+                pure $ not $ testBit code 4
         if res then
             peek
          else if BS.any (>= chr 0x80) (fileNameToByteString x) then withCWString (fileNameToString x) $ \file -> do
             res <- c_GetFileAttributesExW file 0 fad
-            if res then peek else return False
+            if res then peek else pure False
          else
-            return False
+            pure False
 
 #else
 -- Unix version
-doesFileNameExist x = handleBool isDoesNotExistError' (const $ return False) $ do
+doesFileNameExist x = handleBool isDoesNotExistError' (const $ pure False) $ do
   s <- getFileStatus $ fileNameToByteString x
   if isDirectory s then
-    return False
+    pure False
     else
-    return True
+    pure True
   where
     isDoesNotExistError' e =
       isDoesNotExistError e || ioeGetErrorType e == InappropriateType
@@ -129,11 +129,11 @@ getModTime :: FileName -> IO (Maybe ModTime)
 
 #if defined(PORTABLE)
 -- Portable fallback
-getModTime x = handleBool isDoesNotExistError (const $ return Nothing) $ do
+getModTime x = handleBool isDoesNotExistError (const $ pure Nothing) $ do
   let file = fileNameToString x
   time <- getModificationTime file
   y <- evaluate $ fileInfo $ extractFileTime time
-  return $ Just y
+  pure $ Just y
 
 #elif defined(mingw32_HOST_OS)
 -- Directly against the Win32 API, twice as fast as the portable version
@@ -144,21 +144,21 @@ getModTime x = BS.useAsCString (fileNameToByteString x) $ \file ->
                 code <- peekFileAttributes fad
                 join $ liftM (\y -> do
                                  x <- evaluate $ fileInfo y
-                                 return $ Just x) $ peekLastWriteTimeLow fad
+                                 pure $ Just x) $ peekLastWriteTimeLow fad
         if res then
             peek
          else if BS.any (>= chr 0x80) (fileNameToByteString x) then withCWString (fileNameToString x) $ \file -> do
             res <- c_GetFileAttributesExW file 0 fad
-            if res then peek else return Nothing
+            if res then peek else pure Nothing
          else
-            return Nothing
+            pure Nothing
 
 #else
 -- Unix version
-getModTime x = handleBool isDoesNotExistError' (const $ return Nothing) $ do
+getModTime x = handleBool isDoesNotExistError' (const $ pure Nothing) $ do
     s <- getFileStatus $ fileNameToByteString x
     y <- evaluate $ fileInfo $ extractFileTime s
-    return $ Just y
+    pure $ Just y
     where
       isDoesNotExistError' e =
         isDoesNotExistError e || ioeGetErrorType e == InappropriateType
@@ -169,7 +169,7 @@ getFileInfo :: FileName -> IO (Maybe (ModTime, FileSize))
 
 #if defined(PORTABLE)
 -- Portable fallback
-getFileInfo x = handleBool isDoesNotExistError (const $ return Nothing) $ do
+getFileInfo x = handleBool isDoesNotExistError (const $ pure Nothing) $ do
     let file = fileNameToString x
     time <- getModificationTime file
     size <- withFile file ReadMode hFileSize
@@ -194,9 +194,9 @@ getFileInfo x = BS.useAsCString (fileNameToByteString x) $ \file ->
             peek
          else if BS.any (>= chr 0x80) (fileNameToByteString x) then withCWString (fileNameToString x) $ \file -> do
             res <- c_GetFileAttributesExW file 0 fad
-            if res then peek else return Nothing
+            if res then peek else pure Nothing
          else
-            return Nothing
+            pure Nothing
 
 #ifdef x86_64_HOST_ARCH
 #define CALLCONV ccall
@@ -228,7 +228,7 @@ peekFileSizeLow p = peekByteOff p index_WIN32_FILE_ATTRIBUTE_DATA_nFileSizeLow
 
 #else
 -- Unix version
-getFileInfo x = handleBool isDoesNotExistError' (const $ return Nothing) $ do
+getFileInfo x = handleBool isDoesNotExistError' (const $ pure Nothing) $ do
     s <- getFileStatus $ fileNameToByteString x
     if isDirectory s then
         error $ "Build system error - expected a file, got a directory " ++ fileNameToString x

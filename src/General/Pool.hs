@@ -52,8 +52,8 @@ emptyS n deterministic = do
     rand <- do
         ref <- newIORef 0
         -- no need to be thread-safe - if two threads race they were basically the same time anyway
-        return $ do i <- readIORef ref; writeIORef' ref (i+1); return i
-    return $ S True Set.empty n 0 0 0 rand Heap.empty
+        pure $ do i <- readIORef ref; writeIORef' ref (i+1); pure i
+    pure $ S True Set.empty n 0 0 0 rand Heap.empty
 
 
 data Pool = Pool
@@ -63,15 +63,15 @@ data Pool = Pool
 
 withPool :: Pool -> (S -> IO (S, IO ())) -> IO ()
 withPool (Pool var _) f = join $ modifyVar var $ \s ->
-    if alive s then f s else return (s, return ())
+    if alive s then f s else pure (s, pure ())
 
 withPool_ :: Pool -> (S -> IO S) -> IO ()
-withPool_ pool act = withPool pool $ fmap (, return()) . act
+withPool_ pool act = withPool pool $ fmap (, pure()) . act
 
 
 worker :: Pool -> IO ()
-worker pool = withPool pool $ \s -> return $ case Heap.uncons $ todo s of
-    Nothing -> (s, return ())
+worker pool = withPool pool $ \s -> pure $ case Heap.uncons $ todo s of
+    Nothing -> (s, pure ())
     Just (Heap.Entry _ now, todo2) -> (s{todo = todo2}, now >> worker pool)
 
 -- | Given a pool, and a function that breaks the S invariants, restore them.
@@ -91,15 +91,15 @@ step pool@(Pool _ done) op = uninterruptibleMask_ $ withPool_ pool $ \s -> do
                 -- just cause someone gets an exception, doesn't mean we die now
                 Left e | False -> withPool_ pool $ \s -> do
                     signalBarrier done $ Left e
-                    return (remThread t s){alive = False}
+                    pure (remThread t s){alive = False}
                 _ ->
-                    step pool $ return . remThread t
-            return (addThread t s){todo = todo2}
+                    step pool $ pure . remThread t
+            pure (addThread t s){todo = todo2}
         -- rattle doesn't terminate when we run out of threads
         Nothing | False, threadsCount s == 0 -> do
             signalBarrier done $ Right s
-            return s{alive = False}
-        _ -> return s
+            pure s{alive = False}
+        _ -> pure s
     where
         addThread t s = s{threads = Set.insert t $ threads s, threadsCount = threadsCount s + 1
                          ,threadsSum = threadsSum s + 1, threadsMax = threadsMax s `max` (threadsCount s + 1)}
@@ -111,7 +111,7 @@ step pool@(Pool _ done) op = uninterruptibleMask_ $ withPool_ pool $ \s -> do
 addPool :: PoolPriority -> Pool -> IO a -> IO ()
 addPool priority pool act = step pool $ \s -> do
     i <- rand s
-    return s{todo = Heap.insert (Heap.Entry (priority, i) $ void act) $ todo s}
+    pure s{todo = Heap.insert (Heap.Entry (priority, i) $ void act) $ todo s}
 
 
 -- | Somewhat dubious. Safe if the waiter gets killed if the pool gets torn down, which we assume happens.
@@ -121,7 +121,7 @@ addPoolWait priority pool act = do
     addPool priority pool $ uninterruptibleMask $ \unmask ->
         signalBarrier bar =<< try_ (unmask act)
     res <- waitBarrier bar
-    either throwIO return res
+    either throwIO pure res
 
 
 data PoolPriority
@@ -139,7 +139,7 @@ runPool deterministic n act = do
 
     -- if someone kills our thread, make sure we kill our child threads
     let cleanup =
-            join $ modifyVar s $ \s -> return (s{alive=False}, stopThreads $ Set.toList $ threads s)
+            join $ modifyVar s $ \s -> pure (s{alive=False}, stopThreads $ Set.toList $ threads s)
 
     let ghc10793 = do
             -- if this thread dies because it is blocked on an MVar there's a chance we have

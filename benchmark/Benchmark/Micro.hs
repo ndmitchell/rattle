@@ -48,7 +48,7 @@ main Args{..} = do
     benchmark "shake.cmd traced" $ const $
         forM_ cmds $ \xs -> do
             _ :: [FSATrace BS.ByteString] <- cmd xs
-            return ()
+            pure ()
 
     let opts dir = rattleOptions{rattleFiles=dir, rattleProcesses=1, rattleUI=Just RattleQuiet, rattleNamedDirs=[]}
     benchmark "rattle" $ \dir ->

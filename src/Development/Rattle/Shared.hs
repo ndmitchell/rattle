@@ -44,7 +44,7 @@ getList :: (BinaryEx a, BinaryEx b) => String -> Shared -> a -> IO [b]
 getList typ (Shared lock dir _) name = withLock lock $ do
     let file = dir </> typ </> filenameValue name
     b <- doesFileExist file
-    if not b then return [] else map getEx . getExList <$> BS.readFile file
+    if not b then pure [] else map getEx . getExList <$> BS.readFile file
 
 setList :: (Show a, BinaryEx a, BinaryEx b) => String -> IOMode -> Shared -> a -> [b] -> IO ()
 setList typ mode (Shared lock dir multiple) name vals = withLock lock $ do
@@ -64,7 +64,7 @@ getFile :: Shared -> Hash -> IO (Maybe (FileName -> IO ()))
 getFile (Shared lock dir _) hash = do
     let file = dir </> "files" </> filenameHash hash
     b <- doesFileExist file
-    return $ if not b then Nothing else Just $ \out -> do
+    pure $ if not b then Nothing else Just $ \out -> do
       let x = fileNameToString out
       createDirectoryRecursive $ takeDirectory x
       copyFile file x
@@ -89,7 +89,7 @@ nextRun :: Shared -> String -> IO RunIndex
 nextRun share name = do
     t <- maybe runIndex0 nextRunIndex . listToMaybe <$> getList "run" share name
     setList "run" WriteMode share name [t]
-    return t
+    pure t
 
 lastRun :: Shared -> String -> IO (Maybe RunIndex)
 lastRun share name = listToMaybe <$> getList "run" share name

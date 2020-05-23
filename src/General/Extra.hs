@@ -34,14 +34,14 @@ instance Show (NoShow a) where show _ = "NoShow"
 -- Control.Monad
 
 whenRightM :: Monad m => m (Either l r) -> (r -> m ()) -> m ()
-whenRightM x act =  either (const $ return ()) act =<< x
+whenRightM x act =  either (const $ pure ()) act =<< x
 
 allMaybeM :: Monad m => (a -> m (Maybe b)) -> [a] -> m (Maybe [b])
-allMaybeM f [] = return $ Just []
+allMaybeM f [] = pure $ Just []
 allMaybeM f (x:xs) = do
     y <- f x
     case y of
-        Nothing -> return Nothing
+        Nothing -> pure Nothing
         Just y -> fmap (y:) <$> allMaybeM f xs
 
 
@@ -59,7 +59,7 @@ tryIO = try
 -- System.Directory
 
 doesFileExist_ :: FilePath -> IO Bool
-doesFileExist_ x = doesFileExist x `catchIO` \_ -> return False
+doesFileExist_ x = doesFileExist x `catchIO` \_ -> pure False
 
 -- | Like @createDirectoryIfMissing True@ but faster, as it avoids
 --   any work in the common case the directory already exists.
@@ -75,10 +75,10 @@ createDirectoryRecursive dir = do
 memoIO :: (Hashable k, Eq k) => (k -> IO v) -> IO (k -> IO v)
 memoIO f = do
     ref <- newIORef Map.empty
-    return $ \k -> do
+    pure $ \k -> do
         mp <- readIORef ref
         case Map.lookup k mp of
-            Just v -> return v
+            Just v -> pure v
             Nothing -> do
                 v <- f k
                 atomicModifyIORef ref $ \mp -> (Map.insert k v mp, v)
@@ -91,7 +91,7 @@ memoIO f = do
 {-# NOINLINE getProcessorCount #-}
 getProcessorCount :: IO Int
 -- unsafePefromIO so we cache the result and only compute it once
-getProcessorCount = let res = unsafePerformIO act in return res
+getProcessorCount = let res = unsafePerformIO act in pure res
     where
         act =
             if rtsSupportsBoundThreads then
@@ -99,10 +99,10 @@ getProcessorCount = let res = unsafePerformIO act in return res
             else do
                 env <- lookupEnv "NUMBER_OF_PROCESSORS"
                 case env of
-                    Just s | [(i,"")] <- reads s -> return i
+                    Just s | [(i,"")] <- reads s -> pure i
                     _ -> do
-                        src <- readFile' "/proc/cpuinfo" `catchIO` \_ -> return ""
-                        return $! max 1 $ length [() | x <- lines src, "processor" `isPrefixOf` x]
+                        src <- readFile' "/proc/cpuinfo" `catchIO` \_ -> pure ""
+                        pure $! max 1 $ length [() | x <- lines src, "processor" `isPrefixOf` x]
 
 
 ---------------------------------------------------------------------

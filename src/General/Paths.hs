@@ -28,9 +28,9 @@ rattleVersionString = showVersion version
 dataDirs :: [String]
 dataDirs = unsafePerformIO $ do
     datdir <- getDataDir
-    exedir <- takeDirectory <$> getExecutablePath `catchIO` \_ -> return ""
+    exedir <- takeDirectory <$> getExecutablePath `catchIO` \_ -> pure ""
     curdir <- getCurrentDirectory
-    return $ [datdir] ++ [exedir | exedir /= ""] ++ [curdir]
+    pure $ [datdir] ++ [exedir | exedir /= ""] ++ [curdir]
 
 -- | The data files may be located relative to the current directory, if so cache it in advance.
 initDataDirectory :: IO ()
@@ -43,7 +43,7 @@ getDataFile file = do
     res <- filterM doesFileExist_ poss
     case res of
         [] -> fail $ unlines $ ("Could not find data file " ++ file ++ ", looked in:") : map ("  " ++) poss
-        x:_ -> return x
+        x:_ -> pure x
 
 
 readDataFileHTML :: FilePath -> IO LBS.ByteString

@@ -53,8 +53,8 @@ memoRec f = do
     var <- liftIO $ newVar Map.empty
     let go x =
             join $ liftIO $ modifyVar var $ \mp -> case Map.lookup x mp of
-                Just bar -> return (mp, liftIO $ waitBarrier bar)
+                Just bar -> pure (mp, liftIO $ waitBarrier bar)
                 Nothing -> do
                     bar <- newBarrier
-                    return (Map.insert x bar mp, do v <- f go x; liftIO $ signalBarrier bar v; return v)
-    return go
+                    pure (Map.insert x bar mp, do v <- f go x; liftIO $ signalBarrier bar v; pure v)
+    pure go

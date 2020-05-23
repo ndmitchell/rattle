@@ -115,7 +115,7 @@ fsaTrace fs
         fmap UTF8.toString $ normalizeTouch $ mconcatMap f fs
     | otherwise =
         -- We know the file names are already normalized from Shake so avoid a redundant conversion
-        return $ normalizeTouch $ byteStringToFileName <$> mconcatMap f fs
+        pure $ normalizeTouch $ byteStringToFileName <$> mconcatMap f fs
     where
         f (FSAWrite x) = Touch [] [x]
         f (FSARead x) = Touch [x] []

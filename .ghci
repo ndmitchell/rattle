@@ -2,7 +2,7 @@
 :set -isrc;test;benchmark
 :set -ignore-package=ghc-lib-parser
 :load benchmark/Benchmark.hs test/Test.hs src/Paths.hs
-:def test \x -> return $ ":main " ++ x
+:def test \x -> pure $ ":main " ++ x
 
-:def docs_ \x -> return $ unlines [":!cabal haddock " ++ x]
-:def docs \x -> return $ unlines [":docs_ " ++ x,":!start dist\\doc\\html\\rattle\\Development-Rattle.html"]
+:def docs_ \x -> pure $ unlines [":!cabal haddock " ++ x]
+:def docs \x -> pure $ unlines [":docs_ " ++ x,":!start dist\\doc\\html\\rattle\\Development-Rattle.html"]

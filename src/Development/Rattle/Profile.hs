@@ -42,7 +42,7 @@ instance Show Edge where
 
 getCmdsTraces :: RattleOptions -> IO [(Cmd,[Trace (FileName, ModTime, Hash)])]
 getCmdsTraces options@RattleOptions{..} = withShared rattleFiles True $ \shared -> do
-  cmds <- maybe (return []) (getSpeculate shared) rattleSpeculate
+  cmds <- maybe (pure []) (getSpeculate shared) rattleSpeculate
   fmap (takeWhile (not . null . snd)) $ forM cmds $ \x -> (x,) <$> getCmdTraces shared x
 
 getLastRun :: RattleOptions -> IO (Maybe RunIndex)
@@ -52,7 +52,7 @@ getLastRun options@RattleOptions{..} = withShared rattleFiles True $ \shared ->
 constructGraph :: RattleOptions -> IO Graph
 constructGraph options@RattleOptions{..} = do
   cmdsWTraces <- getCmdsTraces options
-  return $ createGraph cmdsWTraces
+  pure $ createGraph cmdsWTraces
 
 -- | Given some options, produce various statistics.
 graphData :: RattleOptions -> IO (Seconds,Seconds,Seconds)
@@ -61,7 +61,7 @@ graphData options = do
   let graph = createGraph cmdsWTraces
       w = work graph
       s = spanGraph graph in
-    return (w,s,w / s)
+    pure (w,s,w / s)
 
 -- | Generate a profile report given a file.
 writeProfile :: RattleOptions -> FilePath -> IO ()
@@ -126,7 +126,7 @@ lookup3 key ((x,y,z):xyzs)
 
 -- todo fix
 generateDotString :: Graph -> IO String
-generateDotString (Graph ns xs) = return $ "digraph " ++ "{\n" ++
+generateDotString (Graph ns xs) = pure $ "digraph " ++ "{\n" ++
                                   showEdges xs ++
                                   "\n}"
 
@@ -178,7 +178,7 @@ parallelism g = work g / spanGraph g
 generateHTML :: Graph -> Maybe RunIndex -> IO LBS.ByteString
 generateHTML xs t = do
   report <- readDataFileHTML "profile.html"
-  let f "data/profile-data.js" = return $ LBS.pack $ "var profile =\n" ++ generateJSON xs t
+  let f "data/profile-data.js" = pure $ LBS.pack $ "var profile =\n" ++ generateJSON xs t
   runTemplate f report
 
 allWrites :: [Trace (FileName, ModTime, Hash)] -> [FileName]

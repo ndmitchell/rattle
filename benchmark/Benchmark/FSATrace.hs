@@ -21,7 +21,7 @@ main = vsMake VsMake{..}
         generate = do
             cmd_ "make clean" (EchoStdout False)
             Stdout xs <- cmd "make -j1"
-            return $
+            pure $
                 replace "fsatrace.exe" "fsatrace_.exe" $
                 replace "-MMD" "" xs
 

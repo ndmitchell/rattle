@@ -65,7 +65,7 @@ instance Semigroup Builder where
     (Builder x1 x2) <> (Builder y1 y2) = Builder (x1+y1) $ \p i -> do x2 p i; y2 p $ i+x1
 
 instance Monoid Builder where
-    mempty = Builder 0 $ \_ _ -> return ()
+    mempty = Builder 0 $ \_ _ -> pure ()
     mappend = (<>)
 
 -- | Methods for Binary serialisation that go directly between strict ByteString values.
@@ -83,13 +83,13 @@ instance BinaryEx BS.ByteString where
 
 instance BinaryEx LBS.ByteString where
     putEx x = Builder (fromIntegral $ LBS.length x) $ \ptr i -> do
-        let go _ [] = return ()
+        let go _ [] = pure ()
             go i (x:xs) = do
                 let n = BS.length x
                 BS.useAsCString x $ \bs -> BS.memcpy (ptr `plusPtr` i) (castPtr bs) (fromIntegral n)
                 go (i+n) xs
         go i $ LBS.toChunks x
-    getEx = LBS.fromChunks . return
+    getEx = LBS.fromChunks . pure
 
 instance BinaryEx [BS.ByteString] where
     -- Format:
@@ -99,7 +99,7 @@ instance BinaryEx [BS.ByteString] where
     putEx xs = Builder (4 + (n * 4) + sum ns) $ \p i -> do
         pokeByteOff p i (fromIntegral n :: Word32)
         for2M_ [4+i,8+i..] ns $ \i x -> pokeByteOff p i (fromIntegral x :: Word32)
-        p <- return $ p `plusPtr` (i + 4 + (n * 4))
+        p <- pure $ p `plusPtr` (i + 4 + (n * 4))
         for2M_ (scanl (+) 0 ns) xs $ \i x -> BS.useAsCStringLen x $ \(bs, n) ->
             BS.memcpy (p `plusPtr` i) (castPtr bs) (fromIntegral n)
         where ns = map BS.length xs
@@ -108,7 +108,7 @@ instance BinaryEx [BS.ByteString] where
     getEx bs = unsafePerformIO $ BS.useAsCString bs $ \p -> do
         n <- fromIntegral <$> (peekByteOff p 0 :: IO Word32)
         ns :: [Word32] <- forM [1..fromIntegral n] $ \i -> peekByteOff p (i * 4)
-        return $ snd $ mapAccumL (\bs i -> swap $ BS.splitAt (fromIntegral i) bs) (BS.drop (4 + (n * 4)) bs) ns
+        pure $ snd $ mapAccumL (\bs i -> swap $ BS.splitAt (fromIntegral i) bs) (BS.drop (4 + (n * 4)) bs) ns
 
 instance BinaryEx () where
     putEx () = mempty
@@ -183,7 +183,7 @@ getExStorableList = \bs -> unsafePerformIO $ BS.useAsCStringLen bs $ \(p, size) 
 --     BS
 putExList :: [Builder] -> Builder
 putExList xs = Builder (sum $ map (\b -> sizeBuilder b + 4) xs) $ \p i -> do
-    let go _ [] = return ()
+    let go _ [] = pure ()
         go i (Builder n b:xs) = do
             pokeByteOff p i (fromIntegral n :: Word32)
             b p (i+4)

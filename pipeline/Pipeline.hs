@@ -21,7 +21,7 @@ isSpecial x = x `elem` [";", "&&", "||"]
 run :: [String] -> IO ExitCode
 run xs | (a, op:b) <- break isSpecial xs = case op of
     ";" -> run a >> run b
-    "&&" -> do a <- run a; if a == ExitSuccess then run b else return a
-    "||" -> do a <- run a; if a == ExitSuccess then return a else run b
-run [] = return ExitSuccess
+    "&&" -> do a <- run a; if a == ExitSuccess then run b else pure a
+    "||" -> do a <- run a; if a == ExitSuccess then pure a else run b
+run [] = pure ExitSuccess
 run (x:xs) = cmd x xs

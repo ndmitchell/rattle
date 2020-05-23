@@ -98,7 +98,7 @@ installPackage dep config flags name version = do
     -- cmd "pipeline rm -rf" dir "&& cabal unpack" dir
 
     depends <- liftIO $ cabalDepends $ dir </> name <.> "cabal"
-    depends <- return $ delete name $ nubSort depends
+    depends <- pure $ delete name $ nubSort depends
     dependsVer <- forP depends dep
     cmd (Cwd dir) "cabal v1-configure" flags
         "--disable-library-profiling --disable-optimisation"
@@ -121,7 +121,7 @@ extraConfigureFlags = do
         location <- findExecutable prog
         -- WARNING: If this returns Nothing (because you don't have doctest installed, for instance)
         --          your cache will not be stable.
-        return $ fmap (\x -> "--with-" ++ prog ++ "=" ++ x) location
+        pure $ fmap (\x -> "--with-" ++ prog ++ "=" ++ x) location
 
 
 stack :: String -> [PackageName] -> Run ()
@@ -135,7 +135,7 @@ stack resolver packages = do
     needPkg <- memoRec $ \needPkg name -> do
         let v = askVersion name
         whenJust v $ installPackage needPkg config flags name
-        return v
+        pure v
     forP_ packages needPkg
 
 
@@ -143,7 +143,7 @@ readResolver :: FilePath -> IO (Map.HashMap PackageName (Maybe PackageVersion))
 readResolver file = do
     src <- words <$> readFileUTF8' file
     -- base and bytestring are here because of https://github.com/commercialhaskell/stackage/issues/4862
-    return $ Map.fromList $ ("integer-simple",Nothing) : ("base",Nothing) : ("bytestring",Nothing) : f src
+    pure $ Map.fromList $ ("integer-simple",Nothing) : ("base",Nothing) : ("bytestring",Nothing) : f src
     where
         f (x:('=':'=':y):zs) = (x,Just $ dropWhileEnd (== ',') y) : f zs
         f (x:"installed,":zs) = (x,Nothing) : f zs
@@ -154,12 +154,12 @@ readResolver file = do
 cabalDepends :: FilePath -> IO [PackageName]
 cabalDepends file = do
     bs <- BS.readFile file
-    return $ case parseGenericPackageDescriptionMaybe bs of
+    pure $ case parseGenericPackageDescriptionMaybe bs of
         Just x -> map (unPackageName . depPkgName) $ concatMap treeConstraints $
             -- we only build the library, but configure requires all the executables to
             -- have their dependencies available
             maybeToList (void <$> condLibrary x) ++ map (void . snd) (condExecutables x)
-        _ -> return []
+        _ -> pure []
 
 treeConstraints :: CondTree a [b] c -> [b]
 treeConstraints (CondNode _ b cs) = b ++ concatMap branch  cs

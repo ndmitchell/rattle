@@ -24,7 +24,7 @@ main = vsMake VsMake{..}
             cmd_ "make distclean" (EchoStdout False)
             Stdout xs <- cmd "make MALLOC=libc V=1 -j1"
             root <- getCurrentDirectory
-            return $ unlines $ fromTrace root $ lines xs
+            pure $ unlines $ fromTrace root $ lines xs
 
         clean :: IO ()
         clean = cmd_ "make distclean" (EchoStdout False)

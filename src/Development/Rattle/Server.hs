@@ -101,7 +101,7 @@ addCmdOptions new r@Rattle{options=o@RattleOptions{rattleCmdOptions=old}} =
 
 
 withRattle :: RattleOptions -> (Rattle -> IO a) -> IO a
-withRattle options@RattleOptions{..} act = withUI rattleUI (return "Running") $ \ui -> withShared rattleFiles rattleShare $ \shared -> do
+withRattle options@RattleOptions{..} act = withUI rattleUI (pure "Running") $ \ui -> withShared rattleFiles rattleShare $ \shared -> do
     options@RattleOptions{..} <- rattleOptionsExplicit options
     -- make sure we have a thread for the speculation too
     withNumCapabilities (rattleProcesses + 1) $ do
@@ -111,12 +111,12 @@ withRattle options@RattleOptions{..} act = withUI rattleUI (return "Running") $ 
 
         let expander = expand rattleNamedDirs
         let shortener = shorten rattleNamedDirs
-        speculatable <- if rattleProcesses <= 1 then return [] else do
-            speculatable <- maybe (return []) (getSpeculate shared) rattleSpeculate
+        speculatable <- if rattleProcesses <= 1 then pure [] else do
+            speculatable <- maybe (pure []) (getSpeculate shared) rattleSpeculate
             fmap (takeWhile (not . null . snd)) $ -- don't speculate on things we have no traces for
                 forM speculatable $ \x -> do
                     traces <- unsafeInterleaveIO (getCmdTraces shared x)
-                    return (x, normalizeTouch $ foldMap (fmap (expander . fst3) . tTouch) traces)
+                    pure (x, normalizeTouch $ foldMap (fmap (expander . fst3) . tTouch) traces)
         let speculatableWrites = Set.fromList $ concatMap (tWrite . snd) speculatable
         speculated <- newIORef False
 
@@ -154,7 +154,7 @@ runSpeculate rattle@Rattle{..} = when (rattleProcesses options > 1) $
             s@S{speculateNext=Just cmd} -> do
                 writeIORef speculated True
                 cmdRattleStarted rattle cmd s ["speculative"]
-            _ -> return (Right Nothing, return ())
+            _ -> pure (Right Nothing, pure ())
         -- run the command but ignore all errors, if there are real errors
         -- whoever reruns them will bump into them
         ignore run
@@ -165,9 +165,9 @@ modifyS rattle@Rattle{..} act = modifyVar state $ \case
     Right s -> do
         (res, cont) <- act s
         case res of
-            Left e -> return (Left e, cont)
-            Right Nothing -> return (Right s, cont)
-            Right (Just s) -> return (Right $ ensureS s, runSpeculate rattle >> cont)
+            Left e -> pure (Left e, cont)
+            Right Nothing -> pure (Right s, cont)
+            Right (Just s) -> pure (Right $ ensureS s, runSpeculate rattle >> cont)
 
 ensureS :: S -> S
 ensureS = fillInNext . reduceSpeculate
@@ -210,7 +210,7 @@ cmdRattle rattle opts args = cmdRattleRequired rattle $ mkCmd (rattleCmdOptions 
 
 cmdRattleRequired :: Rattle -> Cmd -> IO ()
 cmdRattleRequired rattle@Rattle{..} cmd = addPoolWait PoolRequired pool $ do
-    modifyVar_ state $ return . fmap (\s -> s{required = cmd : required s})
+    modifyVar_ state $ pure . fmap (\s -> s{required = cmd : required s})
     cmdRattleStart rattle cmd
 
 cmdRattleStart :: Rattle -> Cmd -> IO ()
@@ -221,7 +221,7 @@ cmdRattleStarted :: Rattle -> Cmd -> S -> [String] -> IO (Either Problem (Maybe 
 cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
     start <- timer
     case Map.lookup cmd (started s) of
-        Just (NoShow wait) -> return (Right Nothing, wait)
+        Just (NoShow wait) -> pure (Right Nothing, wait)
         Nothing -> do
             hist <- unsafeInterleaveIO $ map (fmap (\(f,mt,h) -> (expand (rattleNamedDirs options) f, mt, h))) <$> getCmdTraces shared cmd
             go <- once $ cmdRattleRun rattle cmd start hist msgs
@@ -231,9 +231,9 @@ cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
             let trimReads t = t{tRead = filter (`Set.member` speculatableWrites) $ tRead t}
             let specHist = if null hist then Nothing else Just $ trimReads $ fmap fst3 $ tTouch $ last hist
 
-            s <- return s{running = (start, cmd, specHist) : running s}
-            s <- return s{started = Map.insert cmd (NoShow go) $ started s}
-            return (Right $ Just s, go)
+            s <- pure s{running = (start, cmd, specHist) : running s}
+            s <- pure s{started = Map.insert cmd (NoShow go) $ started s}
+            pure (Right $ Just s, go)
 
 
 -- either fetch it from the cache or run it)
@@ -252,9 +252,9 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd _ opts args) startTimestamp hist msgs = 
         [] -> do
             -- lets see if any histRead's are also available in the cache
             fetcher <- memoIO $ getFile shared
-            let fetch (fp, mt, h) = do v <- fetcher h; case v of Nothing -> return Nothing; Just op -> return $ Just $ op fp
+            let fetch (fp, mt, h) = do v <- fetcher h; case v of Nothing -> pure Nothing; Just op -> pure $ Just $ op fp
             download <- if not (rattleShare options)
-                then return Nothing
+                then pure Nothing
                 else firstJustM (\t -> fmap (t,) <$> allMaybeM fetch (tWrite $ tTouch t)) histRead
             case download of
                 Just (t, download) -> do
@@ -275,7 +275,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd _ opts args) startTimestamp hist msgs = 
                                  pats [((),fileNameToString x)] /= []
                     let f hasher xs = mapMaybeM (\x -> fmap (\(mt,h) -> (x,mt,h)) <$> hasher x) $ filter (not . skip) xs
                     touch <- Touch <$> f (if forwardOpt then hashFileForward else hashFile) (tRead touch) <*> f hashFile (tWrite touch)
-                    touch <- if forwardOpt then generateHashForwards cmd [x | HashNonDeterministic xs <- opts2, x <- xs] touch else return touch
+                    touch <- if forwardOpt then generateHashForwards cmd [x | HashNonDeterministic xs <- opts2, x <- xs] touch else pure touch
                     when (rattleShare options) $
                         forM_ (tWrite touch) $ \(fp, mt, h) ->
                             setFile shared fp h ((== Just h) <$> hashFileIfStale fp mt h)
@@ -291,17 +291,17 @@ slashDev = BS.pack "/dev/"
 
 cmdRattleRaw :: UI -> [C.CmdOption] -> [String] -> IO ([CmdOption2], [C.FSATrace BS.ByteString])
 cmdRattleRaw ui opts args = do
-    (opts, opts2) <- return $ partitionEithers $ map fromCmdOption opts
+    (opts, opts2) <- pure $ partitionEithers $ map fromCmdOption opts
     case [x | WriteFile x <- opts2] of
         [] -> do
             let optsUI = if isControlledUI ui then [C.EchoStdout False,C.EchoStderr False] else []
             res <- C.cmd (opts ++ optsUI) args
-            return (opts2, res)
+            pure (opts2, res)
         files -> do
             forM_ files $ \file -> do
                 createDirectoryIfMissing True $ takeDirectory file
                 writeFileUTF8 file $ concat args
-            return (opts2, map (C.FSAWrite . UTF8.fromString) files)
+            pure (opts2, map (C.FSAWrite . UTF8.fromString) files)
 
 checkHashForwardConsistency :: Touch FileName -> IO ()
 checkHashForwardConsistency Touch{..} = do
@@ -328,27 +328,27 @@ generateHashForwards cmd ms t = do
     forward <- forM forward $ \(x,mt,_) -> do
         let Just x2 = toHashForward x -- checked this is OK earlier
         BS.writeFile (fileNameToString x2) hash
-        return (x2, mt,hhash)
-    return t{tWrite = tWrite t ++ forward}
+        pure (x2, mt,hhash)
+    pure t{tWrite = tWrite t ++ forward}
 
 -- | I finished running a command
 cmdRattleFinished :: Rattle -> Seconds -> Cmd -> Trace (FileName, ModTime, Hash) -> Bool -> IO ()
 cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{..} save = join $ modifyS rattle $ \s -> do
     -- update all the invariants
     stop <- timer
-    s <- return s{running = filter ((/= start) . fst3) $ running s}
-    s <- return s{pending = [(stop, cmd, trace) | save] ++ pending s}
+    s <- pure s{running = filter ((/= start) . fst3) $ running s}
+    s <- pure s{pending = [(stop, cmd, trace) | save] ++ pending s}
 
     -- look for hazards
     -- push writes to the end, and reads to the start, because reads before writes is the problem
     case addHazardSet (required s) (hazard s) start stop cmd $ fmap fst3 tTouch of
-        (ps@(p:_), _) -> return (Left $ Hazard p, print ps >> throwIO p)
+        (ps@(p:_), _) -> pure (Left $ Hazard p, print ps >> throwIO p)
         ([], hazard2) -> do
-            s <- return s{hazard = hazard2}
+            s <- pure s{hazard = hazard2}
 
             -- move people out of pending if they have survived long enough
             maxTimestamp <- timer
             let earliest = minimum $ maxTimestamp : map fst3 (running s)
-            (safe, pending) <- return $ partition (\x -> fst3 x < earliest) $ pending s
-            s <- return s{pending = pending}
-            return (Right $ Just s, forM_ safe $ \(_,c,t) -> addCmdTrace shared c $ fmap (\(f,mt,h) -> (shortener f, mt,h)) t)
+            (safe, pending) <- pure $ partition (\x -> fst3 x < earliest) $ pending s
+            s <- pure s{pending = pending}
+            pure (Right $ Just s, forM_ safe $ \(_,c,t) -> addCmdTrace shared c $ fmap (\(f,mt,h) -> (shortener f, mt,h)) t)

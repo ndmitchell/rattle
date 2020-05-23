@@ -22,7 +22,7 @@ root :: FilePath
 root = "../.."
 
 ignoreIO :: IO () -> IO ()
-ignoreIO act = catch act $ \(_ :: IOException) -> return ()
+ignoreIO act = catch act $ \(_ :: IOException) -> pure ()
 
 
 assertWithin :: Seconds -> IO a -> IO a
@@ -30,7 +30,7 @@ assertWithin n act = do
     t <- timeout n act
     case t of
         Nothing -> assertFail $ "Expected to complete within " ++ show n ++ " seconds, but did not"
-        Just v -> return v
+        Just v -> pure v
 
 assertFail :: String -> IO a
 assertFail msg = errorIO $ "ASSERTION FAILED: " ++ msg
@@ -48,7 +48,7 @@ a === b = assertBool (a == b) $ "failed in ===\nLHS: " ++ show a ++ "\nRHS: " ++
 meetup :: Int -> IO (IO ())
 meetup n = do
     sem <- newQSemN 0
-    return $ do
+    pure $ do
         signalQSemN sem 1
         waitQSemN sem n
         signalQSemN sem n

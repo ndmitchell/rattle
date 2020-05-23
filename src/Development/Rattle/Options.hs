@@ -41,13 +41,13 @@ rattleOptionsExplicit :: RattleOptions -> IO RattleOptions
 rattleOptionsExplicit = fixProcessorCount >=> fixNamedDirs
     where
         fixProcessorCount o
-            | rattleProcesses o /= 0 = return o
-            | otherwise = do p <- getProcessorCount; return o{rattleProcesses=p}
+            | rattleProcesses o /= 0 = pure o
+            | otherwise = do p <- getProcessorCount; pure o{rattleProcesses=p}
 
         fixNamedDirs o = do
             xs <- sequence [(a,) . addTrailingPathSeparator <$> canonicalizePath b | (a,b) <- rattleNamedDirs o]
             -- sort so all prefixes come last, so we get the most specific match
-            return o{rattleNamedDirs = sortOn (Down . snd) xs}
+            pure o{rattleNamedDirs = sortOn (Down . snd) xs}
 
 
 shorten :: [(String, String)] -> FileName -> FileName
@@ -55,7 +55,7 @@ shorten [] = id
 shorten named = \x -> fromMaybe x $ firstJust (f x) named2
     where
         named2 = [(BSC.pack $ "$" ++ a ++ [pathSeparator], BSC.pack $ addTrailingPathSeparator b) | (a,b) <- named]
-        f x (name,dir) = do rest <- BSC.stripPrefix dir $ fileNameToByteString x; return $ byteStringToFileName $ name <> rest
+        f x (name,dir) = do rest <- BSC.stripPrefix dir $ fileNameToByteString x; pure $ byteStringToFileName $ name <> rest
 
 expand :: [(String, String)] -> FileName -> FileName
 expand [] = id

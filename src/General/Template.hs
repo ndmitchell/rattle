@@ -34,9 +34,9 @@ runTemplate ask = lbsMapLinesIO f
         link = LBS.pack "<link href=\""
         script = LBS.pack "<script src=\""
 
-        f x | Just file <- LBS.stripPrefix script y = do res <- grab file; return $ LBS.pack "<script>\n" `LBS.append` res `LBS.append` LBS.pack "\n</script>"
-            | Just file <- LBS.stripPrefix link y = do res <- grab file; return $ LBS.pack "<style type=\"text/css\">\n" `LBS.append` res `LBS.append` LBS.pack "\n</style>"
-            | otherwise = return x
+        f x | Just file <- LBS.stripPrefix script y = do res <- grab file; pure $ LBS.pack "<script>\n" `LBS.append` res `LBS.append` LBS.pack "\n</script>"
+            | Just file <- LBS.stripPrefix link y = do res <- grab file; pure $ LBS.pack "<style type=\"text/css\">\n" `LBS.append` res `LBS.append` LBS.pack "\n</style>"
+            | otherwise = pure x
             where
                 y = LBS.dropWhile isSpace x
                 grab = asker . takeWhile (/= '\"') . LBS.unpack
@@ -47,7 +47,7 @@ runTemplate ask = lbsMapLinesIO f
         asker "rattle.js" = readDataFileHTML "rattle.js"
         asker "data/metadata.js" = do
             time <- getCurrentTime
-            return $ LBS.pack $
+            pure $ LBS.pack $
                 "var version = " ++ show rattleVersionString ++
                 "\nvar generated = " ++ show (formatTime defaultTimeLocale (iso8601DateFormat (Just "%H:%M:%S")) time)
         asker x = ask x
@@ -58,4 +58,4 @@ lbsMapLinesIO :: (LBS.ByteString -> IO LBS.ByteString) -> LBS.ByteString -> IO L
 -- before it starts producing the lazy result, killing streaming and having more stack usage.
 -- The real solution (albeit with too many dependencies for something small) is a streaming library,
 -- but a little bit of unsafePerformIO does the trick too.
-lbsMapLinesIO f = return . LBS.unlines . map (unsafePerformIO . f) . LBS.lines
+lbsMapLinesIO f = pure . LBS.unlines . map (unsafePerformIO . f) . LBS.lines
