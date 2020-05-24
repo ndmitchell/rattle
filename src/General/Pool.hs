@@ -27,6 +27,8 @@ import qualified Data.HashSet as Set
 import Data.IORef.Extra
 
 
+false = False
+
 ---------------------------------------------------------------------
 -- THREAD POOL
 
@@ -89,14 +91,14 @@ step pool@(Pool _ done) op = uninterruptibleMask_ $ withPool_ pool $ \s -> do
             t <- newThreadFinally (now >> worker pool) $ \t res ->
               case res of
                 -- just cause someone gets an exception, doesn't mean we die now
-                Left e | False -> withPool_ pool $ \s -> do
+                Left e | false -> withPool_ pool $ \s -> do
                     signalBarrier done $ Left e
                     pure (remThread t s){alive = False}
                 _ ->
                     step pool $ pure . remThread t
             pure (addThread t s){todo = todo2}
         -- rattle doesn't terminate when we run out of threads
-        Nothing | False, threadsCount s == 0 -> do
+        Nothing | false, threadsCount s == 0 -> do
             signalBarrier done $ Right s
             pure s{alive = False}
         _ -> pure s
