@@ -38,8 +38,12 @@ import qualified Data.ByteString.Char8 as BS
 import Foreign.C.String
 
 #else
+
+#if MIN_VERSION_time(1,9,1)
 import Data.Time.Clock
 import Data.Fixed
+#endif
+
 import GHC.IO.Exception
 import System.IO.Error
 import System.Posix.Files.ByteString
