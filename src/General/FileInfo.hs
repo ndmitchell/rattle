@@ -22,7 +22,6 @@ import Development.Shake.Classes
 import General.FileName
 import qualified Data.ByteString.Lazy.Internal as LBS (defaultChunkSize)
 import Data.List.Extra
-import Data.Char
 import Data.Word
 import Numeric
 import System.IO
@@ -34,6 +33,7 @@ import System.Directory
 import Data.Time
 
 #elif defined(mingw32_HOST_OS)
+import Data.Char
 import Control.Monad
 import qualified Data.ByteString.Char8 as BS
 import Foreign.C.String
