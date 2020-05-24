@@ -18,9 +18,14 @@ import Control.Concurrent.Async
 import Control.Monad.Extra
 
 
-data RattleUI = RattleSerial -- Show a series of lines for each command run
-              | RattleFancy -- Show a few lines that change as commands run
-              | RattleQuiet -- Don't show commands
+-- | What UI should rattle show the user.
+data RattleUI
+    = -- | Show a series of lines for each command run
+      RattleSerial
+    | -- | Show a few lines that change as commands run
+      RattleFancy
+    | -- | Don't show commands
+      RattleQuiet
     deriving Show
 
 data S = S
