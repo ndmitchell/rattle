@@ -22,6 +22,8 @@ import Control.Concurrent.Extra
 import qualified Data.ByteString as BS
 import General.FileInfo
 import General.Binary
+import Data.Monoid
+import Prelude
 
 ---------------------------------------------------------------------
 -- PRIMITIVES
