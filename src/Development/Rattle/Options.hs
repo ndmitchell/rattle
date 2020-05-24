@@ -17,6 +17,9 @@ import Data.Maybe
 import Data.List.Extra
 import General.FileName
 import qualified Data.ByteString.Char8 as BSC
+import Data.Monoid
+import Prelude
+
 
 -- | Basic options for configuring rattle.
 data RattleOptions = RattleOptions
