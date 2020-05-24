@@ -282,7 +282,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd _ opts args) startTimestamp hist msgs = 
                     cmdRattleFinished rattle startTimestamp cmd (Trace runIndex start stop touch) True
     where
         display :: [String] -> IO a -> IO a
-        display msgs2 = addUI ui (head $ overrides ++ [cmdline]) (unwords $ msgs ++ msgs2)
+        display msgs2 = addUI ui (headDef cmdline overrides) (unwords $ msgs ++ msgs2)
         overrides = [x | C.Traced x <- opts] ++ [x | C.UserCommand x <- opts]
         cmdline = unwords $ ["cd " ++ x ++ " &&" | C.Cwd x <- opts] ++ args
 

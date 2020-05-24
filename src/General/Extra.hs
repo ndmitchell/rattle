@@ -13,7 +13,7 @@ import System.Directory
 import Data.IORef
 import qualified Data.HashMap.Strict as Map
 import Data.Hashable
-import Control.Monad
+import Control.Monad.Extra
 import System.IO.Unsafe
 import Control.Concurrent
 import System.Environment
@@ -34,7 +34,7 @@ instance Show (NoShow a) where show _ = "NoShow"
 -- Control.Monad
 
 whenRightM :: Monad m => m (Either l r) -> (r -> m ()) -> m ()
-whenRightM x act =  either (const $ pure ()) act =<< x
+whenRightM x act = eitherM (const $ pure ()) act x
 
 allMaybeM :: Monad m => (a -> m (Maybe b)) -> [a] -> m (Maybe [b])
 allMaybeM f [] = pure $ Just []

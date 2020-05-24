@@ -17,7 +17,7 @@ import qualified Data.HashMap.Strict as Map
 import System.IO.Unsafe
 import Data.Bits
 import Control.Monad.Extra
-import Data.IORef
+import Data.IORef.Extra
 import General.Binary
 import Control.Exception.Extra
 import Control.DeepSeq
@@ -112,7 +112,7 @@ hashFileIfStale file mt h = do
             when (Just start == end) $
               f start res
             pure $ Just res
-    where f start res = atomicModifyIORef' hashCache $ \mp -> (Map.insert file (start, res) mp, ())
+    where f start res = atomicModifyIORef'_ hashCache $ Map.insert file (start, res)
 
 -- | If there is a forwarding hash, and this file exists, use the forwarding hash instead
 hashFileForward :: FileName -> IO (Maybe (ModTime, Hash))
@@ -143,7 +143,7 @@ hashFile file = do
                             evaluate $ force $ mkHash $ SHA.finalize $ SHA.updates SHA.init $ LBS.toChunks chunks
                         end <- getModTime file
                         when (Just start == end) $
-                            atomicModifyIORef' hashCache $ \mp -> (Map.insert file (start, res) mp, ())
+                            atomicModifyIORef'_ hashCache $ Map.insert file (start, res)
                         pure $ Just (start, res)
 
 

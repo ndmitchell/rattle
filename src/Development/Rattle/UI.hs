@@ -13,7 +13,7 @@ import qualified System.Console.Terminal.Size as Terminal
 import Numeric.Extra
 import General.EscCodes
 import qualified Data.ByteString.Char8 as BS
-import Data.IORef
+import Data.IORef.Extra
 import Control.Concurrent.Async
 import Control.Monad.Extra
 
@@ -108,7 +108,7 @@ withUI fancy header act = case fancy of
 withUICompact :: IO String -> (UI -> IO a) -> IO a
 withUICompact header act = do
     ref <- newIORef emptyS
-    let tweak f = atomicModifyIORef ref $ \s -> (f s, ())
+    let tweak f = atomicModifyIORef_ ref f
     time <- offsetTime
     let tick = do
             h <- header

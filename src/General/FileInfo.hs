@@ -21,6 +21,7 @@ import Control.Exception.Extra
 import Development.Shake.Classes
 import General.FileName
 import qualified Data.ByteString.Lazy.Internal as LBS (defaultChunkSize)
+import Data.List.Extra
 import Data.Char
 import Data.Word
 import Numeric
@@ -66,7 +67,7 @@ instance Show (FileInfo a) where
     show (FileInfo x)
         | x == 0 = "EQ"
         | x == 1 = "NEQ"
-        | otherwise = "0x" ++ map toUpper (showHex (x-2) "")
+        | otherwise = "0x" ++ upper (showHex (x-2) "")
 
 instance Eq (FileInfo a) where
     FileInfo a == FileInfo b
