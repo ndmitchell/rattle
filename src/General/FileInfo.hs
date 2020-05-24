@@ -7,6 +7,15 @@ module General.FileInfo(
     getFileHash, getFileInfo, doesFileNameExist, getModTime
     ) where
 
+#ifndef MIN_VERSION_unix
+#define MIN_VERSION_unix(a,b,c) 0
+#endif
+
+#ifndef MIN_VERSION_time
+#define MIN_VERSION_time(a,b,c) 0
+#endif
+
+
 import Data.Hashable
 import Control.Exception.Extra
 import Development.Shake.Classes
@@ -239,11 +248,12 @@ getFileInfo x = handleBool isDoesNotExistError' (const $ pure Nothing) $ do
             isDoesNotExistError e || ioeGetErrorType e == InappropriateType
 
 extractFileTime :: FileStatus -> Word32
-#ifndef MIN_VERSION_unix
-#define MIN_VERSION_unix(a,b,c) 0
-#endif
 #if MIN_VERSION_unix(2,6,0)
+#if MIN_VERSION_time(1,9,1)
 extractFileTime = fromInteger . (\(MkFixed x) -> x) . nominalDiffTimeToSeconds . modificationTimeHiRes
+#else
+extractFileTime x = ceiling $ modificationTimeHiRes x * 1e4
+#endif
 #else
 extractFileTime x = fromIntegral $ fromEnum $ modificationTime x
 #endif
