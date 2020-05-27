@@ -1,5 +1,7 @@
 Changelog for Rattle (* = breaking change)
 
+0.2, released 2020-05-27
+    Significant development and optimisation
     Explicitly disable GHC 7.10, add tests for GHC 8.0
 0.1, released 2019-04-17
     Initial version, not ready for public use
