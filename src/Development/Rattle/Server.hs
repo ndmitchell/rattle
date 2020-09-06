@@ -274,7 +274,12 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd _ opts args) startTimestamp hist msgs = 
                                  hasTrailingPathSeparatorBS (fileNameToByteString x) ||
                                  pats [((),fileNameToString x)] /= []
                     let f hasher xs = mapMaybeM (\x -> fmap (\(mt,h) -> (x,mt,h)) <$> hasher x) $ filter (not . skip) xs
-                    touch <- Touch <$> f (if forwardOpt then hashFileForward else hashFile) (tRead touch) <*> f hashFile (tWrite touch)
+                    let reads = concat [x | Read x <- opts2]
+                    let writes = concat [x | Write x <- opts2]
+                    let plus real fake = if null fake then real else nubOrd $ real ++ map fileNameFromString fake
+                    touch <- Touch
+                        <$> f (if forwardOpt then hashFileForward else hashFile) (tRead touch `plus` reads)
+                        <*> f hashFile (tWrite touch `plus` writes)
                     touch <- if forwardOpt then generateHashForwards cmd [x | HashNonDeterministic xs <- opts2, x <- xs] touch else pure touch
                     when (rattleShare options) $
                         forM_ (tWrite touch) $ \(fp, mt, h) ->

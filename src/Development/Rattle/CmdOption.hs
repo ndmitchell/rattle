@@ -13,6 +13,8 @@ import System.FilePattern
 -- | A data type for additional rattle options
 data CmdOption2
     = Ignored [FilePattern] -- Files that are ignored
+    | Read [FilePath] -- Files that are required
+    | Write [FilePath]
     | HashNonDeterministic [FilePattern] -- Files that have non-det outputs, so hash the inputs
     | WriteFile FilePath
       deriving (Read, Show)
