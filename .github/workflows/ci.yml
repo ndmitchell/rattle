@@ -13,8 +13,10 @@ jobs:
         os: [ubuntu-latest]
         ghc: ['8.10', '8.8', '8.6', '8.4', '8.2']
         include:
+        # The latest Windows has a broken linker
         - os: windows-latest
-        - os: macOS-latest
+          ghc: '8.6'
+        # Don't test on Mac because fsatrace isn't very reliable
 
     steps:
     - run: git config --global core.autocrlf false
