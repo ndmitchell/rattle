@@ -1,4 +1,4 @@
-# Rattle [![Hackage version](https://img.shields.io/hackage/v/rattle.svg?label=Hackage)](https://hackage.haskell.org/package/rattle) [![Stackage version](https://www.stackage.org/package/rattle/badge/nightly?label=Stackage)](https://www.stackage.org/package/rattle) [![Build status](https://img.shields.io/github/workflow/status/ndmitchell/rattle/ci.svg)](https://github.com/ndmitchell/rattle/actions)
+# Rattle [![Hackage version](https://img.shields.io/hackage/v/rattle.svg?label=Hackage)](https://hackage.haskell.org/package/rattle) [![Stackage version](https://www.stackage.org/package/rattle/badge/nightly?label=Stackage)](https://www.stackage.org/package/rattle) [![Build status](https://img.shields.io/github/workflow/status/ndmitchell/rattle/ci/master.svg)](https://github.com/ndmitchell/rattle/actions)
 
 _{Fast, Correct, Simple, Unfinished} - Choose four._
 
