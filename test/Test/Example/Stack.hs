@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell, CPP #-}
 
 -- | Try performing a Stack-like install.
 module Test.Example.Stack(main) where
@@ -28,8 +28,20 @@ import Distribution.Types.PackageName(unPackageName)
 type PackageName = String
 type PackageVersion = String
 
+#if __GLASGOW_HASKELL__ >= 900
+
+haskell :: (Read a, Show a) => String -> Code Q (a -> IO ()) -> (a -> Run ())
+haskell name act v = haskellQ name (examineCode act) v
+
+#else
+
 haskell :: (Read a, Show a) => String -> Q (TExp (a -> IO ())) -> (a -> Run ())
-haskell name act v = do
+haskell name act v = haskellQ name act v
+
+#endif
+
+haskellQ :: (Read a, Show a) => String -> Q (TExp (a -> IO ())) -> (a -> Run ())
+haskellQ name act v = do
     e <- liftIO $ runQ act
     let file = name <.> "hs"
     liftIO $ unlessM (doesFileExist file) $
