@@ -31,12 +31,12 @@ type PackageVersion = String
 #if __GLASGOW_HASKELL__ >= 900
 
 haskell :: (Read a, Show a) => String -> Code Q (a -> IO ()) -> (a -> Run ())
-haskell name act v = haskellQ name (examineCode act) v
+haskell name act = haskellQ name (examineCode act)
 
 #else
 
 haskell :: (Read a, Show a) => String -> Q (TExp (a -> IO ())) -> (a -> Run ())
-haskell name act v = haskellQ name act v
+haskell = haskellQ
 
 #endif
 
