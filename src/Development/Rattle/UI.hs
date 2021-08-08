@@ -108,7 +108,7 @@ withUI fancy header act = case fancy of
 withUICompact :: IO String -> (UI -> IO a) -> IO a
 withUICompact header act = do
     ref <- newIORef emptyS
-    let tweak f = atomicModifyIORef_ ref f
+    let tweak = atomicModifyIORef_ ref
     time <- offsetTime
     let tick = do
             h <- header
