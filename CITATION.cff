@@ -16,8 +16,6 @@ preferred-citation:
   doi: "10.1145/3428237"
   month: 11
   day: 18
-  start: 55
-  end: 66
   journal: Proceedings of the ACM Programming Languages 4, OOPSLA
   number: 169
   title: "Build Systems with Perfect Dependencies"
