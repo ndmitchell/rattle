@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you need to cite Rattle, this metadata is the paper that introduces Rattle."
+repository-code: "https://github.com/ndmitchell/rattle"
+title: Rattle
+preferred-citation:
+  type: article
+  authors: 
+  - family-names: Spall
+    given-names: Sarah
+  - family-names: Mitchell
+    given-names: Neil
+    orcid: "https://orcid.org/0000-0001-5171-9726"
+  - family-names: Tobin-Hochstadt
+    given-names: Sam
+    orcid: "https://orcid.org/0000-0003-1302-6499"
+  doi: "10.1145/3428237"
+  month: 11
+  day: 18
+  start: 55
+  end: 66
+  journal: Proceedings of the ACM Programming Languages 4, OOPSLA
+  number: 169
+  title: "Shake Before Building - Replacing Make with Haskell"
+  year: 2020
+  url: https://ndmitchell.com/downloads/paper-build_scripts_with_perfect_dependencies-18_nov_2020.pdf
+  abstract: "Build scripts for most build systems describe the actions to run, and the dependencies between those actions - but often build scripts get those dependencies wrong. Most build scripts have both too few dependencies (leading to incorrect build outputs) and too many dependencies (leading to excessive rebuilds and reduced parallelism). Any programmer who has wondered why a small change led to excess compilation, or who resorted to a clean step, has suffered the ill effects of incorrect dependency specification. We outline a build system where dependencies are not specified, but instead captured by tracing execution. The consequence is that dependencies are always correct by construction and build scripts are easier to write. The simplest implementation of our approach would lose parallelism, but we are able to recover parallelism using speculation."
