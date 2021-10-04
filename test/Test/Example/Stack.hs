@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, CPP #-}
+{-# LANGUAGE TemplateHaskellQuotes, CPP #-}
 
 -- | Try performing a Stack-like install.
 module Test.Example.Stack(main) where
