@@ -54,7 +54,8 @@ library
         js-flot,
         js-jquery,
         heaps,
-        utf8-string >= 1.0.1.1
+        utf8-string >= 1.0.1.1,
+        unliftio-core >= 0.1.2
 
     if !os(windows)
         build-depends: unix >= 2.7.2.2

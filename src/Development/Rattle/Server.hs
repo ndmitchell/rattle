@@ -9,6 +9,7 @@ module Development.Rattle.Server(
 import Control.Monad.Extra
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
+import Control.Monad.IO.Unlift
 import General.Pool
 import Development.Rattle.Types
 import Development.Rattle.UI
@@ -42,6 +43,9 @@ import qualified Data.ByteString.Char8 as BS
 -- | Type of actions to run. Executed using 'rattle'.
 newtype Run a = Run {fromRun :: ReaderT Rattle IO a}
     deriving (Functor, Applicative, Monad, MonadIO)
+
+instance MonadUnliftIO Run where
+  withRunInIO inner =  Run (withRunInIO (\r -> inner (r . fromRun)))
 
 instance a ~ () => C.CmdArguments (Run a) where
     cmdArguments (C.CmdArgument x) = do
