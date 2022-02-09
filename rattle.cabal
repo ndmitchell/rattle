@@ -8,7 +8,7 @@ license-file:       LICENSE
 category:           Development
 author:             Neil Mitchell <ndmitchell@gmail.com>
 maintainer:         Neil Mitchell <ndmitchell@gmail.com>
-copyright:          Neil Mitchell 2019-2022
+copyright:          Neil Mitchell and contributors 2019-2022
 synopsis:           Forward build system, with caching and speculation
 description:
     A forward build system like Fabrciate but with speculation and remote caching.
