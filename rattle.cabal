@@ -8,7 +8,7 @@ license-file:       LICENSE
 category:           Development
 author:             Neil Mitchell <ndmitchell@gmail.com>
 maintainer:         Neil Mitchell <ndmitchell@gmail.com>
-copyright:          Neil Mitchell 2019-2021
+copyright:          Neil Mitchell 2019-2022
 synopsis:           Forward build system, with caching and speculation
 description:
     A forward build system like Fabrciate but with speculation and remote caching.
@@ -54,7 +54,8 @@ library
         js-flot,
         js-jquery,
         heaps,
-        utf8-string >= 1.0.1.1
+        utf8-string >= 1.0.1.1,
+        unliftio-core >= 0.1.2
 
     if !os(windows)
         build-depends: unix >= 2.7.2.2
