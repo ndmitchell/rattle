@@ -225,13 +225,13 @@ cmdRattleStarted :: Rattle -> Cmd -> S -> [String] -> IO (Either Problem (Maybe 
 cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
     start <- timer
     case Map.lookup cmd (started s) of
-        Just (NoShow wait) -> do
-          mb <- wait
-          case mb of
-            Nothing -> pure (Right Nothing, pure ())
-            Just (x, y, z) -> case addHazardSet (required s) (hazard s) x y cmd (Touch z []) of
-                             (ps@(p:_),_) -> pure (Left $ Hazard p, print ps >> throwIO p)
-                             ([], _) -> pure (Right Nothing, pure ())
+        Just (NoShow wait) -> pure (Right Nothing, do
+                                       mb <- wait
+                                       case mb of
+                                         Nothing -> pure ()
+                                         Just (x, y, z) -> case addHazardSet (required s) (hazard s) x y cmd (Touch z []) of
+                                           (ps@(p:_),_) -> print ps >> throwIO p
+                                           ([], _) -> pure ())
         Nothing -> do
             hist <- unsafeInterleaveIO $ map (fmap (\(f,mt,h) -> (expand (rattleNamedDirs options) f, mt, h))) <$> getCmdTraces shared cmd
             go <- once $ cmdRattleRun rattle cmd start hist msgs
