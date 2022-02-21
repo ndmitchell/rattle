@@ -166,7 +166,7 @@ runSpeculate rattle@Rattle{..} = when (rattleProcesses options > 1) $
 readS :: Rattle -> IO S
 readS rattle@Rattle{..} = do
   v <- readVar state
-  either (\e -> throwProblem e) (\s -> pure s) v
+  either throwProblem pure v
 
 modifyS :: Rattle -> (S -> IO (Either Problem (Maybe S), IO a)) -> IO (IO a)
 modifyS rattle@Rattle{..} act = modifyVar state $ \case
@@ -260,7 +260,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd _ opts args) startTimestamp hist msgs = 
             -- don't do hazard checking for speculative commands
             stop <- timer
             s <- readS rattle
-            if cmd `elem` (required s)
+            if cmd `elem` required s
               then cmdRattleFinished rattle startTimestamp stop cmd t False
               else pure ()
         [] -> do
