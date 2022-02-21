@@ -248,11 +248,12 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd _ opts args) startTimestamp hist msgs = 
     histRead <- filterM (allM match . tRead . tTouch) hist
     histBoth <- filterM (allM match . tWrite . tTouch) histRead
     case histBoth of
-        t:_ ->
+        t:_ -> do
             -- we have something consistent at this point, no work to do
             -- technically we aren't writing to the tWrite part of the trace, but if we don't include that
             -- skipping can turn write/write hazards into read/write hazards
-            cmdRattleFinished rattle startTimestamp cmd t False
+            stop <- timer
+            cmdRattleFinished rattle startTimestamp stop cmd t False
         [] -> do
             -- lets see if any histRead's are also available in the cache
             fetcher <- memoIO $ getFile shared
@@ -263,7 +264,8 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd _ opts args) startTimestamp hist msgs = 
             case download of
                 Just (t, download) -> do
                     display ["copying"] $ sequence_ download
-                    cmdRattleFinished rattle startTimestamp cmd t False
+                    stop <- timer
+                    cmdRattleFinished rattle startTimestamp stop cmd t False
                 Nothing -> do
                     start <- timer
                     (opts2, c) <- display [] $ cmdRattleRaw ui opts args
@@ -288,7 +290,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd _ opts args) startTimestamp hist msgs = 
                     when (rattleShare options) $
                         forM_ (tWrite touch) $ \(fp, mt, h) ->
                             setFile shared fp h ((== Just h) <$> hashFileIfStale fp mt h)
-                    cmdRattleFinished rattle startTimestamp cmd (Trace runIndex start stop touch) True
+                    cmdRattleFinished rattle start stop cmd (Trace runIndex start stop touch) True
     where
         display :: [String] -> IO a -> IO a
         display msgs2 = addUI ui (headDef cmdline overrides) (unwords $ msgs ++ msgs2)
@@ -341,10 +343,9 @@ generateHashForwards cmd ms t = do
     pure t{tWrite = tWrite t ++ forward}
 
 -- | I finished running a command
-cmdRattleFinished :: Rattle -> Seconds -> Cmd -> Trace (FileName, ModTime, Hash) -> Bool -> IO ()
-cmdRattleFinished rattle@Rattle{..} start cmd trace@Trace{..} save = join $ modifyS rattle $ \s -> do
+cmdRattleFinished :: Rattle -> Seconds -> Seconds -> Cmd -> Trace (FileName, ModTime, Hash) -> Bool -> IO ()
+cmdRattleFinished rattle@Rattle{..} start stop cmd trace@Trace{..} save = join $ modifyS rattle $ \s -> do
     -- update all the invariants
-    stop <- timer
     s <- pure s{running = filter ((/= start) . fst3) $ running s}
     s <- pure s{pending = [(stop, cmd, trace) | save] ++ pending s}
 
