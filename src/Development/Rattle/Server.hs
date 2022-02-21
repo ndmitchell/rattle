@@ -163,6 +163,11 @@ runSpeculate rattle@Rattle{..} = when (rattleProcesses options > 1) $
         -- whoever reruns them will bump into them
         ignore run
 
+readS :: Rattle -> IO S
+readS rattle@Rattle{..} = do
+  v <- readVar state
+  either (\e -> throwProblem e) (\s -> pure s) v
+
 modifyS :: Rattle -> (S -> IO (Either Problem (Maybe S), IO a)) -> IO (IO a)
 modifyS rattle@Rattle{..} act = modifyVar state $ \case
     Left e -> throwProblem e
@@ -252,8 +257,12 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd _ opts args) startTimestamp hist msgs = 
             -- we have something consistent at this point, no work to do
             -- technically we aren't writing to the tWrite part of the trace, but if we don't include that
             -- skipping can turn write/write hazards into read/write hazards
+            -- don't do hazard checking for speculative commands
             stop <- timer
-            cmdRattleFinished rattle startTimestamp stop cmd t False
+            s <- readS rattle
+            if cmd `elem` (required s)
+              then cmdRattleFinished rattle startTimestamp stop cmd t False
+              else pure ()
         [] -> do
             -- lets see if any histRead's are also available in the cache
             fetcher <- memoIO $ getFile shared
