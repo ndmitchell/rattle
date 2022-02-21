@@ -56,7 +56,7 @@ instance a ~ () => C.CmdArguments (Run a) where
 
 
 data S = S
-    {started :: Map.HashMap Cmd (NoShow (IO (Maybe (Seconds, Seconds, [FileName]))))
+    {started :: Map.HashMap Cmd (NoShow (IO (Seconds, Seconds, [FileName])))
         -- ^ Things that have got to running - if you find a duplicate just run the IO
         --   to wait for it.
     ,running :: [(Seconds, Cmd, Maybe (Touch FileName))]
@@ -226,12 +226,10 @@ cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
     start <- timer
     case Map.lookup cmd (started s) of
         Just (NoShow wait) -> pure (Right Nothing, do
-                                       mb <- wait
-                                       case mb of
-                                         Nothing -> pure ()
-                                         Just (x, y, z) -> case addHazardSet (required s) (hazard s) x y cmd (Touch z []) of
-                                           (ps@(p:_),_) -> print ps >> throwIO p
-                                           ([], _) -> pure ())
+                                       (x, y, z) <- wait
+                                       case addHazardSet (required s) (hazard s) x y cmd (Touch z []) of
+                                         (ps@(p:_),_) -> print ps >> throwIO p
+                                         ([], _) -> pure ())
         Nothing -> do
             hist <- unsafeInterleaveIO $ map (fmap (\(f,mt,h) -> (expand (rattleNamedDirs options) f, mt, h))) <$> getCmdTraces shared cmd
             go <- once $ cmdRattleRun rattle cmd start hist msgs
@@ -247,7 +245,7 @@ cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
 
 
 -- either fetch it from the cache or run it)
-cmdRattleRun :: Rattle -> Cmd -> Seconds -> [Trace (FileName, ModTime, Hash)] -> [String] -> IO (Maybe (Seconds, Seconds, [FileName]))
+cmdRattleRun :: Rattle -> Cmd -> Seconds -> [Trace (FileName, ModTime, Hash)] -> [String] -> IO (Seconds, Seconds, [FileName])
 cmdRattleRun rattle@Rattle{..} cmd@(Cmd _ opts args) startTimestamp hist msgs = do
     let forwardOpt = rattleForward options
     let match (fp, mt, h) = (== Just h) <$> (if forwardOpt then hashFileForwardIfStale else hashFileIfStale) fp mt h
@@ -349,7 +347,7 @@ generateHashForwards cmd ms t = do
     pure t{tWrite = tWrite t ++ forward}
 
 -- | I finished running a command
-cmdRattleFinished :: Rattle -> Seconds -> Seconds -> Cmd -> Trace (FileName, ModTime, Hash) -> Bool -> IO (Maybe (Seconds, Seconds, [FileName]))
+cmdRattleFinished :: Rattle -> Seconds -> Seconds -> Cmd -> Trace (FileName, ModTime, Hash) -> Bool -> IO (Seconds, Seconds, [FileName])
 cmdRattleFinished rattle@Rattle{..} start stop cmd trace@Trace{..} save = join $ modifyS rattle $ \s -> do
     -- update all the invariants
     s <- pure s{running = filter ((/= start) . fst3) $ running s}
@@ -368,4 +366,4 @@ cmdRattleFinished rattle@Rattle{..} start stop cmd trace@Trace{..} save = join $
             let earliest = minimum $ maxTimestamp : map fst3 (running s)
             (safe, pending) <- pure $ partition (\x -> fst3 x < earliest) $ pending s
             s <- pure s{pending = pending}
-            pure (Right $ Just s, (forM_ safe $ \(_,c,t) -> addCmdTrace shared c $ fmap (\(f,mt,h) -> (shortener f, mt,h)) t) >> pure (Just (start , stop, tRead tf)))
+            pure (Right $ Just s, (forM_ safe $ \(_,c,t) -> addCmdTrace shared c $ fmap (\(f,mt,h) -> (shortener f, mt,h)) t) >> pure (start , stop, tRead tf))
