@@ -366,4 +366,4 @@ cmdRattleFinished rattle@Rattle{..} start stop cmd trace@Trace{..} save = join $
             let earliest = minimum $ maxTimestamp : map fst3 (running s)
             (safe, pending) <- pure $ partition (\x -> fst3 x < earliest) $ pending s
             s <- pure s{pending = pending}
-            pure (Right $ Just s, (forM_ safe $ \(_,c,t) -> addCmdTrace shared c $ fmap (\(f,mt,h) -> (shortener f, mt,h)) t) >> pure (start , stop, tRead tf))
+            pure (Right $ Just s, forM_ safe (\(_,c,t) -> addCmdTrace shared c $ fmap (\(f,mt,h) -> (shortener f, mt,h)) t) >> pure (start , stop, tRead tf))
