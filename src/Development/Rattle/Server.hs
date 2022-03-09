@@ -266,7 +266,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd _ opts args) startTimestamp hist msgs = 
             s <- readS rattle
             if cmd `elem` required s
               then cmdRattleFinished rattle startTimestamp stop cmd t False
-              else pure ()
+              else pure (startTimestamp, stop, map fst3 $ tRead $ tTouch t)
         [] -> do
             -- lets see if any histRead's are also available in the cache
             fetcher <- memoIO $ getFile shared
