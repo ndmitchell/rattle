@@ -266,7 +266,7 @@ cmdRattleRun rattle@Rattle{..} cmd@(Cmd _ opts args) startTimestamp hist msgs = 
             s <- readS rattle
             if cmd `elem` required s
               then cmdRattleFinished rattle startTimestamp startTimestamp stop cmd t False
-              else pure (startTimestamp, stop, map fst3 $ tRead $ tTouch t)
+              else cmdRattleFinishedLight rattle startTimestamp startTimestamp stop cmd t
         [] -> do
             -- lets see if any histRead's are also available in the cache
             fetcher <- memoIO $ getFile shared
@@ -354,6 +354,13 @@ generateHashForwards cmd ms t = do
         BS.writeFile (fileNameToString x2) hash
         pure (x2, mt,hhash)
     pure t{tWrite = tWrite t ++ forward}
+
+-- | I finished running a command
+cmdRattleFinishedLight :: Rattle -> Seconds -> Seconds -> Seconds -> Cmd -> Trace (FileName, ModTime, Hash) -> IO (Seconds, Seconds, [FileName])
+cmdRattleFinishedLight rattle@Rattle{..} recordedStart start stop cmd trace@Trace{..} = join $ modifyS rattle $ \s -> do
+    -- update all the invariants
+    s <- pure s{running = filter ((/= recordedStart) . fst3) $ running s}
+    pure (Right $ Just s, pure (start, stop, tRead $ fmap fst3 tTouch))
 
 -- | I finished running a command
 cmdRattleFinished :: Rattle -> Seconds -> Seconds -> Seconds -> Cmd -> Trace (FileName, ModTime, Hash) -> Bool -> IO (Seconds, Seconds, [FileName])
