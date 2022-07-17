@@ -246,7 +246,7 @@ cmdRattleStarted rattle@Rattle{..} cmd s msgs = do
 
             s <- pure s{running = (start, cmd, specHist) : running s}
             s <- pure s{started = Map.insert cmd (NoShow go) $ started s}
-            pure (Right $ Just s, go >> pure ())
+            pure (Right $ Just s, void go)
 
 
 -- either fetch it from the cache or run it)
