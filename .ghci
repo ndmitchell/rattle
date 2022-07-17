@@ -1,4 +1,4 @@
-:set -fwarn-unused-binds -fwarn-unused-imports -fwarn-orphans
+:set -Wunused-binds -Wunused-imports -Worphans
 :set -isrc;test;benchmark
 :set -ignore-package=ghc-lib-parser
 :load benchmark/Benchmark.hs test/Test.hs src/Paths.hs
