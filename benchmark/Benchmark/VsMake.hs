@@ -57,7 +57,7 @@ vsMake vs@VsMake{..} Args{..} = withTempDir $ \dir -> do
 
     let checkout i act = do
             commit <- gitCheckout vs i
-            when (commit `notElem` broken) $
+            unless (commit `elem` broken) $
                 flip onException (putStrLn $ "AT COMMIT " ++ commit) $
                     act commit
     let stderr = [EchoStderr False | no_stderr]
