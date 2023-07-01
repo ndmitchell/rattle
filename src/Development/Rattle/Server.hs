@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables, RecordWildCards, TupleSections, LambdaCase #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving, GADTs, NamedFieldPuns #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, GADTs, NamedFieldPuns, TypeOperators #-}
 
 module Development.Rattle.Server(
     Rattle, withRattle, Run(..),
