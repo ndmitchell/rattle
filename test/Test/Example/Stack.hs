@@ -71,14 +71,13 @@ haskellQ name act v = do
 
 
 main :: IO ()
--- Unfortunately 8.8.1 and 8.8.2 are broken when loading Cabal
 main = unless isWindows $ do
     args <- getArgs
     unsetEnv "GHC_PACKAGE_PATH"
     tdir <- canonicalizePath =<< getTemporaryDirectory
     let ignore = ["**/hackage-security-lock", "**/package.cache.lock", tdir ++ "/**"]
     rattleRun rattleOptions{rattleCmdOptions=[toCmdOption $ Ignored ignore], rattleForward=True} $
-        stack "nightly-2019-09-29" $ args ++ ["cereal" | null args]
+        stack "nightly-2023-01-01" $ args ++ ["cereal" | null args]
 
 {-
 haskell :: a -> Q (TExp (a -> IO ())) -> Run ()
