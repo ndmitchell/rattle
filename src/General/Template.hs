@@ -1,5 +1,5 @@
 {-# LANGUAGE ViewPatterns #-}
-{-# GHC_FLAGS -Wno-deprecations #-} -- iso8601DateFormat is deprecated and too lazy to upgrade
+{-# OPTIONS_GHC -Wno-deprecations #-} -- iso8601DateFormat is deprecated and too lazy to upgrade
 
 -- | A simplistic templating engine, used for generating profiling reports.
 module General.Template(runTemplate) where
